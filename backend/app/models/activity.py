@@ -3,21 +3,23 @@ Activity model for the PerfPulseAI application.
 """
 
 from datetime import datetime
-from database import db
+from sqlalchemy import Column, String, Text, Integer, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
+from app.core.database import Base
 
-class Activity(db.Model):
+class Activity(Base):
     """Activity model representing an activity in the system."""
     __tablename__ = 'activities'
     
-    id = db.Column(db.String(36), primary_key=True)
-    title = db.Column(db.String(200), nullable=False)
-    description = db.Column(db.Text, nullable=True)
-    points = db.Column(db.Integer, default=0)
-    user_id = db.Column(db.String(36), db.ForeignKey('users.id'))
-    status = db.Column(db.String(20), default='pending')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    completed_at = db.Column(db.DateTime, nullable=True)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(String(36), primary_key=True)
+    title = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    points = Column(Integer, default=0)
+    user_id = Column(String(36), ForeignKey('users.id'))
+    status = Column(String(20), default='pending')
+    created_at = Column(DateTime, default=datetime.utcnow)
+    completed_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     def __init__(self, id, title, description, points, user_id=None, 
                  status="pending", created_at=None, completed_at=None):

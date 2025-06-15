@@ -1,17 +1,13 @@
 import { NextResponse } from 'next/server';
-import { backendUrl } from '../../../../lib/config/server-api-config';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    console.log('Login request received:', body);
     
-    // Direct connection to the backend with proper timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-    
-    const response = await fetch(`${backendUrl}/api/auth/login`, {
+    // Forward the request to the backend auth 登录接口
+    const response = await fetch('http://127.0.0.1:5000/api/auth/login', {
       method: 'POST',
-      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -19,20 +15,31 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify(body),
     });
+
+    console.log('Backend login response status:', response.status);
     
-    clearTimeout(timeoutId);
-    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Backend login error response:', errorData);
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: errorData.message || `Backend error: ${response.status}`,
+          error: errorData.message || `Backend error: ${response.status}` 
+        },
+        { status: response.status }
+      );
+    }
+
     const data = await response.json();
-    
-    // Return the response with the expected structure:
-    // { data: { email, name, userId }, message: "...", success: true/false }
+    console.log('Backend login data:', data);
     return NextResponse.json(data);
   } catch (error) {
     console.error('Login error:', error);
     return NextResponse.json(
       { 
         success: false,
-        message: '登录失败，请稍后再试',
+        message: error instanceof Error ? error.message : 'Failed to process login request',
         error: String(error)
       },
       { status: 500 }

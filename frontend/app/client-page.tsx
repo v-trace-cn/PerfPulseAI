@@ -186,10 +186,8 @@ export default function ClientPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target
-    setFormData((prev) => ({
-      ...prev,
-      [id]: value,
-    }))
+    // 同步更新表单数据
+    setFormData((prev) => ({ ...prev, [id]: value }))
 
     // 清除对应字段的错误
     if (errors[id as keyof typeof errors]) {
@@ -955,10 +953,11 @@ export default function ClientPage() {
                             <path d="M12 20v2" />
                             <path d="m4.9 4.9 1.4 1.4" />
                             <path d="m17.7 17.7 1.4 1.4" />
-                            <path d="M2 12h2" />
-                            <path d="M20 12h2" />
-                            <path d="m6.3 17.7-1.4 1.4" />
-                            <path d="m19.1 4.9-1.4 1.4" />
+                            <path d="m14.83 9.17 4.24-4.24" />
+                            <path d="m19.07 4.93-1.4 1.4" />
+                            <path d="m6.34 17.66-1.4 1.4" />
+                            <path d="m9.17 14.83-4.24 4.24" />
+                            <circle cx="12" cy="12" r="4" />
                           </svg>
                         </div>
                         <span className="text-sm">跟随系统</span>
@@ -1301,4 +1300,3 @@ export default function ClientPage() {
     </main>
   )
 }
-

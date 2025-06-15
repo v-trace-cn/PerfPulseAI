@@ -2,26 +2,28 @@
 Reward model for the PerfPulseAI application.
 """
 from datetime import datetime
-from database import db
+from sqlalchemy import Column, String, Text, Integer, Boolean, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
+from app.core.database import Base
 
-class Reward(db.Model):
+class Reward(Base):
     """Reward model representing a reward in the system."""
     __tablename__ = 'rewards'
     
-    id = db.Column(db.String(36), primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    description = db.Column(db.Text)
-    cost = db.Column(db.Integer, nullable=False)
-    icon = db.Column(db.String(200))
-    available = db.Column(db.Boolean, default=True)
-    category = db.Column(db.String(50))
-    likes = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(String(36), primary_key=True)
+    name = Column(String(100), nullable=False)
+    description = Column(Text)
+    cost = Column(Integer, nullable=False)
+    icon = Column(String(200))
+    available = Column(Boolean, default=True)
+    category = Column(String(50))
+    likes = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # 关联关系
-    redemptions = db.relationship('Redemption', backref='reward', lazy=True)
-    suggestions = db.relationship('RewardSuggestion', backref='reward', lazy=True)
+    redemptions = relationship('Redemption', back_populates='reward')
+    suggestions = relationship('RewardSuggestion', back_populates='reward')
     
     def __init__(self, id, name, description, cost, icon=None, available=True):
         """
@@ -55,17 +57,19 @@ class Reward(db.Model):
         }
 
 
-class Redemption(db.Model):
+class Redemption(Base):
     """Redemption model representing a reward redemption in the system."""
     __tablename__ = 'redemptions'
     
-    id = db.Column(db.String(36), primary_key=True)
-    user_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
-    reward_id = db.Column(db.String(36), db.ForeignKey('rewards.id'), nullable=False)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-    status = db.Column(db.String(20), default='pending')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(String(36), primary_key=True)
+    user_id = Column(String(36), ForeignKey('users.id'), nullable=False)
+    reward_id = Column(String(36), ForeignKey('rewards.id'), nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    status = Column(String(20), default='pending')
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    reward = relationship('Reward', back_populates='redemptions')
     
     def __init__(self, id, user_id, reward_id, timestamp=None, status="pending"):
         """
@@ -106,23 +110,25 @@ class Redemption(db.Model):
         }
 
 
-class RewardSuggestion(db.Model):
+class RewardSuggestion(Base):
     """Model for user suggestions about rewards."""
     __tablename__ = 'reward_suggestions'
     
-    id = db.Column(db.String(36), primary_key=True)
-    user_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=True)  # Nullable to allow anonymous suggestions
-    reward_id = db.Column(db.String(36), db.ForeignKey('rewards.id'), nullable=True)  # Nullable for new reward suggestions
-    suggestion_text = db.Column(db.Text, nullable=False)
-    suggested_value = db.Column(db.Integer, nullable=True)
-    name = db.Column(db.String(100), nullable=True)  # For new reward suggestions
-    description = db.Column(db.Text, nullable=True)  # For new reward suggestions
-    category = db.Column(db.String(50), nullable=True)  # For new reward suggestions
-    is_new_reward = db.Column(db.Boolean, default=False)  # Flag to indicate if this is a suggestion for a new reward
-    status = db.Column(db.String(20), default='pending')  # pending, approved, rejected
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(String(36), primary_key=True)
+    user_id = Column(String(36), ForeignKey('users.id'), nullable=True)  # Nullable to allow anonymous suggestions
+    reward_id = Column(String(36), ForeignKey('rewards.id'), nullable=True)  # Nullable for new reward suggestions
+    suggestion_text = Column(Text, nullable=False)
+    suggested_value = Column(Integer, nullable=True)
+    name = Column(String(100), nullable=True)  # For new reward suggestions
+    description = Column(Text, nullable=True)  # For new reward suggestions
+    category = Column(String(50), nullable=True)  # For new reward suggestions
+    is_new_reward = Column(Boolean, default=False)  # Flag to indicate if this is a suggestion for a new reward
+    status = Column(String(20), default='pending')  # pending, approved, rejected
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    reward = relationship('Reward', back_populates='suggestions')
     
     def __init__(self, id, user_id, reward_id=None, suggestion_text='', suggested_value=None, 
                  name=None, description=None, category=None, is_new_reward=False, 

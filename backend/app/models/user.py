@@ -1,31 +1,35 @@
 """
 User model for the PerfPulseAI application.
 """
-from database import db
 from datetime import datetime
-from werkzeug.security import generate_password_hash, check_password_hash
+from passlib.context import CryptContext
+from sqlalchemy import Column, String, Text, Integer, DateTime, ForeignKey, Date
+from sqlalchemy.orm import relationship
+from app.core.database import Base
 
-class User(db.Model):
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+
+class User(Base):
     """User model representing a user in the system."""
     __tablename__ = 'users'
     
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    name = db.Column(db.String(100), nullable=False)
-    email = db.Column(db.String(100), unique=True, nullable=False)
-    password_hash = db.Column(db.String(200))
-    department = db.Column(db.String(100))
-    position = db.Column(db.String(100))
-    phone = db.Column(db.String(20))
-    join_date = db.Column(db.Date, default=datetime.utcnow)
-    points = db.Column(db.Integer, default=0)
-    level = db.Column(db.Integer, default=1)
-    completed_tasks = db.Column(db.Integer, default=0)
-    pending_tasks = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False)
+    email = Column(String(100), unique=True, nullable=False)
+    password_hash = Column(String(200))
+    department = Column(String(100))
+    position = Column(String(100))
+    phone = Column(String(20))
+    join_date = Column(Date, default=datetime.utcnow)
+    points = Column(Integer, default=0)
+    level = Column(Integer, default=1)
+    completed_tasks = Column(Integer, default=0)
+    pending_tasks = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # 关联关系
-    activities = db.relationship('Activity', backref='user', lazy=True)
+    activities = relationship('Activity', backref='user', lazy=True)
     
     def __init__(self, name, email, password=None, department=None, position=None, 
                  phone=None, join_date=None, points=0, level=1):
@@ -47,11 +51,11 @@ class User(db.Model):
     
     def set_password(self, password):
         """设置密码哈希"""
-        self.password_hash = generate_password_hash(password)
+        self.password_hash = pwd_context.hash(password)
     
     def check_password(self, password):
         """验证密码"""
-        return check_password_hash(self.password_hash, password)
+        return pwd_context.verify(password, self.password_hash)
         
     def to_dict(self):
         """

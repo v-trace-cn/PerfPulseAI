@@ -1,31 +1,31 @@
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 
-from app.api.user     import router as user_router
-from app.api.activity import router as activity_router
-from app.api.reward   import router as reward_router
-from app.api.scoring  import router as scoring_router
-from app.api.auth     import router as auth_router
+# 自动批量注册 api 路由
+import pkgutil
+import importlib
+from app.api import __path__ as api_path
 
 from app.core.config import settings
-from app.core.database import Base
+from app.core.database import engine, Base
 
 app = FastAPI(title="PerfPulseAI API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
-    allow_methods=["GET","POST","PUT","DELETE"],
+    allow_origins=["*"],
+    allow_methods=["*"],
     allow_headers=["*"],
+    allow_credentials=True,
 )
 
-# API 路由
-app.include_router(user_router)
-app.include_router(activity_router)
-app.include_router(auth_router)
-app.include_router(reward_router)
-app.include_router(scoring_router)
+# 自动遍历 api 目录并注册所有 router
+for _, module_name, _ in pkgutil.iter_modules(api_path):
+    module = importlib.import_module(f"app.api.{module_name}")
+    if hasattr(module, "router"):
+        app.include_router(module.router)
 
 @app.get("/api/health")
 async def health_check():
@@ -35,3 +35,11 @@ async def health_check():
 @app.get("/", include_in_schema=False)
 async def root():
     return {"message": "PerfPulseAI API"}
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return Response(status_code=204)
+
+@app.on_event("startup")
+async def create_tables():
+    Base.metadata.create_all(bind=engine)

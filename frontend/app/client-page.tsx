@@ -287,8 +287,14 @@ export default function ClientPage() {
               registrationStatus = "注册成功";
               setRegistrationStatus(registrationStatus);
               
-              // 0.5秒后关闭对话框，给用户足够时间看到成功消息但不过长
-              setTimeout(() => setAuthDialogOpen(false), 500);
+              // 尝试自动登录
+              const autoLoginSuccess = await login(formData.email, formData.password);
+              if (autoLoginSuccess) {
+                setAuthDialogOpen(false);
+              } else {
+                // 如果自动登录失败，仍关闭对话框，但可以考虑给出提示
+                setTimeout(() => setAuthDialogOpen(false), 500);
+              }
             }  
           }
         } catch (err) {
@@ -530,6 +536,11 @@ export default function ClientPage() {
                 className="col-span-3"
                 value={formData.password}
                 onChange={handleInputChange}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSubmit();
+                  }
+                }}
                 disabled={isLoading}
               />
               {errors.password && (
@@ -547,7 +558,12 @@ export default function ClientPage() {
                   className="col-span-3"
                   value={formData.confirmPassword}
                   onChange={handleInputChange}
-                  disabled={isLoading}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSubmit();
+                    }
+                  }}
+                  required
                 />
                 {errors.confirmPassword && (
                   <p className="text-red-500 text-xs col-span-3 col-start-2">{errors.confirmPassword}</p>
@@ -580,7 +596,7 @@ export default function ClientPage() {
                 </Button>
               )}
             </div>
-            <Button type="submit" onClick={handleSubmit} disabled={isLoading}>
+            <Button type="submit" onClick={handleSubmit} disabled={isLoading} className="w-28 justify-center">
               {isLoading ? (
                 <>
                   <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>

@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import * as React from "react"
 
 import { useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -57,6 +57,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useAuth } from "@/lib/auth-context"
+import { cn } from "@/lib/utils"
 
 // 添加自定义动画
 const fadeInAnimation = `@keyframes fadeIn {
@@ -205,12 +206,12 @@ export default function Dashboard() {
     department: user?.department || "",
     position: user?.position || "",
     email: user?.email || "",
-    phone: user?.phone || "",
-    joinDate: user?.joinDate || "",
+    phone: (user as any)?.phone || "",
+    joinDate: (user as any)?.joinDate || "",
     points: user?.points || 0,
     level: user?.level || 0,
-    avatar: user?.avatar || "/placeholder.svg?height=128&width=128",
-    skills: user?.skills || [],
+    avatar: (user as any)?.avatar || "/placeholder.svg?height=128&width=128",
+    skills: (user as any)?.skills || [],
     achievements: [
       { id: 1, title: "AI算法优化奖", date: "2023-Q2", icon: "🧠" },
       { id: 2, title: "数据安全贡献奖", date: "2023-05", icon: "🔒" },
@@ -276,6 +277,9 @@ export default function Dashboard() {
     }
   }, [searchParams])
 
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+
   return (
     <div className="flex flex-col min-h-screen w-full">
       <style jsx global>{`
@@ -330,7 +334,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <main className="space-y-8 max-w-7xl mx-auto flex-grow w-full">
+      <main className="space-y-8 max-w-7xl mx-auto flex-grow w-full pb-16">
 
         {activeTab === "overview" && (
           <section className="space-y-8 pt-4 animate-fadeIn transition-opacity duration-300">
@@ -422,7 +426,7 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             </div>
-            <div className="grid gap-6 md:gap-8 md:grid-cols-2 lg:grid-cols-7 max-w-7xl mx-auto px-2">
+            <div className={cn("grid gap-8 md:gap-8 lg:grid-cols-7 px-2 mb-8 pb-8")}>
               <Card className="col-span-4 tech-card shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp">
                 <CardHeader>
                   <CardTitle>多维度治理分析</CardTitle>
@@ -461,7 +465,7 @@ export default function Dashboard() {
 
         {activeTab === "profile" && (
           <div className="space-y-6 pt-4 animate-fadeIn transition-opacity duration-300 max-w-7xl mx-auto px-2">
-            <div className="grid gap-6 md:grid-cols-3">
+            <div className="grid gap-8 md:grid-cols-3 mb-8">
               {/* 个人信息卡片 */}
               <Card className="tech-card shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp md:col-span-1">
                 <CardHeader className="flex flex-col items-center text-center pb-2 bg-gradient-to-r from-primary/10 to-transparent rounded-t-xl overflow-hidden">
@@ -531,7 +535,7 @@ export default function Dashboard() {
                       <div className="flex items-center gap-2">
                         <Award className="h-5 w-5 text-primary" />
                         <div className="text-lg font-bold">{userData.points}</div>
-                        <Badge className="ml-auto bg-primary/10 text-primary">Lv.{userData.level}</Badge>
+                        <Badge className="ml-auto bg-primary/10 text-primary">{mounted ? `Lv.${userData.level}` : null}</Badge>
                       </div>
                       <Progress
                         value={(userData.points / 2000) * 100}
@@ -548,7 +552,7 @@ export default function Dashboard() {
                     <div className="space-y-2">
                       <h4 className="text-sm font-medium">专业技能</h4>
                       <div className="flex flex-wrap gap-2">
-                        {userData.skills.map((skill, index) => (
+                        {(userData.skills as string[]).map((skill: string, index: number) => (
                           <Badge
                             key={index}
                             variant="outline"
@@ -659,20 +663,7 @@ export default function Dashboard() {
                                   };
                                   setUserData(updatedUserData);
                                   
-                                  // 同时更新全局用户上下文
-                                  if (user) {
-                                    const updatedUser = {
-                                      ...user,
-                                      name,
-                                      department,
-                                      position,
-                                      email,
-                                      phone
-                                    };
-                                    // 使用auth上下文中的setUser函数更新全局用户状态
-                                    setUser(updatedUser);
-                                  }
-                                  
+                                  // 如需全局更新用户信息，请在 AuthProvider 中实现 setUser 方法
                                   alert("个人资料已成功更新");
                                 } else {
                                   alert(`更新失败: ${result.message}`);
@@ -732,7 +723,7 @@ export default function Dashboard() {
               </Card>
 
               {/* 成就和活动卡片 */}
-              <Card className="tech-card shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp md:col-span-2">
+              <Card className="tech-card shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp md:col-span-2 pb-6">
                 <CardHeader>
                   <CardTitle>个人成就与活动</CardTitle>
                 </CardHeader>
@@ -773,7 +764,7 @@ export default function Dashboard() {
 
                     <TabsContent value="activities" className="space-y-4">
                       <div className="space-y-4">
-                        {userData.recentActivities.map((activity) => (
+                        {userData.recentActivities.map((activity: any, i: number) => (
                           <div
                             key={activity.id}
                             className="flex items-center p-3 rounded-lg hover:bg-muted/20 transition-colors duration-300"
@@ -803,59 +794,60 @@ export default function Dashboard() {
                   </Tabs>
                 </CardContent>
               </Card>
-              {/* 团队成员卡片 */}
-              <Card className="tech-card shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp md:col-span-3">
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>团队成员</CardTitle>
-                  <div className="relative w-64">
-                    <Input
-                      type="text"
-                      placeholder="搜索成员..."
-                      value={teamMemberSearch}
-                      onChange={(e) => setTeamMemberSearch(e.target.value)}
-                      className="pr-8"
-                    />
-                    <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {teamMembers
-                      .filter(
-                        (member) =>
-                          teamMemberSearch === "" ||
-                          member.name.toLowerCase().includes(teamMemberSearch.toLowerCase()) ||
-                          member.department.toLowerCase().includes(teamMemberSearch.toLowerCase()) ||
-                          member.position.toLowerCase().includes(teamMemberSearch.toLowerCase()),
-                      )
-                      .map((member) => (
-                        <div
-                          key={member.id}
-                          className="flex flex-col items-center p-4 rounded-lg border border-primary/10 bg-primary/5 hover:bg-primary/10 transition-colors cursor-pointer"
-                          onClick={() => {
-                            setSelectedColleague(member)
-                            setViewColleagueOpen(true)
-                          }}
-                        >
-                          <Avatar className="h-16 w-16 mb-2 border-2 border-primary/20">
-                            <AvatarImage src={member.avatar} alt={member.name} />
-                            <AvatarFallback className="bg-primary/10 text-primary">
-                              {member.name.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <h3 className="font-medium text-center">{member.name}</h3>
-                          <p className="text-xs text-muted-foreground text-center">
-                            {member.department} · {member.position}
-                          </p>
-                          <Badge className="mt-2 bg-primary/10 text-primary border-none">
-                            Lv.{member.level} · {member.points}分
-                          </Badge>
-                        </div>
-                      ))}
-                  </div>
-                </CardContent>
-              </Card>
             </div>
+            {/* 团队成员卡片单独一行横向铺满 */}
+            <Card className="tech-card shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp w-full mb-16">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>团队成员</CardTitle>
+                <div className="relative w-64">
+                  <Input
+                    type="text"
+                    placeholder="搜索成员..."
+                    value={teamMemberSearch}
+                    onChange={(e) => setTeamMemberSearch(e.target.value)}
+                    className="pr-8"
+                  />
+                  <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                </div>
+              </CardHeader>
+              <Separator className="my-2" />
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {teamMembers
+                    .filter(
+                      (member: any) =>
+                        teamMemberSearch === "" ||
+                        member.name.toLowerCase().includes(teamMemberSearch.toLowerCase()) ||
+                        member.department.toLowerCase().includes(teamMemberSearch.toLowerCase()) ||
+                        member.position.toLowerCase().includes(teamMemberSearch.toLowerCase()),
+                    )
+                    .map((member: any, i: number) => (
+                      <div
+                        key={member.id}
+                        className="flex flex-col items-center p-4 rounded-lg border border-primary/10 bg-primary/5 hover:bg-primary/10 transition-colors cursor-pointer"
+                        onClick={() => {
+                          setSelectedColleague(member)
+                          setViewColleagueOpen(true)
+                        }}
+                      >
+                        <Avatar className="h-16 w-16 mb-2 border-2 border-primary/20">
+                          <AvatarImage src={member.avatar} alt={member.name} />
+                          <AvatarFallback className="bg-primary/10 text-primary">
+                            {member.name.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <h3 className="font-medium text-center">{member.name}</h3>
+                        <p className="text-xs text-muted-foreground text-center">
+                          {member.department} · {member.position}
+                        </p>
+                        <Badge className="mt-2 bg-primary/10 text-primary border-none">
+                          Lv.{member.level} · {member.points}分
+                        </Badge>
+                      </div>
+                    ))}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
       </main>
@@ -901,7 +893,7 @@ export default function Dashboard() {
                   <div className="flex items-center gap-2">
                     <Award className="h-5 w-5 text-primary" />
                     <div className="text-lg font-bold">{selectedColleague.points}</div>
-                    <Badge className="ml-auto bg-primary/10 text-primary">Lv.{selectedColleague.level}</Badge>
+                    <Badge className="ml-auto bg-primary/10 text-primary">{mounted ? `Lv.${selectedColleague.level}` : null}</Badge>
                   </div>
                   <Progress
                     value={(selectedColleague.points / 2000) * 100}
@@ -915,7 +907,7 @@ export default function Dashboard() {
                 <div className="space-y-2">
                   <h4 className="text-sm font-medium">专业技能</h4>
                   <div className="flex flex-wrap gap-2">
-                    {selectedColleague.skills.map((skill, index) => (
+                    {(selectedColleague.skills as string[]).map((skill: string, index: number) => (
                       <Badge key={index} variant="outline" className="bg-muted/30">
                         {skill}
                       </Badge>

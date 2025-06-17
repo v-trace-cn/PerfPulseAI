@@ -2,7 +2,7 @@
 
 import * as React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Overview } from "@/components/overview"
@@ -46,7 +46,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { useEffect } from "react"
 import { Progress } from "@/components/ui/progress"
 import {
   Dialog,
@@ -58,6 +57,8 @@ import {
 } from "@/components/ui/dialog"
 import { useAuth } from "@/lib/auth-context"
 import { cn } from "@/lib/utils"
+import { directUserApi } from "@/lib/direct-api"
+import { useToast } from "@/hooks/use-toast"
 
 // 添加自定义动画
 const fadeInAnimation = `@keyframes fadeIn {
@@ -201,6 +202,7 @@ export default function Dashboard() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useAuth()
+  const { toast } = useToast()
   const [userData, setUserData] = useState({
     name: user?.name || "",
     department: user?.department || "",
@@ -277,8 +279,31 @@ export default function Dashboard() {
     }
   }, [searchParams])
 
+  // 当获取到最新 user 时，同步基本信息
+  useEffect(() => {
+    if (user) {
+      setUserData((prev) => ({
+        ...prev,
+        name: user.name || "",
+        department: user.department || "",
+        position: user.position || "",
+        email: user.email || "",
+        phone: (user as any).phone || "",
+        joinDate: (user as any).joinDate || (user as any).join_date || "",
+        points: user.points ?? prev.points,
+        level: user.level ?? prev.level,
+      }))
+    }
+  }, [user])
+
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
+
+  // 手机号验证函数
+  const isValidPhone = (phone: string) => {
+    // 简单的中国手机号验证（11位数字，1开头）
+    return /^1[3-9]\d{9}$/.test(phone)
+  }
 
   return (
     <div className="flex flex-col min-h-screen w-full">
@@ -383,9 +408,11 @@ export default function Dashboard() {
                 <CardContent className="pt-4">
                   <div className="text-2xl font-bold">{userData?.points || 0}</div>
                   <div className="flex items-center mt-1">
-                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                      <div className="h-full progress-indicator" style={{ width: "62.5%" }}></div>
-                    </div>
+                    <Progress
+                      value={(userData.points / 2000) * 100}
+                      className="h-1.5 w-full bg-muted/50"
+                      indicatorClassName="progress-indicator"
+                    />
                   </div>
                   <div className="flex items-center justify-between mt-2 text-xs">
                     <span className="flex items-center">
@@ -632,46 +659,57 @@ export default function Dashboard() {
                             const email = formData.get('edit-email') as string
                             const phone = formData.get('edit-phone') as string
                             
+                            // 验证手机号
+                            if (phone && !isValidPhone(phone)) {
+                              toast({
+                                title: "手机号格式错误",
+                                description: "请输入有效的11位手机号码。",
+                                variant: "destructive",
+                              })
+                              return // 阻止表单提交
+                            }
+
                             try {
                               // 调用Next.js API路由更新用户信息
                               if (user?.id) {
-                                const response = await fetch(`/api/users/${user.id}/updateInfo`, {
-                                  method: 'POST',
-                                  headers: {
-                                    'Content-Type': 'application/json',
-                                  },
-                                  body: JSON.stringify({
-                                    name,
-                                    department,
-                                    position,
-                                    email,
-                                    phone
-                                  }),
-                                });
-                                
-                                const result = await response.json();
-                                
+                                const result = await directUserApi.updateUserInfo(String(user.id), {
+                                  name,
+                                  department,
+                                  position,
+                                  email,
+                                  phone,
+                                })
+
                                 if (result.success) {
-                                  // 更新本地用户数据
                                   const updatedUserData = {
                                     ...userData,
                                     name,
                                     department,
                                     position,
                                     email,
-                                    phone
-                                  };
-                                  setUserData(updatedUserData);
-                                  
-                                  // 如需全局更新用户信息，请在 AuthProvider 中实现 setUser 方法
-                                  alert("个人资料已成功更新");
+                                    phone,
+                                  }
+                                  setUserData(updatedUserData)
+                                  toast({
+                                    title: "个人资料已成功更新",
+                                    description: "您的个人信息已更新。",
+                                    variant: "default",
+                                  })
                                 } else {
-                                  alert(`更新失败: ${result.message}`);
+                                  toast({
+                                    title: "更新失败",
+                                    description: result.message || "请检查您的输入并重试。",
+                                    variant: "destructive",
+                                  })
                                 }
                               }
                             } catch (error) {
                               console.error('更新用户信息时出错:', error);
-                              alert('更新用户信息时出错，请重试');
+                              toast({
+                                title: "更新错误",
+                                description: "更新用户信息时出错，请重试。",
+                                variant: "destructive",
+                              })
                             }
                             
                             setEditProfileOpen(false)
@@ -682,7 +720,7 @@ export default function Dashboard() {
                               <Label htmlFor="edit-name" className="text-right">
                                 姓名
                               </Label>
-                              <Input id="edit-name" name="edit-name" defaultValue={User.name} className="col-span-3" />
+                              <Input id="edit-name" name="edit-name" defaultValue={userData.name} className="col-span-3" />
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                               <Label htmlFor="edit-department" className="text-right">

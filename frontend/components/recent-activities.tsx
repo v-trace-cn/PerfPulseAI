@@ -1,3 +1,5 @@
+'use client'
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle2, Code, FileText, GitCommit, MessageSquare } from "lucide-react"
@@ -109,7 +111,7 @@ export function RecentActivities() {
                 className="text-xs px-1.5 py-0 h-4 transition-colors duration-300 dark:border-white/10 border-black/5 shadow-sm"
               >
                 <GitCommit className="mr-1 h-3 w-3 text-primary" />
-                任务 #{Math.floor(Math.random() * 1000)}
+                任务 #{activity.id}
               </Badge>
             </div>
           </div>

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.activity import Activity
 
-router = APIRouter(tags=["activity"])
+router = APIRouter(prefix="/api/activities", tags=["activity"])
 
 @router.get("/")
 def get_activities(

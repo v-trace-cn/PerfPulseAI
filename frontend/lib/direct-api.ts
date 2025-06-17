@@ -53,43 +53,56 @@ async function fetchPublicKey(): Promise<string> {
   return res.data.public_key;
 }
 
-async function encryptPayload(payload: any): Promise<string> {
-  const pem = (await fetchPublicKey())
-    .replace(/-----(BEGIN|END) PUBLIC KEY-----/g, '')
-    .replace(/\s/g, '');
-  const binaryDer = window.atob(pem);
-  const binaryDerArr = new Uint8Array(binaryDer.length);
-  for (let i = 0; i < binaryDer.length; i++) binaryDerArr[i] = binaryDer.charCodeAt(i);
-  const key = await window.crypto.subtle.importKey(
-    'spki', binaryDerArr.buffer,
-    { name: 'RSA-OAEP', hash: 'SHA-256' },
-    false, ['encrypt']
-  );
-  const encoded = new TextEncoder().encode(JSON.stringify(payload));
-  const encrypted = await window.crypto.subtle.encrypt(
-    { name: 'RSA-OAEP' }, key, encoded
-  );
-  return arrayBufferToBase64(encrypted);
+async function encryptPayload(payload: any): Promise<string | null> {
+  // 若浏览器环境不支持 WebCrypto.subtle，则返回 null 表示无法加密
+  if (typeof window === 'undefined' || !window.crypto?.subtle?.importKey) {
+    console.warn('WebCrypto RSA-OAEP 不可用，注册/登录将使用明文传输（仅开发环境建议）');
+    return null;
+  }
+
+  try {
+    const pem = (await fetchPublicKey())
+      .replace(/-----(BEGIN|END) PUBLIC KEY-----/g, '')
+      .replace(/\s/g, '');
+    const binaryDer = window.atob(pem);
+    const binaryDerArr = new Uint8Array(binaryDer.length);
+    for (let i = 0; i < binaryDer.length; i++) binaryDerArr[i] = binaryDer.charCodeAt(i);
+    const key = await window.crypto.subtle.importKey(
+      'spki', binaryDerArr.buffer,
+      { name: 'RSA-OAEP', hash: 'SHA-256' },
+      false, ['encrypt']
+    );
+    const encoded = new TextEncoder().encode(JSON.stringify(payload));
+    const encrypted = await window.crypto.subtle.encrypt(
+      { name: 'RSA-OAEP' }, key, encoded
+    );
+    return arrayBufferToBase64(encrypted);
+  } catch (err) {
+    console.error('RSA 加密失败，降级为明文传输：', err);
+    return null;
+  }
 }
 
 // Auth API
 export const directAuthApi = {
   login: async (email: string, password: string) => {
     const encrypted = await encryptPayload({ email, password });
+    const body = encrypted ? { encrypted } : { email, password };
     return fetchDirectApi<{ success: boolean; message: string; data?: { userId: string; name: string; email: string } }>(
       `${NEXTJS_API_URL}/api/auth/login`, {
         method: 'POST',
-        body: JSON.stringify({ encrypted }),
+        body: JSON.stringify(body),
       }
     );
   },
 
   register: async (email: string, password: string, name: string) => {
     const encrypted = await encryptPayload({ email, password, name });
+    const body = encrypted ? { encrypted } : { email, password, name };
     return fetchDirectApi<{ success: boolean; message: string; data?: { userId: string; name: string; email: string } }>(
       `${NEXTJS_API_URL}/api/auth/register`, {
         method: 'POST',
-        body: JSON.stringify({ encrypted }),
+        body: JSON.stringify(body),
       }
     );
   },

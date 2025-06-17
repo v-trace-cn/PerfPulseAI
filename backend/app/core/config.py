@@ -3,7 +3,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # 自动加载 .env.example 文件（使用 Path）
-env_path = Path(__file__).parent.parent.parent / '.env.example'
+# env_path = Path(__file__).parent.parent.parent / '.env.example'
+env_path = Path(__file__).parent.parent.parent / '.env'
 load_dotenv(dotenv_path=env_path)
 
 class Settings:

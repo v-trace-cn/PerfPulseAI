@@ -3,6 +3,7 @@ Activity model for the PerfPulseAI application.
 """
 
 from datetime import datetime
+import uuid
 from sqlalchemy import Column, String, Text, Integer, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from app.core.database import Base
@@ -11,7 +12,8 @@ class Activity(Base):
     """Activity model representing an activity in the system."""
     __tablename__ = 'activities'
     
-    id = Column(String(36), primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    show_id = Column(String(36), unique=True, index=True, nullable=False, default=lambda: str(uuid.uuid4()))
     title = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
     points = Column(Integer, default=0)
@@ -21,12 +23,12 @@ class Activity(Base):
     completed_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    def __init__(self, id, title, description, points, user_id=None, 
+    def __init__(self, title=None, description=None, points=0, user_id=None, 
                  status="pending", created_at=None, completed_at=None):
         """
         Initialize a new Activity.
         """
-        self.id = id
+        self.show_id = str(uuid.uuid4())
         self.title = title
         self.description = description
         self.points = points
@@ -61,6 +63,7 @@ class Activity(Base):
         """
         return {
             "id": self.id,
+            "show_id": self.show_id,
             "title": self.title,
             "description": self.description,
             "points": self.points,
@@ -83,7 +86,6 @@ class Activity(Base):
             Activity: New activity object
         """
         return cls(
-            id=data.get("id"),
             title=data.get("title"),
             description=data.get("description"),
             points=data.get("points", 0),

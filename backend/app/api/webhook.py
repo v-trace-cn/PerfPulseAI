@@ -80,45 +80,24 @@ async def github_webhook_receiver(
         action = payload.get("action")
         pull_request = payload.get("pull_request")
         repository = payload.get("repository")
+        repo_name = repository.get("full_name")
 
         if pull_request and repository:
             pr_number = pull_request.get("number")
             pr_title = pull_request.get("title")
-            repo_name = repository.get("full_name")
-            sender_login = payload.get("sender", {}).get("login")
+            user_login = pull_request.get("user", {})
 
             print(f"  Repo: {repo_name}")
             print(f"  PR #{pr_number}: '{pr_title}' - Action: {action}")
-            print(f"  Sender: {sender_login}")
+            print(f"  user: {user_login}")
 
-            # 尝试从 payload 中获取用户邮箱
-            sender_email = payload.get("sender", {}).get("email")
-            # 获取 GitHub 个人资料 URL
-            sender_github_url = payload.get("sender", {}).get("html_url")
-
-            # 获取或创建用户
+            user_github_url = user_login.get("html_url")
             user = None
-            if sender_email:
-                user = db.query(User).filter(User.email == sender_email).first()
-
+            if user_github_url:
+                user = db.query(User).filter(User.github_url == user_github_url).first()
+                user_id = user.id 
             if not user:
-                # 如果用户不存在或没有提供邮箱，则创建一个新用户
-                # 注意：此处为简化处理，实际应用中可能需要更完善的用户注册流程和密码设置
-                user_name = sender_login if sender_login else "Unknown GitHub User"
-                final_email = sender_email if sender_email else f"{user_name.replace(' ', '.').lower()}@github.com"
-                
-                user = User(name=user_name, email=final_email, github_url=sender_github_url, password="123") # 使用 github_url
-                try:
-                    db.add(user)
-                    db.commit()
-                    db.refresh(user)
-                    print(f"    Created new user: {user.name} (ID: {user.id}, Email: {final_email})")
-                except Exception as e:
-                    db.rollback()
-                    print(f"    Error creating user {sender_login} with email {final_email}: {e}")
-                    return Response(status_code=500, content=f"Failed to create user: {e}")
-
-            user_id = user.id  # 获取用户ID
+                return Response(status_code=201, content=f"Invalied PR.")
 
             # AI 分析与评分
             if action in ["opened", "synchronize"]:
@@ -127,7 +106,8 @@ async def github_webhook_receiver(
                 diff_resp = requests.get(diff_url, headers={"Accept": "application/vnd.github.v3.diff"})
                 diff_text = diff_resp.text
                 # 调用 AI 分析 diff
-                ai_result = analyze_pr_diff(diff_text)
+                # ai_result = analyze_pr_diff(diff_text)
+                ai_result = {"score": 0, "analysis": "test ai result"}
                 score = ai_result.get("score", 0)
                 analysis = ai_result.get("analysis", "")
                 # 构造活动记录并保存
@@ -174,9 +154,7 @@ async def github_webhook_receiver(
             print("  Received pull_request event but missing pull_request or repository data.")
     elif x_github_event == "ping":
         # GitHub 在设置 Webhook 后会发送一个 "ping" 事件来测试连接
-        print("  Successfully received ping event from GitHub!")
+        print(" Successfully received ping event from GitHub!")
     else:
         print(f"  Unhandled event type: {x_github_event}")
-
-    # GitHub 期望你的服务器返回 200 OK 状态码
     return Response(status_code=200)

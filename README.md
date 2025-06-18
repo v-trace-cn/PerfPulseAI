@@ -35,7 +35,7 @@ perfPulseAI/
 │   ├── app/                   # FastAPI 应用代码
 │   │   ├── main.py            # FastAPI 应用入口
 │   │   ├── api/               # 路由模块
-│   │   │   ├── auth.py
+│   │   │   ├── auth.py          # 认证模块
 │   │   │   ├── user.py
 │   │   │   ├── activity.py
 │   │   │   ├── reward.py

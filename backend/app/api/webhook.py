@@ -64,12 +64,16 @@ async def github_webhook_receiver(
     payload = await request.json()
 
     print(f"Received GitHub event: {x_github_event}")
+    # 为文件保存生成一个唯一的ID，确保无论事件类型如何都能生成。
+    # 对于 pull_request 事件，后续会尝试使用 PR 的 node_id。
+    unique_id = str(uuid4())
+
     file_dir = "pr_results"
     os.makedirs(file_dir, exist_ok=True)
-    file_path = os.path.join(file_dir, f"{pr_node_id}.json")
+    file_path = os.path.join(file_dir, f"{unique_id}.json")
     with open(file_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
-    print(f"    AI analysis result written to {file_path}")
+    print(f"    Webhook payload written to {file_path}")
 
     if x_github_event == "pull_request":
         action = payload.get("action")
@@ -98,6 +102,15 @@ async def github_webhook_receiver(
                 analysis = ai_result.get("analysis", "")
                 # 构造活动记录并保存
                 pr_node_id = pull_request.get("node_id") or str(pull_request.get("id"))
+                # 更新文件名为 PR 的 node_id，如果文件已经用 unique_id 创建
+                # 注意：这里如果文件已经写入，只是更新文件名，内容不会变
+                # 如果需要内容也更新，则需要重新写入文件
+                if unique_id != pr_node_id:
+                    old_file_path = file_path
+                    file_path = os.path.join(file_dir, f"{pr_node_id}.json")
+                    os.rename(old_file_path, file_path)
+                    print(f"    Renamed payload file to {file_path}")
+                
                 pr_title = pull_request.get("title")
                 existing_activity = db.query(Activity).filter(Activity.id == pr_node_id).first()
                 if not existing_activity:

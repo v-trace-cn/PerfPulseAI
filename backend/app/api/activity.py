@@ -61,9 +61,8 @@ def create_activity(
     data: dict = Body(...),
     db: Session = Depends(get_db),
 ):
-    activity_id = str(uuid.uuid4())
+    activity_uuid = str(uuid.uuid4())
     new_act = Activity(
-        id=activity_id,
         title=data.get("title"),
         description=data.get("description"),
         points=int(data.get("points", 0)),
@@ -72,9 +71,9 @@ def create_activity(
         created_at=datetime.utcnow(),
         completed_at=None,
     )
+    new_act.show_id = activity_uuid
     db.add(new_act)
     db.commit()
-    db.refresh(new_act)
     return {
         "data": new_act.to_dict(),
         "message": "创建成功",
@@ -84,6 +83,17 @@ def create_activity(
 @router.get("/{activity_id}")
 def get_activity(activity_id: str, db: Session = Depends(get_db)):
     act = db.query(Activity).filter(Activity.id == activity_id).first()
+    if not act:
+        raise HTTPException(status_code=404, detail="找不到活动")
+    return {
+        "data": act.to_dict(),
+        "message": "查询成功",
+        "success": True,
+    }
+
+@router.get("/show/{show_id}")
+def get_activity_by_show_id(show_id: str, db: Session = Depends(get_db)):
+    act = db.query(Activity).filter(Activity.show_id == show_id).first()
     if not act:
         raise HTTPException(status_code=404, detail="找不到活动")
     return {

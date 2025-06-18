@@ -4,7 +4,7 @@ import hashlib
 from fastapi import APIRouter, Request, HTTPException, Header, Response
 from typing import Optional
 
-from backend.app.core.config import settings
+from app.core.config import settings
 
 router = APIRouter(prefix="/api/webhook", tags=["webhook"])
 GITHUB_WEBHOOK_SECRET = settings.GITHUB_WEBHOOK_SECRET  # 替换为你在GitHub设置的密钥

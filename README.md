@@ -39,6 +39,7 @@ perfPulseAI/
 │   │   │   ├── user.py
 │   │   │   ├── activity.py
 │   │   │   ├── reward.py
+│   │   │   ├── webhook.py
 │   │   │   └── scoring.py
 │   ├── requirements.txt       # Python依赖
 │   ├── .env.example           # 环境变量示例

@@ -24,7 +24,7 @@ def update_user(user_id: int, data: dict = Body(...), db: Session = Depends(get_
         raise HTTPException(status_code=404, detail="User not found")
 
     # 允许更新的字段
-    for field in ["name", "email", "department", "position", "phone"]:
+    for field in ["name", "email", "department", "position", "phone", "github_url"]:
         if field in data and data[field]:
             if field == "email":
                 # 检查邮箱唯一性

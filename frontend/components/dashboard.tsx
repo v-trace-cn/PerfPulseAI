@@ -209,6 +209,7 @@ export default function Dashboard() {
     position: user?.position || "",
     email: user?.email || "",
     phone: (user as any)?.phone || "",
+    githubUsername: (user as any)?.githubUsername || "",
     joinDate: (user as any)?.joinDate || "",
     points: user?.points || 0,
     level: user?.level || 0,
@@ -289,6 +290,7 @@ export default function Dashboard() {
         position: user.position || "",
         email: user.email || "",
         phone: (user as any).phone || "",
+        githubUsername: (user as any).githubUsername || "",
         joinDate: (user as any).joinDate || (user as any).join_date || "",
         points: user.points ?? prev.points,
         level: user.level ?? prev.level,
@@ -319,7 +321,7 @@ export default function Dashboard() {
             <div className="flex items-center space-x-2 group">
               <div className="h-8 w-1 bg-gradient-to-b from-primary to-accent rounded-full transition-all duration-500 group-hover:h-10 group-hover:bg-gradient-to-b group-hover:from-accent group-hover:to-primary"></div>
               <h2 className="text-lg font-semibold cyber-text relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-gradient-to-r after:from-primary after:to-accent after:transition-all after:duration-500 group-hover:after:w-full">
-                控制台
+                工作台
               </h2>
             </div>
 
@@ -557,6 +559,28 @@ export default function Dashboard() {
 
                     <Separator />
 
+                    {/* GitHub 账号 */}
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-medium">GitHub 账号</h4>
+                      <div className="grid grid-cols-[20px_1fr] gap-2 items-center">
+                        <Code className="h-4 w-4 text-muted-foreground" />
+                        {userData.githubUsername ? (
+                          <a
+                            href={`https://github.com/${userData.githubUsername}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-primary hover:underline"
+                          >
+                            {userData.githubUsername}
+                          </a>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">未连接</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <Separator />
+
                     <div className="space-y-2">
                       <h4 className="text-sm font-medium">积分等级</h4>
                       <div className="flex items-center gap-2">
@@ -591,7 +615,7 @@ export default function Dashboard() {
                                 e.stopPropagation()
                                 setUserData({
                                   ...userData,
-                                  skills: userData.skills.filter((_, i) => i !== index),
+                                  skills: (userData.skills as string[]).filter((_, i) => i !== index),
                                 })
                               }}
                               className="rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-500 p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -658,6 +682,7 @@ export default function Dashboard() {
                             const position = formData.get('edit-position') as string
                             const email = formData.get('edit-email') as string
                             const phone = formData.get('edit-phone') as string
+                            const github = formData.get('edit-github') as string
                             
                             // 验证手机号
                             if (phone && !isValidPhone(phone)) {
@@ -678,6 +703,7 @@ export default function Dashboard() {
                                   position,
                                   email,
                                   phone,
+                                  github_username: github,
                                 })
 
                                 if (result.success) {
@@ -688,6 +714,7 @@ export default function Dashboard() {
                                     position,
                                     email,
                                     phone,
+                                    githubUsername: github,
                                   }
                                   setUserData(updatedUserData)
                                   toast({
@@ -746,6 +773,12 @@ export default function Dashboard() {
                                 手机
                               </Label>
                               <Input id="edit-phone" name="edit-phone" defaultValue={userData.phone} className="col-span-3" />
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                              <Label htmlFor="edit-github" className="text-right">
+                                GitHub 邮箱
+                              </Label>
+                              <Input id="edit-github" name="edit-github" defaultValue={userData.githubUsername} className="col-span-3" />
                             </div>
                           </div>
                           <DialogFooter>

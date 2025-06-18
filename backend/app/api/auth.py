@@ -65,6 +65,23 @@ def logout():
     """用户登出路由"""
     return Response(data={}, message="登出成功")
 
+@router.post("/reset-password")
+def reset_password(data: dict = Body(...), db: Session = Depends(get_db)):
+    """重置用户密码"""
+    if "encrypted" in data:
+        data = decrypt_rsa(data["encrypted"])
+    email = data.get("email")
+    password = data.get("password")
+    if not email or not password:
+        raise HTTPException(status_code=400, detail="缺少邮箱或密码")
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        return Response(data={}, message="用户不存在", status_code=404, success=False)
+    # 更新密码
+    user.set_password(password)
+    db.commit()
+    return Response(data={}, message="重置密码成功")
+
 @router.get("/session")
 def get_session():
     """检查当前会话状态"""

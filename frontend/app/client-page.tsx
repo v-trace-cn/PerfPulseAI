@@ -47,13 +47,16 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useTheme } from "next-themes"
+import { useToast } from "@/components/ui/use-toast"
+import { directAuthApi } from "@/lib/direct-api"  // 导入密码重置 API
 
 export default function ClientPage() {
   const { user, isAuthenticated, isLoading, error, login, register, logout } = useAuth()
+  const router = useRouter()
   const [authDialogOpen, setAuthDialogOpen] = useState(false)
-  const [authMode, setAuthMode] = useState<"login" | "register">("login")
+  const [authMode, setAuthMode] = useState<"login" | "register" | "reset">("login")
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -66,6 +69,13 @@ export default function ClientPage() {
     passwordMatch: "",
   })
   const [registrationStatus, setRegistrationStatus] = useState<string>("");
+  // 当注册提示文字出现后，3 秒后自动清除
+  useEffect(() => {
+    if (registrationStatus) {
+      const timer = setTimeout(() => setRegistrationStatus(""), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [registrationStatus]);
   const [helpDialogOpen, setHelpDialogOpen] = useState(false)
   const [activeHelpTab, setActiveHelpTab] = useState("faq")
   const [activeTab, setActiveTab] = useState("profile")
@@ -75,6 +85,7 @@ export default function ClientPage() {
   const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">("dark")
   const [themeColor, setThemeColor] = useState<string>("primary")
   const { setTheme } = useTheme()
+  const { toast } = useToast()
 
   // 应用字体大小变化的函数
   const applyFontSize = (size: "small" | "medium" | "large") => {
@@ -260,47 +271,44 @@ export default function ClientPage() {
   }
 
   const handleSubmit = async () => {
-    if (validateForm()) {
+    if (!validateForm()) return;
+    setErrors({ ...errors });
+    if (authMode === "login") {
+      // 登录逻辑
       let loginSuccess = false;
-      let registrationStatus = "";
+      loginSuccess = await login(formData.email, formData.password);
       
-      if (authMode === "login") {
-        // 登录逻辑
-        loginSuccess = await login(formData.email, formData.password);
-        
-        if (loginSuccess) {
+      if (loginSuccess) {
+        setAuthDialogOpen(false);
+      }
+    } else if (authMode === "register") {
+      // 注册逻辑
+      try {
+        const success = await register(formData.email, formData.password, formData.email.split("@")[0]);
+        if (success) {
+          setRegistrationStatus("注册成功");
           setAuthDialogOpen(false);
+        } else {
+          setRegistrationStatus("注册失败，请稍后再试");
         }
-      } else {
-        // 注册逻辑
-        try {
-          const result = await register(formData.email, formData.password, formData.email.split("@")[0]);
-          
-          if (result.success) {
-            if (result.noUserId) {
-              // 注册成功但未返回用户ID
-              registrationStatus = "注册成功，但未返回用户ID";
-              setRegistrationStatus(registrationStatus);
-              // 保持对话框开启，让用户看到提示信息
-            } else {
-              // 立即设置一个基本的成功消息
-              registrationStatus = "注册成功";
-              setRegistrationStatus(registrationStatus);
-              
-              // 尝试自动登录
-              const autoLoginSuccess = await login(formData.email, formData.password);
-              if (autoLoginSuccess) {
-                setAuthDialogOpen(false);
-              } else {
-                // 如果自动登录失败，仍关闭对话框，但可以考虑给出提示
-                setTimeout(() => setAuthDialogOpen(false), 500);
-              }
-            }  
-          }
-        } catch (err) {
-          registrationStatus = "注册失败，请稍后再试";
-          setRegistrationStatus(registrationStatus);
+      } catch (err) {
+        setRegistrationStatus("注册失败，请稍后再试");
+      }
+    } else if (authMode === "reset") {
+      // 重置密码逻辑
+      try {
+        const resp = await directAuthApi.resetPassword(formData.email, formData.password);
+        if (resp.success) {
+          toast({ title: "重置成功", description: "请使用新密码登录系统", variant: "default" });
+          // 切回登录模式并重置表单
+          setAuthMode("login");
+          setFormData({ email: formData.email, password: "", confirmPassword: "" });
+          setErrors({ email: "", password: "", confirmPassword: "", passwordMatch: "" });
+        } else {
+          toast({ title: "重置失败", description: resp.message || "请稍后再试", variant: "destructive" });
         }
+      } catch (error) {
+        toast({ title: "重置错误", description: "无法连接服务器，请稍后再试", variant: "destructive" });
       }
     }
   }
@@ -465,11 +473,15 @@ export default function ClientPage() {
       <Dialog open={authDialogOpen} onOpenChange={setAuthDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>{authMode === "login" ? "登录系统" : "注册账号"}</DialogTitle>
+            <DialogTitle>
+              {authMode === "login" ? "登录系统" : authMode === "register" ? "注册账号" : "重置密码"}
+            </DialogTitle>
             <DialogDescription>
               {authMode === "login"
                 ? "请输入您的邮箱和密码登录系统"
-                : "创建一个新账号以访问AI治理系统"}
+                : authMode === "register"
+                  ? "创建一个新账号以访问AI治理系统"
+                  : "请输入您的邮箱和新密码"}
             </DialogDescription>
             {authMode === "register" && registrationStatus && registrationStatus.includes("但未返回") && (
               <div className="mt-2 text-sm text-yellow-600 dark:text-yellow-400 flex items-center">
@@ -480,7 +492,7 @@ export default function ClientPage() {
               </div>
             )}
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-y-2 py-4">
             {error && (
               <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 p-3 rounded-md text-sm mb-2">
                 <p>{error}</p>
@@ -526,6 +538,18 @@ export default function ClientPage() {
               />
               {errors.email && <p className="text-red-500 text-xs col-span-3 col-start-2">{errors.email}</p>}
             </div>
+            {authMode === "login" && (
+              <div className="text-right">
+                <Button
+                  variant="link"
+                  className="text-xs p-0"
+                  onClick={() => setAuthMode("reset")}
+                  disabled={isLoading}
+                >
+                  忘记密码？
+                </Button>
+              </div>
+            )}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="password" className="text-right">
                 密码
@@ -547,7 +571,7 @@ export default function ClientPage() {
                 <p className="text-red-500 text-xs col-span-3 col-start-2">{errors.password}</p>
               )}
             </div>
-            {authMode === "register" && (
+            {(authMode === "register" || authMode === "reset") && (
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="confirmPassword" className="text-right">
                   确认密码
@@ -575,8 +599,8 @@ export default function ClientPage() {
             )}
           </div>
           <DialogFooter className="flex justify-between items-center">
-            <div>
-              {authMode === "login" ? (
+            <div className="flex flex-col items-start space-y-1">
+              {authMode === "login" && (
                 <Button
                   variant="link"
                   className="text-xs p-0"
@@ -585,7 +609,8 @@ export default function ClientPage() {
                 >
                   没有账号？注册新账号
                 </Button>
-              ) : (
+              )}
+              {authMode === "register" && (
                 <Button
                   variant="link"
                   className="text-xs p-0"
@@ -595,15 +620,25 @@ export default function ClientPage() {
                   已有账号？返回登录
                 </Button>
               )}
+              {authMode === "reset" && (
+                <Button
+                  variant="link"
+                  className="text-xs p-0"
+                  onClick={() => setAuthMode("login")}
+                  disabled={isLoading}
+                >
+                  返回登录
+                </Button>
+              )}
             </div>
             <Button type="submit" onClick={handleSubmit} disabled={isLoading} className="w-28 justify-center">
               {isLoading ? (
                 <>
                   <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
-                  {authMode === "login" ? "登录中..." : "注册中..."}
+                  {authMode === "login" ? "登录中..." : authMode === "register" ? "注册中..." : "重置中..."}
                 </>
               ) : (
-                authMode === "login" ? "登录" : "注册"
+                authMode === "login" ? "登录" : authMode === "register" ? "注册" : "重置密码"
               )}
             </Button>
           </DialogFooter>

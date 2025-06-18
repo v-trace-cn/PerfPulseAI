@@ -63,8 +63,8 @@ class ScoreEntry(Base):
     __tablename__ = 'score_entries'
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String(36), ForeignKey('users.id'), nullable=False)
-    activity_id = Column(String(36), ForeignKey('activities.id'), nullable=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    activity_id = Column(String(200), ForeignKey('activities.id'), nullable=True)
     criteria_id = Column(String(36), ForeignKey('scoring_criteria.id'), nullable=True)
     score = Column(Integer, nullable=False)
     factors = Column(JSON, nullable=True)  # 存储评分因素的JSON数据

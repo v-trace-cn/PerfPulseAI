@@ -15,6 +15,7 @@ from app.core.ai_service import analyze_pr_diff
 from app.models.activity import Activity
 from app.models.scoring import ScoreEntry
 from app.core.config import Settings
+from app.models.user import User
 
 router = APIRouter(prefix="/api/webhook", tags=["webhook"])
 GITHUB_WEBHOOK_SECRET = Settings.GITHUB_WEBHOOK_SECRET
@@ -90,6 +91,35 @@ async def github_webhook_receiver(
             print(f"  PR #{pr_number}: '{pr_title}' - Action: {action}")
             print(f"  Sender: {sender_login}")
 
+            # 尝试从 payload 中获取用户邮箱
+            sender_email = payload.get("sender", {}).get("email")
+            # 获取 GitHub 个人资料 URL
+            sender_github_url = payload.get("sender", {}).get("html_url")
+
+            # 获取或创建用户
+            user = None
+            if sender_email:
+                user = db.query(User).filter(User.email == sender_email).first()
+
+            if not user:
+                # 如果用户不存在或没有提供邮箱，则创建一个新用户
+                # 注意：此处为简化处理，实际应用中可能需要更完善的用户注册流程和密码设置
+                user_name = sender_login if sender_login else "Unknown GitHub User"
+                final_email = sender_email if sender_email else f"{user_name.replace(' ', '.').lower()}@github.com"
+                
+                user = User(name=user_name, email=final_email, github_url=sender_github_url, password="123") # 使用 github_url
+                try:
+                    db.add(user)
+                    db.commit()
+                    db.refresh(user)
+                    print(f"    Created new user: {user.name} (ID: {user.id}, Email: {final_email})")
+                except Exception as e:
+                    db.rollback()
+                    print(f"    Error creating user {sender_login} with email {final_email}: {e}")
+                    return Response(status_code=500, content=f"Failed to create user: {e}")
+
+            user_id = user.id  # 获取用户ID
+
             # AI 分析与评分
             if action in ["opened", "synchronize"]:
                 # 获取 PR diff 内容
@@ -113,18 +143,31 @@ async def github_webhook_receiver(
                 
                 pr_title = pull_request.get("title")
                 existing_activity = db.query(Activity).filter(Activity.id == pr_node_id).first()
-                if not existing_activity:
-                    activity = Activity(id=pr_node_id, title=pr_title, description=analysis, points=int(score), user_id=None, status="completed")
-                    db.add(activity)
-                else:
-                    existing_activity.description = analysis
-                    existing_activity.points = int(score)
-                    existing_activity.status = "completed"
-                db.commit()
+                
+                try:
+                    if not existing_activity:
+                        activity = Activity(id=pr_node_id, title=pr_title, description=analysis, points=int(score), user_id=user_id, status="completed")
+                        db.add(activity)
+                    else:
+                        existing_activity.description = analysis
+                        existing_activity.points = int(score)
+                        existing_activity.status = "completed"
+                    db.commit()
+                    print(f"    Activity for PR #{pr_number} saved/updated successfully.")
+                except Exception as e:
+                    db.rollback()
+                    print(f"    Error saving/updating activity for PR #{pr_number}: {e}")
+
                 # 记录评分条目
-                entry = ScoreEntry(id=str(uuid4()), user_id=None, activity_id=pr_node_id, criteria_id=None, score=int(score), factors={"analysis": analysis}, notes="AI 自动评分")
-                db.add(entry)
-                db.commit()
+                try:
+                    entry = ScoreEntry(id=str(uuid4()), user_id=user_id, activity_id=pr_node_id, criteria_id=None, score=int(score), factors={"analysis": analysis}, notes="AI 自动评分")
+                    db.add(entry)
+                    db.commit()
+                    print(f"    Score entry for PR #{pr_number} saved successfully.")
+                except Exception as e:
+                    db.rollback()
+                    print(f"    Error saving score entry for PR #{pr_number}: {e}")
+
                 print(f"    AI scored PR #{pr_number}: {score}")
 
         else:

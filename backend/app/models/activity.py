@@ -12,12 +12,12 @@ class Activity(Base):
     """Activity model representing an activity in the system."""
     __tablename__ = 'activities'
     
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(String(200), primary_key=True)
     show_id = Column(String(36), unique=True, index=True, nullable=False, default=lambda: str(uuid.uuid4()))
     title = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
     points = Column(Integer, default=0)
-    user_id = Column(String(36), ForeignKey('users.id'))
+    user_id = Column(Integer, ForeignKey('users.id'))
     status = Column(String(20), default='pending')
     created_at = Column(DateTime, default=datetime.utcnow)
     completed_at = Column(DateTime, nullable=True)

@@ -209,7 +209,7 @@ export default function Dashboard() {
     position: user?.position || "",
     email: user?.email || "",
     phone: (user as any)?.phone || "",
-    githubUsername: (user as any)?.githubUsername || "",
+    githubUrl: (user as any)?.githubUrl || "",
     joinDate: (user as any)?.joinDate || "",
     points: user?.points || 0,
     level: user?.level || 0,
@@ -290,7 +290,7 @@ export default function Dashboard() {
         position: user.position || "",
         email: user.email || "",
         phone: (user as any).phone || "",
-        githubUsername: (user as any).githubUsername || "",
+        githubUrl: (user as any).githubUrl || "",
         joinDate: (user as any).joinDate || (user as any).join_date || "",
         points: user.points ?? prev.points,
         level: user.level ?? prev.level,
@@ -561,20 +561,22 @@ export default function Dashboard() {
 
                     {/* GitHub 账号 */}
                     <div className="space-y-2">
-                      <h4 className="text-sm font-medium">GitHub 账号</h4>
+                      <h4 className="text-sm font-medium">GitHub 地址</h4>
                       <div className="grid grid-cols-[20px_1fr] gap-2 items-center">
                         <Code className="h-4 w-4 text-muted-foreground" />
-                        {userData.githubUsername ? (
+                        {userData.githubUrl ? (
                           <a
-                            href={`https://github.com/${userData.githubUsername}`}
+                            href={userData.githubUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-sm text-primary hover:underline"
                           >
-                            {userData.githubUsername}
+                            {userData.githubUrl}
                           </a>
                         ) : (
-                          <span className="text-sm text-muted-foreground">未连接</span>
+                          <span className="text-sm text-muted-foreground">
+                            {userData.githubUrl}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -703,7 +705,7 @@ export default function Dashboard() {
                                   position,
                                   email,
                                   phone,
-                                  github_username: github,
+                                  github_url: github,
                                 })
 
                                 if (result.success) {
@@ -714,7 +716,7 @@ export default function Dashboard() {
                                     position,
                                     email,
                                     phone,
-                                    githubUsername: github,
+                                    githubUrl: github,
                                   }
                                   setUserData(updatedUserData)
                                   toast({
@@ -776,9 +778,9 @@ export default function Dashboard() {
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                               <Label htmlFor="edit-github" className="text-right">
-                                GitHub 邮箱
+                                GitHub 地址
                               </Label>
-                              <Input id="edit-github" name="edit-github" defaultValue={userData.githubUsername} className="col-span-3" />
+                              <Input id="edit-github" name="edit-github" defaultValue={userData.githubUrl} className="col-span-3" />
                             </div>
                           </div>
                           <DialogFooter>
@@ -813,7 +815,7 @@ export default function Dashboard() {
                         className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary h-8 rounded-md"
                       >
                         <Activity className="mr-2 h-3.5 w-3.5" />
-                        <span>最近活动</span>
+                        <span>最近个人活动</span>
                       </TabsTrigger>
                     </TabsList>
 

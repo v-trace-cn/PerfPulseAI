@@ -3,6 +3,7 @@ from app.models.user     import User
 from app.models.activity import Activity
 from app.models.reward   import Reward
 from app.models.scoring  import ScoringCriteria, ScoringFactor, GovernanceMetric
+from app.models.pull_request_result import PullRequestResult
 
 from .seed_data import seed_data
 

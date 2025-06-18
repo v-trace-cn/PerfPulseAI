@@ -10,6 +10,7 @@ from app.api import __path__ as api_path
 
 from app.core.config import settings
 from app.core.database import engine, Base
+from sqlalchemy import inspect, text  # 新增用于检查和添加列
 
 app = FastAPI(title="PerfPulseAI API")
 
@@ -42,4 +43,15 @@ async def favicon():
 
 @app.on_event("startup")
 async def create_tables():
+    # 创建所有表（不包含已存在表的列）
     Base.metadata.create_all(bind=engine)
+    # 确保 users 表包含 github_username 列
+    try:
+        inspector = inspect(engine)
+        columns = [col['name'] for col in inspector.get_columns('users')]
+        if 'github_username' not in columns:
+            with engine.connect() as conn:
+                conn.execute(text('ALTER TABLE users ADD COLUMN github_username VARCHAR(100)'))
+    except Exception:
+        # 若添加列失败（如列已存在或不支持），忽略
+        pass

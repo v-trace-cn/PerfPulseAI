@@ -20,6 +20,7 @@ class User(Base):
     department = Column(String(100))
     position = Column(String(100))
     phone = Column(String(20))
+    github_username = Column(String(100), unique=True, nullable=True)
     join_date = Column(Date, default=datetime.utcnow)
     points = Column(Integer, default=0)
     level = Column(Integer, default=1)
@@ -68,6 +69,7 @@ class User(Base):
             "id": self.id,
             "name": self.name,
             "email": self.email,
+            "githubUsername": self.github_username,
             "department": self.department,
             "position": self.position,
             "phone": self.phone,

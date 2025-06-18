@@ -1,13 +1,23 @@
 # backend/app/api/webhook.py
 import hmac
 import hashlib
-from fastapi import APIRouter, Request, HTTPException, Header, Response
-from typing import Optional
+import requests
+import os
+import json
 
-from app.core.config import settings
+from uuid import uuid4
+from typing import Optional
+from sqlalchemy.orm import Session
+from fastapi import APIRouter, Request, HTTPException, Header, Response, Depends
+
+from app.core.database import get_db
+from app.core.ai_service import analyze_pr_diff
+from app.models.activity import Activity
+from app.models.scoring import ScoreEntry
+from app.core.config import Settings
 
 router = APIRouter(prefix="/api/webhook", tags=["webhook"])
-GITHUB_WEBHOOK_SECRET = settings.GITHUB_WEBHOOK_SECRET  # 替换为你在GitHub设置的密钥
+GITHUB_WEBHOOK_SECRET = Settings.GITHUB_WEBHOOK_SECRET
 
 
 async def verify_signature(request: Request, github_signature: str):
@@ -38,8 +48,9 @@ async def verify_signature(request: Request, github_signature: str):
 @router.post("/github")
 async def github_webhook_receiver(
     request: Request,
-    x_github_event: str = Header(..., alias="X-GitHub-Event"), # 获取事件类型
-    x_hub_signature_256: Optional[str] = Header(None, alias="X-Hub-Signature-256") # GitHub 新版签名
+    x_github_event: str = Header(..., alias="X-GitHub-Event"),
+    x_hub_signature_256: Optional[str] = Header(None, alias="X-Hub-Signature-256"),
+    db: Session = Depends(get_db)
 ):
     """
     接收并处理来自 GitHub 的 Webhook 请求。
@@ -47,15 +58,18 @@ async def github_webhook_receiver(
     if x_hub_signature_256:
         await verify_signature(request, x_hub_signature_256)
     else:
-        # 如果没有签名头，则取决于你的安全策略。
-        # 对于生产环境，强烈建议始终要求签名。
         print("Warning: X-Hub-Signature-256 header not found. Skipping signature verification.")
-        # raise HTTPException(status_code=403, detail="Missing X-Hub-Signature-256 header")
+        raise HTTPException(status_code=403, detail="Missing X-Hub-Signature-256 header")
 
     payload = await request.json()
 
     print(f"Received GitHub event: {x_github_event}")
-    # print(f"Payload: {payload}") # 在生产环境中，避免打印整个payload，因为它可能很大且包含敏感信息
+    file_dir = "pr_results"
+    os.makedirs(file_dir, exist_ok=True)
+    file_path = os.path.join(file_dir, f"{pr_node_id}.json")
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+    print(f"    AI analysis result written to {file_path}")
 
     if x_github_event == "pull_request":
         action = payload.get("action")
@@ -72,23 +86,33 @@ async def github_webhook_receiver(
             print(f"  PR #{pr_number}: '{pr_title}' - Action: {action}")
             print(f"  Sender: {sender_login}")
 
-            # 在这里添加你的业务逻辑
-            # 例如：
-            # - 将 PR 数据保存到数据库
-            # - 触发 CI/CD 流程
-            # - 发送通知 (邮件, Slack, Teams)
-            # - 更新前端界面
-            if action == "opened":
-                print(f"    New pull request opened!")
-            elif action == "closed":
-                if pull_request.get("merged"):
-                    print(f"    Pull request merged!")
+            # AI 分析与评分
+            if action in ["opened", "synchronize"]:
+                # 获取 PR diff 内容
+                diff_url = pull_request.get("diff_url")
+                diff_resp = requests.get(diff_url, headers={"Accept": "application/vnd.github.v3.diff"})
+                diff_text = diff_resp.text
+                # 调用 AI 分析 diff
+                ai_result = analyze_pr_diff(diff_text)
+                score = ai_result.get("score", 0)
+                analysis = ai_result.get("analysis", "")
+                # 构造活动记录并保存
+                pr_node_id = pull_request.get("node_id") or str(pull_request.get("id"))
+                pr_title = pull_request.get("title")
+                existing_activity = db.query(Activity).filter(Activity.id == pr_node_id).first()
+                if not existing_activity:
+                    activity = Activity(id=pr_node_id, title=pr_title, description=analysis, points=int(score), user_id=None, status="completed")
+                    db.add(activity)
                 else:
-                    print(f"    Pull request closed without merging.")
-            elif action == "reopened":
-                print(f"    Pull request reopened!")
-            # 更多 action 类型请参考 GitHub Webhook 文档
-            # https://docs.github.com/en/webhooks/webhook-events-and-payloads#pull_request
+                    existing_activity.description = analysis
+                    existing_activity.points = int(score)
+                    existing_activity.status = "completed"
+                db.commit()
+                # 记录评分条目
+                entry = ScoreEntry(id=str(uuid4()), user_id=None, activity_id=pr_node_id, criteria_id=None, score=int(score), factors={"analysis": analysis}, notes="AI 自动评分")
+                db.add(entry)
+                db.commit()
+                print(f"    AI scored PR #{pr_number}: {score}")
 
         else:
             print("  Received pull_request event but missing pull_request or repository data.")

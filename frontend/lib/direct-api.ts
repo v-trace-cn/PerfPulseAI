@@ -107,6 +107,17 @@ export const directAuthApi = {
     );
   },
 
+  resetPassword: async (email: string, password: string) => {
+    const encrypted = await encryptPayload({ email, password });
+    const body = encrypted ? { encrypted } : { email, password };
+    return fetchDirectApi<{ success: boolean; message: string }>(
+      `${NEXTJS_API_URL}/api/auth/reset-password`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }
+    );
+  },
+
   checkHealth: () => 
     fetchDirectApi<{ status: string; code: number; message: string }>(`${NEXTJS_API_URL}/api/health`),
 };

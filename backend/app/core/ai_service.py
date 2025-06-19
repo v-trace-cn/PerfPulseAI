@@ -1,8 +1,12 @@
 import os
 import openai
 import json
+import requests
 from openai import OpenAI
+from sqlalchemy.orm import Session
 from app.core.config import Settings
+from app.models.pull_request import PullRequest
+from app.models.activity import Activity
 
 
 DOUBAO_MODEL=Settings.DOUBAO_MODEL
@@ -45,10 +49,52 @@ def analyze_pr_diff(diff_text: str) -> dict:
                 {"role": "user", "content": prompt}
             ],
         )
-        content = completion.choices[0].message
+        content = completion.choices[0].message.content
         print(content)
         result = json.loads(content)
         return result
     except Exception as e:
         print(f"AI 分析 PR 失败: {e}")
-        return {"overall_score": 0, "dimensions": {}, "suggestions": [{"type": "negative", "content": f"AI 分析失败: {e}"}]} 
+        return {"overall_score": 0, "dimensions": {}, "suggestions": [{"type": "negative", "content": f"AI 分析失败: {e}"}]}
+
+def trigger_pr_analysis(db: Session, pr_node_id: str):
+    """
+    触发指定 PR 的 AI 分析并更新数据库。
+    """
+    pr = db.query(PullRequest).filter(PullRequest.pr_node_id == pr_node_id).first()
+    if not pr:
+        raise ValueError(f"Pull Request with node ID {pr_node_id} not found.")
+
+    if not pr.diff_url:
+        raise ValueError(f"Pull Request {pr_node_id} does not have a diff URL.")
+
+    try:
+        response = requests.get(pr.diff_url)
+        response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
+        diff_content = response.text
+    except requests.exceptions.RequestException as e:
+        raise ValueError(f"Failed to fetch diff from {pr.diff_url}: {e}")
+
+    try:
+        ai_analysis_result = analyze_pr_diff(diff_content)
+        
+        pr.score = ai_analysis_result.get("overall_score")
+        pr.analysis = json.dumps(ai_analysis_result) # 将字典转换为 JSON 字符串保存
+
+        # 更新关联的 Activity
+        activity = db.query(Activity).filter(Activity.id == pr_node_id).first()
+        if activity:
+            activity.score = pr.score
+            activity.analysis = pr.analysis
+            activity.status = "completed" # 假设分析完成后状态变为 completed
+
+        db.commit()
+        db.refresh(pr) # 刷新 PR 对象以获取最新的数据
+        if activity:
+            db.refresh(activity)
+        
+        return ai_analysis_result
+    except Exception as e:
+        db.rollback() # 出现异常时回滚
+        print(f"Error during AI analysis and DB update for PR {pr_node_id}: {e}")
+        raise 

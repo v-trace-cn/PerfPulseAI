@@ -18,19 +18,23 @@ import {
   GitBranch,
   CheckCircle,
   AlertCircle,
+  Loader2,
 } from "lucide-react"
 import SiteHeader from "@/components/site-header"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useApi } from "@/hooks/useApi"
-import { directActivityApi, directUserApi } from "@/lib/direct-api"
+import { directActivityApi, directUserApi, directPrApi } from "@/lib/direct-api"
+import { toast } from "@/components/ui/use-toast"
 
 export default function ActivityDetailPage() {
   const params = useParams()
   const activityId = Array.isArray(params?.activityId) ? params.activityId[0] : params?.activityId
   const { execute: fetchActivity, data: activityRes, isLoading, error } = useApi(directActivityApi.getActivityByShowId)
   const { execute: fetchUserProfile, data: userProfile, isLoading: profileLoading, error: profileError } = useApi(directUserApi.getProfile)
+  const { execute: triggerAnalysis, isLoading: isAnalyzing, error: analysisError } = useApi(directPrApi.analyzePr)
+  
   const [activity, setActivity] = useState<any | null>(null)
   const [userProfileData, setUserProfileData] = useState<any | null>(null)
 
@@ -39,8 +43,6 @@ export default function ActivityDetailPage() {
       fetchActivity(activityId).then((res: any) => {
         if (res && res.success) {
           setActivity(res.data)
-        } else {
-          console.error("Fetch activity failed", res)
         }
       }).catch((err) => console.error("Error fetching activity", err))
     }
@@ -55,6 +57,28 @@ export default function ActivityDetailPage() {
         .catch((err) => console.error("Error fetching user profile", err))
     }
   }, [activity, fetchUserProfile])
+
+  const handleAnalyzeClick = async () => {
+    if (!activityId) return;
+    toast({ title: "AI 评分", description: "正在触发 AI 评分..." });
+    try {
+      const res = await triggerAnalysis(activityId);
+      if (res && res.message) {
+        toast({ title: "AI 评分", description: res.message, variant: "default" });
+        // 重新获取活动数据以显示最新评分
+        fetchActivity(activityId).then((res: any) => {
+          if (res && res.success) {
+            setActivity(res.data);
+          }
+        });
+      } else {
+        toast({ title: "AI 评分失败", description: "未知错误", variant: "destructive" });
+      }
+    } catch (err: any) {
+      toast({ title: "AI 评分失败", description: err.message || "服务器错误", variant: "destructive" });
+      console.error("AI analysis error:", err);
+    }
+  };
 
   if (isLoading) {
     return <div className="text-center p-4">加载中...</div>
@@ -127,11 +151,19 @@ export default function ActivityDetailPage() {
 
               {/* AI Evaluation */}
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="flex items-center">
                     <Star className="w-5 h-5 mr-2 text-yellow-500" />
                     AI 智能评价
                   </CardTitle>
+                  <Button onClick={handleAnalyzeClick} disabled={isAnalyzing} size="sm">
+                    {isAnalyzing ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Star className="mr-2 h-4 w-4" />
+                    )}
+                    {isAnalyzing ? "分析中..." : "获取 AI 评分"}
+                  </Button>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {/* Overall Score */}
@@ -249,76 +281,80 @@ export default function ActivityDetailPage() {
 /* ----------------- 辅助子组件 ----------------- */
 
 function ScoreItem({ label, value, score, color }: { label: string; value: number; score: number; color: string }) {
-  const colorMap: any = {
-    blue: "text-blue-600",
-    green: "text-green-600",
-    yellow: "text-yellow-600",
-    purple: "text-purple-600",
-    indigo: "text-indigo-600",
+  let progressColorClass;
+  switch (color) {
+    case 'blue': progressColorClass = 'bg-blue-500'; break;
+    case 'green': progressColorClass = 'bg-green-500'; break;
+    case 'yellow': progressColorClass = 'bg-yellow-500'; break;
+    case 'purple': progressColorClass = 'bg-purple-500'; break;
+    case 'indigo': progressColorClass = 'bg-indigo-500'; break;
+    default: progressColorClass = 'bg-gray-500';
   }
+
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-sm font-medium text-gray-700">{label}</span>
-      <div className="flex items-center space-x-2">
-        <Progress value={value} className="w-24 h-2" />
-        <span className={`text-sm font-semibold ${colorMap[color]}`}>{score}</span>
+    <div className="flex items-center space-x-4">
+      <div className="flex-1">
+        <p className="text-sm font-medium text-gray-700">{label}</p>
+        <Progress value={value} className="h-2 mt-1" indicatorClassName={progressColorClass} />
       </div>
+      <span className="text-sm font-semibold text-gray-800">{score.toFixed(1)}/10</span>
     </div>
   )
 }
 
 function CommentItem({ text, warning = false }: { text: string; warning?: boolean }) {
   return (
-    <li className="flex items-start">
-      {warning ? (
-        <AlertCircle className="w-4 h-4 mr-2 mt-0.5 text-yellow-600" />
-      ) : (
-        <CheckCircle className="w-4 h-4 mr-2 mt-0.5 text-green-600" />
-      )}
-      {text}
+    <li className={`flex items-start ${warning ? 'text-yellow-700' : 'text-blue-800'}`}>
+      {warning ? <AlertCircle className="w-4 h-4 mr-2 mt-1 flex-shrink-0" /> : <CheckCircle className="w-4 h-4 mr-2 mt-1 flex-shrink-0" />}
+      <span>{text}</span>
     </li>
   )
 }
 
 function InfoItem({ label, value, color }: { label: string; value: string; color?: string }) {
-  const colorClass = color ? `text-${color}-600` : ""
   return (
-    <div className="flex justify-between">
-      <span className="text-gray-600">{label}</span>
-      <span className={`font-semibold ${colorClass}`}>{value}</span>
+    <div className="flex justify-between text-gray-600">
+      <span>{label}</span>
+      <span className={color ? `text-${color}-600 font-medium` : "font-medium"}>{value}</span>
     </div>
   )
 }
 
 function TimelineItem({ label, time, color }: { label: string; time: string; color: string }) {
-  const bgColor = {
-    green: "bg-green-500",
-    blue: "bg-blue-500",
-    yellow: "bg-yellow-500",
-    purple: "bg-purple-500",
-  }[color]
+  let circleColorClass;
+  switch (color) {
+    case 'green': circleColorClass = 'bg-green-500'; break;
+    case 'blue': circleColorClass = 'bg-blue-500'; break;
+    case 'yellow': circleColorClass = 'bg-yellow-500'; break;
+    case 'purple': circleColorClass = 'bg-purple-500'; break;
+    default: circleColorClass = 'bg-gray-500';
+  }
+
   return (
-    <div className="flex items-start space-x-3 mb-4 last:mb-0">
-      <div className={`w-2 h-2 ${bgColor} rounded-full mt-2`}></div>
-      <div className="flex-1">
-        <div className="text-sm font-medium">{label}</div>
-        <div className="text-xs text-gray-500">{time}</div>
+    <div className="flex items-center mb-4">
+      <div className={`w-3 h-3 rounded-full ${circleColorClass} mr-3`}></div>
+      <div>
+        <p className="text-sm font-medium text-gray-800">{label}</p>
+        <p className="text-xs text-gray-500">{time}</p>
       </div>
     </div>
   )
 }
 
 function PointItem({ label, points, color }: { label: string; points: number; color: string }) {
-  const colorClass = {
-    green: "text-green-600",
-    blue: "text-blue-600",
-    purple: "text-purple-600",
-    yellow: "text-yellow-600",
-  }[color]
+  let textColorClass;
+  switch (color) {
+    case 'green': textColorClass = 'text-green-600'; break;
+    case 'blue': textColorClass = 'text-blue-600'; break;
+    case 'purple': textColorClass = 'text-purple-600'; break;
+    case 'yellow': textColorClass = 'text-yellow-600'; break;
+    default: textColorClass = 'text-gray-600';
+  }
+
   return (
-    <div className="flex justify-between items-center">
-      <span className="text-sm text-gray-600">{label}</span>
-      <span className={`text-sm font-semibold ${colorClass}`}>+{points}</span>
+    <div className="flex justify-between items-center text-sm mb-2">
+      <span>{label}</span>
+      <span className={`font-semibold ${textColorClass}`}>+{points}</span>
     </div>
   )
 } 

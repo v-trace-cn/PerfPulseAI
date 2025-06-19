@@ -17,6 +17,7 @@ from app.models.activity import Activity
 from app.models.scoring import ScoreEntry
 from app.core.config import Settings
 from app.models.user import User
+from app.core.scheduler import process_pending_tasks
 
 router = APIRouter(prefix="/api/webhook", tags=["webhook"])
 GITHUB_WEBHOOK_SECRET = Settings.GITHUB_WEBHOOK_SECRET
@@ -85,50 +86,28 @@ async def process_pull_request_event(
                 print("GitHub user URL not found in payload. Skipping PR processing.")
                 return
 
-            # AI 分析与评分
+            # 将 PR 任务标记为待处理，仅保存 diff_url
             if action in ["opened", "synchronize", "reopened"]:
-                # 获取 PR diff 内容
                 diff_url = pull_request.get("diff_url")
-                diff_resp = requests.get(diff_url, headers={"Accept": "application/vnd.github.v3.diff"})
-                diff_text = diff_resp.text
-                # 调用 AI 分析 diff
-                # ai_result = analyze_pr_diff(diff_text) # 启用真正的 AI 分析
-                ai_result = {"score":100, "analysis": "test TEST"}
-                score = ai_result.get("score", 0)
-                analysis = ai_result.get("analysis", "")
-                # 构造活动记录并保存
                 pr_node_id = pull_request.get("node_id") or str(pull_request.get("id"))
-
                 pr_title = pull_request.get("title")
                 existing_activity = db.query(Activity).filter(Activity.id == pr_node_id).first()
-
                 try:
                     if not existing_activity:
-                        activity = Activity(title=pr_title, description=analysis, points=int(score), user_id=user_id, status="completed")
+                        activity = Activity(title=pr_title, description=None, points=0, user_id=user_id, status="pending")
                         activity.id = pr_node_id
+                        activity.diff_url = diff_url
                         db.add(activity)
                     else:
-                        existing_activity.description = analysis
-                        existing_activity.points = int(score)
-                        existing_activity.status = "completed"
+                        existing_activity.status = "pending"
+                        existing_activity.diff_url = diff_url
                     db.commit()
-                    print(f"    Activity for PR #{pr_number} saved/updated successfully.")
+                    print(f"    Pending task for PR #{pr_number} saved/updated successfully.")
+                    # 触发即时处理所有 pending 任务
+                    asyncio.create_task(process_pending_tasks())
                 except Exception as e:
                     db.rollback()
-                    print(f"    Error saving/updating activity for PR #{pr_number}: {e}")
-
-                # 记录评分条目
-                try:
-                    entry = ScoreEntry(id=str(uuid4()), user_id=user_id, activity_id=pr_node_id, criteria_id=None, score=int(score), factors={"analysis": analysis}, notes="AI 自动评分")
-                    db.add(entry)
-                    db.commit()
-                    print(f"    Score entry for PR #{pr_number} saved successfully.")
-                except Exception as e:
-                    db.rollback()
-                    print(f"    Error saving score entry for PR #{pr_number}: {e}")
-
-                print(f"    AI scored PR #{pr_number}: {score}")
-
+                    print(f"    Error saving/updating pending task for PR #{pr_number}: {e}")
         else:
             print("  Received pull_request event but missing pull_request or repository data.")
     finally:

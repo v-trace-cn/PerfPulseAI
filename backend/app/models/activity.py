@@ -22,6 +22,8 @@ class Activity(Base):
     # 关联到 User 模型，需要与 User.activities 的 back_populates 对应
     user = relationship('User', back_populates='activities')
     status = Column(String(20), default='pending')
+    # 存储 PR diff 链接，用于后续定时任务拉取和分析
+    diff_url = Column(String(500), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     completed_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

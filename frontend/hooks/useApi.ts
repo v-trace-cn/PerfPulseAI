@@ -36,7 +36,20 @@ export function useApi<T>(
         setState({ data, isLoading: false, error: null });
         return data;
       } catch (error: any) {
-        const errorMessage = error.message || '请求失败，请稍后再试';
+        let errorMessage: string;
+        if (error instanceof Error) {
+          errorMessage = error.message;
+        } else if (typeof error === 'string') {
+          errorMessage = error;
+        } else {
+          errorMessage = '发生未知错误，请稍后再试'; // More specific fallback for truly unknown errors
+        }
+        
+        // A more general fallback for when error.message is still empty or too generic
+        if (!errorMessage || errorMessage.includes('Failed to fetch') || errorMessage.includes('TypeError')) {
+             errorMessage = '请求活动数据失败，请检查网络或联系管理员'; // More descriptive message for user
+        }
+
         setState({ data: null, isLoading: false, error: errorMessage });
         return null;
       }

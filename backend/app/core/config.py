@@ -18,8 +18,10 @@ class Settings:
     DATABASE_URL = f"sqlite:///{BACKEND_DIR / 'db' / 'perf.db'}"
 
     # 豆包 AI API 配置
-    DOUBAO_BASE: str = os.getenv("DOUBAO_BASE", "")
+    DOUBAO_URLS: str = os.getenv("DOUBAO_URLS", "")
+    DOUBAO_MODEL: str = os.getenv("DOUBAO_MODEL", "")
     DOUBAO_API_KEY: str = os.getenv("DOUBAO_API_KEY", "") # 如果豆包需要单独的API Key
+
 
     # Email settings
     MAIL_USERNAME: str = os.getenv("MAIL_USERNAME")

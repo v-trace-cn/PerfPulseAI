@@ -22,6 +22,7 @@ class Activity(Base):
     # 关联到 User 模型，需要与 User.activities 的 back_populates 对应
     user = relationship('User', back_populates='activities')
     status = Column(String(20), default='pending')
+    activity_type = Column(String(50), default='individual')
     # 存储 PR diff 链接，用于后续定时任务拉取和分析
     diff_url = Column(String(500), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -29,7 +30,7 @@ class Activity(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     def __init__(self, title=None, description=None, points=0, user_id=None, 
-                 status="pending", created_at=None, completed_at=None):
+                 status="pending", created_at=None, completed_at=None, activity_type='individual'):
         """
         Initialize a new Activity.
         """
@@ -39,6 +40,7 @@ class Activity(Base):
         self.points = points
         self.user_id = user_id
         self.status = status
+        self.activity_type = activity_type
         
         # 处理日期字段
         if isinstance(created_at, str):
@@ -82,6 +84,7 @@ class Activity(Base):
             "points": self.points,
             "user_id": self.user_id,
             "status": self.status,
+            "activity_type": self.activity_type,
             "created_at": self.created_at.isoformat() if isinstance(self.created_at, datetime) else self.created_at,
             "completed_at": self.completed_at.isoformat() if isinstance(self.completed_at, datetime) else self.completed_at,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
@@ -106,5 +109,6 @@ class Activity(Base):
             user_id=data.get("user_id"),
             status=data.get("status", "pending"),
             created_at=data.get("created_at"),
-            completed_at=data.get("completed_at")
+            completed_at=data.get("completed_at"),
+            activity_type=data.get("activity_type", "individual")
         )

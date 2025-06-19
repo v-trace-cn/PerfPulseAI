@@ -136,28 +136,45 @@ export default function ActivityDetailPage() {
                 <CardContent className="space-y-6">
                   {/* Overall Score */}
                   <div className="text-center p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
-                    <div className="text-4xl font-bold text-blue-600 mb-2">8.7</div>
+                    <div className="text-4xl font-bold text-blue-600 mb-2">{activity.ai_analysis?.overall_score?.toFixed(1) || 'N/A'}</div>
                     <div className="text-lg font-medium text-gray-700 mb-1">综合评分</div>
                     <div className="text-sm text-gray-500">基于多维度智能分析</div>
                   </div>
 
                   {/* Detailed Scores */}
                   <div className="space-y-4">
-                    <ScoreItem label="代码质量" value={92} score={9.2} color="blue" />
-                    <ScoreItem label="创新性" value={85} score={8.5} color="green" />
-                    <ScoreItem label="文档完整性" value={78} score={7.8} color="yellow" />
-                    <ScoreItem label="测试覆盖率" value={88} score={8.8} color="purple" />
-                    <ScoreItem label="性能优化" value={82} score={8.2} color="indigo" />
+                    {activity.ai_analysis?.dimensions && Object.entries(activity.ai_analysis.dimensions).map(([key, value]: [string, any]) => (
+                      <ScoreItem
+                        key={key}
+                        label={
+                          key === 'code_quality' ? '代码质量' :
+                          key === 'innovation' ? '创新性' :
+                          key === 'documentation_completeness' ? '文档完整性' :
+                          key === 'test_coverage' ? '测试覆盖率' :
+                          key === 'performance_optimization' ? '性能优化' :
+                          key // fallback for unknown keys
+                        }
+                        value={(value / 10) * 100} // Convert 0-10 score to 0-100 for progress bar
+                        score={value}
+                        color={
+                          key === 'code_quality' ? 'blue' :
+                          key === 'innovation' ? 'green' :
+                          key === 'documentation_completeness' ? 'yellow' :
+                          key === 'test_coverage' ? 'purple' :
+                          key === 'performance_optimization' ? 'indigo' :
+                          'gray' // fallback color
+                        }
+                      />
+                    ))}
                   </div>
 
                   {/* AI Comments */}
                   <div className="bg-blue-50 rounded-lg p-4">
                     <h4 className="font-medium text-blue-900 mb-2">AI 评价意见</h4>
                     <ul className="space-y-2 text-sm text-blue-800">
-                      <CommentItem text="代码结构清晰，遵循了良好的编程规范" />
-                      <CommentItem text="机器学习模型集成方案具有创新性" />
-                      <CommentItem text="建议增加更多边界情况的测试用例" warning />
-                      <CommentItem text="性能优化效果显著，响应时间提升35%" />
+                      {activity.ai_analysis?.suggestions && activity.ai_analysis.suggestions.map((suggestion: any, index: number) => (
+                        <CommentItem key={index} text={suggestion.content} warning={suggestion.type === 'suggestion' || suggestion.type === 'negative'} />
+                      ))}
                     </ul>
                   </div>
                 </CardContent>

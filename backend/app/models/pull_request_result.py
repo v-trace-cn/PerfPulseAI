@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Integer, Text, DateTime
+from sqlalchemy import Column, String, Integer, Text, DateTime, JSON
 from app.core.database import Base
 
 class PullRequestResult(Base):
@@ -12,8 +12,7 @@ class PullRequestResult(Base):
     pr_number = Column(Integer, nullable=False)
     repository = Column(String(100), nullable=False)
     action = Column(String(30), nullable=False)
-    score = Column(Integer, nullable=False)
-    analysis = Column(Text, nullable=True)
+    ai_analysis_result = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     def to_dict(self):
@@ -23,7 +22,6 @@ class PullRequestResult(Base):
             "pr_number": self.pr_number,
             "repository": self.repository,
             "action": self.action,
-            "score": self.score,
-            "analysis": self.analysis,
+            "ai_analysis_result": self.ai_analysis_result,
             "created_at": self.created_at.isoformat() if isinstance(self.created_at, datetime) else self.created_at
         } 

@@ -914,7 +914,7 @@ export default function Dashboard() {
                                   {activity.type === "review" && <MessageSquare className="h-4 w-4 text-purple-500" />}
                                 </div>
                               </div>
-                              <div className="ml-4 space-y-1 flex-1 overflow-hidden">
+                              <div className="ml-4 space-y-1 flex-1 overflow-hidden min-w-0">
                                 <TruncatedTextWithTooltip text={activity.title} className="text-sm font-medium leading-none" />
                                 <p className="text-xs text-muted-foreground">{activity.date}</p>
                               </div>

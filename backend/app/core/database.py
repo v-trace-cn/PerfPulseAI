@@ -1,48 +1,31 @@
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
-from dotenv import load_dotenv
 from pathlib import Path
 
-load_dotenv()
+# 从 app.core.config 导入 settings
+from app.core.config import settings
 
-# 确保数据库文件存放在独立目录
-BASE_DIR = Path(__file__).parent.parent.parent
-env_db_dir = os.getenv("DB_DIR")
-if env_db_dir:
-    db_dir_path = Path(env_db_dir)
-    DB_DIR = db_dir_path if db_dir_path.is_absolute() else BASE_DIR / db_dir_path
-else:
-    DB_DIR = BASE_DIR / "db"
-DB_DIR.mkdir(parents=True, exist_ok=True)
-db_file = os.getenv("DATABASE_FILE", "perf.db")
-DB_PATH = (DB_DIR / db_file).resolve()
-path_str = str(DB_PATH).replace("\\", "/")  # 转为正斜杠
-default_database_url = f"sqlite:///{path_str}"
-print(f"[database] DATABASE_URL = {default_database_url}")
-DATABASE_URL = os.getenv("DATABASE_URL", default_database_url)
+DATABASE_URL = settings.DATABASE_URL
 
+# 如果是 SQLite，确保数据库文件所在的目录存在
 if DATABASE_URL and DATABASE_URL.startswith("sqlite"):
     db_file_path_str = DATABASE_URL.split("///")[1]
     db_dir = Path(db_file_path_str).parent
-    # 创建目录，如果它不存在的话
     os.makedirs(db_dir, exist_ok=True)
 
-# 若数据库文件不存在，先创建空文件，避免首次连接时报错
-if not DB_PATH.exists():
-    try:
-        DB_PATH.touch()
-    except Exception as e:
-        print(f"[database] 无法创建数据库文件 {DB_PATH}: {e}")
+# 根据 DATABASE_URL 判断数据库类型
+is_sqlite = DATABASE_URL.startswith("sqlite")
 
+# 配置数据库引擎
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False}
+    connect_args={"check_same_thread": False} if is_sqlite else {},
 )
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# 依赖注入
 def get_db():
     db = SessionLocal()
     try:

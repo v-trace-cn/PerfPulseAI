@@ -48,16 +48,8 @@ export default function SiteHeader() {
                     <span className="text-[10px] text-muted-foreground">{user?.department || user?.email || "未知部门"}</span>
                   </div>
                   <Badge className="h-5 ml-1 mr-6 bg-primary/10 text-primary hover:bg-primary/20 border-none">
-                    <span className="text-[10px]">{user?.points || 0}分</span>
+                    <span className="text-[10px]">Lv. {user?.level || '1'}</span>
                   </Badge>
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
-                    <div className="relative">
-                      <Bell className="h-4 w-4 text-primary" />
-                      <span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-red-500 text-[8px] text-white font-bold">
-                        3
-                      </span>
-                    </div>
-                  </div>
                 </>
               ) : (
                 <>

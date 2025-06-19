@@ -29,8 +29,8 @@ for _, module_name, _ in pkgutil.iter_modules(api_path):
     if hasattr(module, "router"):
         app.include_router(module.router)
 
-# 添加静态文件服务
-app.mount("/static", StaticFiles(directory="./static"), name="static")
+# # 添加静态文件服务
+# app.mount("/static", StaticFiles(directory="./static"), name="static")
 
 @app.get("/api/health")
 async def health_check():

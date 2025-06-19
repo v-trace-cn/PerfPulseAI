@@ -6,8 +6,15 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 import { useApi } from "@/hooks/useApi"
 import { useAuth } from "@/lib/auth-context"
-import { getRelativeDate } from "@/lib/utils"
+import { getRelativeDate, cn } from "@/lib/utils"
 import { directActivityApi } from "@/lib/direct-api"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { TruncatedTextWithTooltip } from "@/components/common/truncated-text-with-tooltip"
 
 interface Activity {
   id: string;
@@ -43,63 +50,64 @@ const getActivityIcon = (type: string) => {
 }
 
 export function RecentActivities() {
-  const { execute: fetchActivitiesApi } = useApi(directActivityApi.getRecentActivities);
+  const { data: fetchedData, isLoading: apiLoading, error: apiError, execute: fetchActivitiesApi } = useApi(directActivityApi.getRecentActivities);
+  
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  
   const { user, isLoading: userLoading } = useAuth();
 
   useEffect(() => {
     const fetchActivities = async () => {
-      if (userLoading || !user) {
-        setLoading(false);
+      if (userLoading || !user?.id) {
         return;
       }
 
-      try {
-        setLoading(true);
-        const response = await fetchActivitiesApi(user.id);
-        if (response && response.success) {
-          const fetchedActivities: Activity[] = response.data.map((activity: any) => ({
-            id: activity.id,
-            show_id: activity.show_id,
-            title: activity.title,
-            description: activity.description,
-            points: activity.points,
-            user_id: activity.user_id,
-            status: activity.status,
-            created_at: activity.created_at,
-            completed_at: activity.completed_at,
-            user: {
-              name: activity.user ? activity.user.name : "未知用户",
-              avatar: activity.user ? activity.user.avatar : "/placeholder-user.jpg",
-              initials: activity.user ? (activity.user.name ? activity.user.name[0] : "无") : "无",
-            },
-            type: activity.status || "default",
-          }));
-          setActivities(fetchedActivities.slice(0, 5));
-        } else {
-          setError(response?.message || "Failed to fetch activities");
-        }
-      } catch (err: any) {
-        setError("Error fetching activities: " + err.message);
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
+      await fetchActivitiesApi(user.id);
     };
-    fetchActivities();
-  }, [fetchActivitiesApi, user, userLoading]);
 
-  if (loading) {
+    fetchActivities();
+  }, [fetchActivitiesApi, user?.id, userLoading]);
+
+  useEffect(() => {
+    if (fetchedData && fetchedData.success) {
+      const mappedActivities: Activity[] = fetchedData.data.map((activity: any) => ({
+        id: activity.id,
+        show_id: activity.show_id,
+        title: activity.title,
+        description: activity.description,
+        points: activity.points,
+        user_id: activity.user_id,
+        status: activity.status,
+        created_at: activity.created_at,
+        completed_at: activity.completed_at,
+        user: {
+          name: activity.user ? activity.user.name : "未知用户",
+          avatar: activity.user ? activity.user.avatar : "/placeholder-user.jpg",
+          initials: activity.user ? (activity.user.name ? activity.user.name[0] : "无") : "无",
+        },
+        type: activity.status || "default",
+      }));
+      setActivities(mappedActivities.slice(0, 5));
+    } else if (fetchedData && !fetchedData.success) {
+      // Handle backend success: false case
+      // This is now handled by the apiError state if fetchDirectApi throws.
+      // If the backend explicitly returns success: false with a message and a 200 status,
+      // it means useApi won't catch an error, and fetchedData.success will be false.
+      // In this case, useApi's `error` state would be null.
+      // So, we need to check both apiError and fetchedData.message for displaying error.
+      // For now, let's rely on apiError.
+    }
+  }, [fetchedData]);
+
+  if (userLoading || apiLoading) {
     return <div className="text-center text-muted-foreground">加载中...</div>;
   }
 
-  if (error) {
-    return <div className="text-center text-destructive">错误: {error}</div>;
+  if (apiError) {
+    return <div className="text-center text-destructive">错误: {apiError}</div>;
   }
 
-  if (activities.length === 0) {
+  if (!fetchedData || !fetchedData.success || !fetchedData.data || activities.length === 0) {
     return <div className="text-center text-muted-foreground">暂无最新活动。</div>;
   }
 
@@ -117,9 +125,9 @@ export function RecentActivities() {
                 {getActivityIcon(activity.type)}
               </div>
             </div>
-            <div className="ml-4 space-y-1">
+            <div className="ml-4 space-y-1 overflow-hidden flex-1 min-w-0">
               <p className="text-sm font-medium leading-none">{activity.user.name}</p>
-              <p className="text-sm text-muted-foreground">{activity.title}</p>
+              <TruncatedTextWithTooltip text={activity.title} className="text-sm text-muted-foreground" />
               <div className="flex items-center">
                 <p className="text-xs text-muted-foreground">
                   {getRelativeDate(activity.created_at)}

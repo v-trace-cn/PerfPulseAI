@@ -162,6 +162,12 @@ export const directActivityApi = {
         Authorization: `Bearer ${token}`,
       },
     }),
+  getRecentActivities: (userId: string) => 
+    fetchDirectApi<{ data: any[]; message: string; success: boolean }>(`${BACKEND_API_URL}/api/activities/recent?user_id=${userId}`),
+  getActivityByShowId: (showId: string) =>
+    fetchDirectApi<{ data: any; message: string; success: boolean }>(
+      `${BACKEND_API_URL}/api/activities/show/${showId}`
+    ),
 };
 
 // Reward API

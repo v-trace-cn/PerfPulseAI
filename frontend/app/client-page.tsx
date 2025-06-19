@@ -313,9 +313,36 @@ export default function ClientPage() {
     }
   }
 
+  // 处理登录弹窗的显示
+  const handleLoginClick = () => {
+    setAuthMode("login")
+    setAuthDialogOpen(true)
+  }
+
+  // 处理注册弹窗的显示
+  const handleRegisterClick = () => {
+    setAuthMode("register")
+    setAuthDialogOpen(true)
+  }
+
+  // 处理帮助弹窗的显示
+  const handleHelpClick = () => {
+    setHelpDialogOpen(true)
+  }
+
+  // 处理设置弹窗的显示
+  const handleSettingsClick = () => {
+    setSettingsDialogOpen(true)
+  }
+
   return (
     <>
-      <SiteHeader />
+      <SiteHeader
+        onLoginClick={handleLoginClick}
+        onRegisterClick={handleRegisterClick}
+        onHelpClick={handleHelpClick}
+        onSettingsClick={handleSettingsClick}
+      />
       <main className="flex min-h-screen flex-col">
         <style jsx global>{`
           :root {

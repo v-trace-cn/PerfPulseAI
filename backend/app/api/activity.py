@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Body
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
 from app.models.activity import Activity
@@ -43,10 +43,12 @@ def get_activities(
     }
 
 @router.get("/recent")
-def get_recent_activities(db: Session = Depends(get_db)):
+def get_recent_activities(user_id: str | None = None, db: Session = Depends(get_db)):
+    query = db.query(Activity).options(joinedload(Activity.user))
+    if user_id:
+        query = query.filter(Activity.user_id == user_id)
     recent = (
-        db.query(Activity)
-          .order_by(Activity.created_at.desc())
+        query.order_by(Activity.created_at.desc())
           .limit(5)
           .all()
     )

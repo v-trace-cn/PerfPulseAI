@@ -20,37 +20,80 @@ import {
   AlertCircle,
 } from "lucide-react"
 import SiteHeader from "@/components/site-header"
+import Link from "next/link"
+import { ArrowLeft } from "lucide-react"
+import { useState, useEffect } from "react"
+import { useApi } from "@/hooks/useApi"
+import { directActivityApi, directUserApi } from "@/lib/direct-api"
 
 export default function ActivityDetailPage() {
   const params = useParams()
   const activityId = Array.isArray(params?.activityId) ? params.activityId[0] : params?.activityId
+  const { execute: fetchActivity, data: activityRes, isLoading, error } = useApi(directActivityApi.getActivityByShowId)
+  const { execute: fetchUserProfile, data: userProfile, isLoading: profileLoading, error: profileError } = useApi(directUserApi.getProfile)
+  const [activity, setActivity] = useState<any | null>(null)
+  const [userProfileData, setUserProfileData] = useState<any | null>(null)
+
+  useEffect(() => {
+    if (activityId) {
+      fetchActivity(activityId).then((res: any) => {
+        if (res && res.success) {
+          setActivity(res.data)
+        } else {
+          console.error("Fetch activity failed", res)
+        }
+      }).catch((err) => console.error("Error fetching activity", err))
+    }
+  }, [activityId, fetchActivity])
+
+  useEffect(() => {
+    if (activity?.user_id) {
+      fetchUserProfile(String(activity.user_id))
+        .then((prof: any) => {
+          setUserProfileData(prof)
+        })
+        .catch((err) => console.error("Error fetching user profile", err))
+    }
+  }, [activity, fetchUserProfile])
+
+  if (isLoading) {
+    return <div className="text-center p-4">加载中...</div>
+  }
+  if (error) {
+    return <div className="text-center p-4 text-red-500">错误: {error}</div>
+  }
+  if (!activity) {
+    return <div className="text-center p-4">未找到该活动</div>
+  }
 
   return (
     <>
-      <SiteHeader />
+      <SiteHeader onLoginClick={() => {}} onRegisterClick={() => {}} onHelpClick={() => {}} onSettingsClick={() => {}} />
       <div className="min-h-screen bg-gray-50 pt-6">
-        <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="max-w-7xl mx-auto px-6 py-8 bg-white rounded-lg shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
           {/* Activity Header */}
           <div className="mb-8">
+            <Link href="/?tab=profile" className="inline-flex items-center text-sm text-primary hover:underline mb-4">
+              <ArrowLeft className="mr-1 w-4 h-4" /> 返回个人中心
+            </Link>
             <div className="flex items-center justify-between mb-4">
-              <h1 className="text-3xl font-bold text-gray-900">活动详情 #{activityId}</h1>
-              <Badge variant="secondary" className="bg-green-100 text-green-800">
-                <CheckCircle className="w-4 h-4 mr-1" />
-                已完成
+              <h1 className="text-3xl font-bold text-gray-900">活动详情: {activity.title}</h1>
+              <Badge variant="secondary" className={activity.status === "completed" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
+                {activity.status === "completed" ? <><CheckCircle className="w-4 h-4 mr-1" />已完成</> : activity.status}
               </Badge>
             </div>
             <div className="flex items-center space-x-6 text-sm text-gray-600">
               <div className="flex items-center">
                 <Calendar className="w-4 h-4 mr-1" />
-                2024年6月18日 16:28
+                {new Date(activity.created_at).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
               </div>
               <div className="flex items-center">
                 <User className="w-4 h-4 mr-1" />
-                张明
+                {activity.user?.name || ""}
               </div>
               <div className="flex items-center">
                 <Award className="w-4 h-4 mr-1" />
-                +25 积分
+                +{activity.points} 积分
               </div>
             </div>
           </div>
@@ -63,51 +106,20 @@ export default function ActivityDetailPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center">
                     <GitPullRequest className="w-5 h-5 mr-2 text-blue-600" />
-                    GitHub Pull Request 详情
+                    活动描述
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-semibold text-lg">完成了智能错误检测任务</h3>
-                      <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                        #PR-1247
-                      </Badge>
-                    </div>
-                    <p className="text-gray-600 mb-3">
-                      实现了基于机器学习的代码错误检测功能，提升了代码质量检查的准确性和效率。
-                    </p>
-                    <div className="flex items-center space-x-4 text-sm text-gray-500">
-                      <span className="flex items-center">
-                        <GitBranch className="w-4 h-4 mr-1" />
-                        feature/ml-error-detection
-                      </span>
-                      <span className="flex items-center">
-                        <Code className="w-4 h-4 mr-1" />
-                        +247 -89 行
-                      </span>
-                      <span className="flex items-center">
-                        <MessageSquare className="w-4 h-4 mr-1" />3 条评论
-                      </span>
-                    </div>
+                    <h3 className="font-semibold text-lg">{activity.title}</h3>
+                    <p className="text-gray-600 mb-3">{activity.description}</p>
                   </div>
 
                   {/* Code Changes Summary */}
-                  <div className="space-y-3">
-                    <h4 className="font-medium text-gray-900">代码变更摘要</h4>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                        <span className="text-sm font-medium">src/ml/error_detector.py</span>
-                        <span className="text-xs text-green-700">+156 -12</span>
-                      </div>
-                      <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                        <span className="text-sm font-medium">tests/test_error_detector.py</span>
-                        <span className="text-xs text-blue-700">+91 -0</span>
-                      </div>
-                      <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
-                        <span className="text-sm font-medium">docs/error_detection.md</span>
-                        <span className="text-xs text-yellow-700">+0 -77</span>
-                      </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                      <span className="text-sm font-medium">代码总数统计变更</span>
+                      <span className="text-xs text-green-700">+156 -12</span>
                     </div>
                   </div>
                 </CardContent>
@@ -162,19 +174,19 @@ export default function ActivityDetailPage() {
                 <CardContent>
                   <div className="flex items-center space-x-3 mb-4">
                     <Avatar className="w-12 h-12">
-                      <AvatarImage src="/placeholder.svg" />
-                      <AvatarFallback className="bg-blue-100 text-blue-600">张明</AvatarFallback>
+                      <AvatarImage src={userProfileData?.avatar || "/placeholder.svg"} alt={userProfileData?.name || ""} />
+                      <AvatarFallback className="bg-blue-100 text-blue-600">{userProfileData?.name?.charAt(0) || ``}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <div className="font-semibold text-gray-900">张明</div>
-                      <div className="text-sm text-gray-500">高级开发工程师</div>
+                      <div className="font-semibold text-gray-900">{userProfileData?.name || ""}</div>
+                      <div className="text-sm text-gray-500">{userProfileData?.position || ""}</div>
                     </div>
                   </div>
                   <Separator className="my-4" />
                   <div className="space-y-3 text-sm">
-                    <InfoItem label="本月贡献" value="12 次" />
-                    <InfoItem label="累计积分" value="1,247 分" color="blue" />
-                    <InfoItem label="排名" value="#3" color="green" />
+                    <InfoItem label="已完成任务" value={`${userProfileData?.completedTasks ?? 0} 次`} />
+                    <InfoItem label="累计积分" value={`${userProfileData?.points ?? 0} 分`} color="blue" />
+                    <InfoItem label="等级" value={`Lv.${userProfileData?.level ?? 1}`} color="green" />
                   </div>
                 </CardContent>
               </Card>
@@ -205,7 +217,7 @@ export default function ActivityDetailPage() {
                   <Separator className="my-2" />
                   <div className="flex justify-between items-center font-semibold">
                     <span>总计</span>
-                    <span className="text-blue-600">+25</span>
+                    <span className="text-blue-600">+{activity.points}</span>
                   </div>
                 </CardContent>
               </Card>

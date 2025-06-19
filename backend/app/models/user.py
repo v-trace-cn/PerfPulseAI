@@ -31,7 +31,7 @@ class User(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # 关联关系
-    activities = relationship('Activity', backref='user', lazy=True)
+    activities = relationship('Activity', back_populates='user', lazy=True)
     
     def __init__(self, name, email, password=None, department=None, position=None, 
                  phone=None, join_date=None, points=0, level=1, github_url=None, avatar_url=None):

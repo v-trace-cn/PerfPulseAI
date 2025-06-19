@@ -1,13 +1,18 @@
 import os
 import openai
+import json
+from app.core.config import Settings
 
-# 从环境变量中获取 OpenAI API Key
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# 从环境变量或 settings 中获取 OpenAI API Key
+# 如果豆包模型兼容 OpenAI API，可以使用 api_base 和 api_key
+openai.api_key = Settings.DOUBAO_API_KEY or os.getenv("OPENAI_API_KEY")
+if Settings.DOUBAO_API_BASE:
+    openai.api_base = Settings.DOUBAO_API_BASE
 
 
 def analyze_pr_diff(diff_text: str) -> dict:
     """
-    调用 OpenAI API 对 PR diff 文本进行分析和评分，返回包含 score（评分）和 analysis（分析理由）的字典。
+    调用 AI API 对 PR diff 文本进行分析和评分，返回包含 score（评分）和 analysis（分析理由）的字典。
     """
     # 构造提示信息，让模型返回 JSON 格式结果
     prompt = (
@@ -29,7 +34,7 @@ def analyze_pr_diff(diff_text: str) -> dict:
         )
         content = response.choices[0].message.content.strip()
         # 解析 JSON
-        result = openai.util.convert_to_dict(content) if hasattr(openai, 'util') else __import__('json').loads(content)
+        result = json.loads(content)
         return result
     except Exception as e:
         print(f"AI 分析 PR 失败: {e}")

@@ -74,7 +74,7 @@ async def process_pull_request_event(
             if user_github_url:
                 user = db.query(User).filter(User.github_url == user_github_url).first()
                 if not user:
-                    print(f"User with GitHub URL {user_github_url} not found. Creating a new user.")
+                    print(f"User with GitHub URL {user_github_url} not found.")
                     return
                 user_id = user.id
             else:
@@ -107,7 +107,8 @@ async def process_pull_request_event(
 
                 try:
                     if not existing_activity:
-                        activity = Activity(id=pr_node_id, title=pr_title, description=analysis, points=int(score), user_id=user_id, status="completed")
+                        activity = Activity(title=pr_title, description=analysis, points=int(score), user_id=user_id, status="completed")
+                        activity.id = pr_node_id
                         db.add(activity)
                     else:
                         existing_activity.description = analysis

@@ -22,6 +22,12 @@ default_database_url = f"sqlite:///{path_str}"
 print(f"[database] DATABASE_URL = {default_database_url}")
 DATABASE_URL = os.getenv("DATABASE_URL", default_database_url)
 
+if DATABASE_URL and DATABASE_URL.startswith("sqlite"):
+    db_file_path_str = DATABASE_URL.split("///")[1]
+    db_dir = Path(db_file_path_str).parent
+    # 创建目录，如果它不存在的话
+    os.makedirs(db_dir, exist_ok=True)
+
 # 若数据库文件不存在，先创建空文件，避免首次连接时报错
 if not DB_PATH.exists():
     try:
@@ -31,8 +37,7 @@ if not DB_PATH.exists():
 
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {},
-    echo=True
+    connect_args={"check_same_thread": False}
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()

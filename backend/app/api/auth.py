@@ -4,10 +4,12 @@ from dataclasses import dataclass
 from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
+import asyncio
 
 from app.core.database import get_db
 from app.core.security import get_public_key_pem, decrypt_rsa
 from app.models.user import User
+# from app.core.mail import send_email
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -58,6 +60,14 @@ def register(data: dict = Body(...), db: Session = Depends(get_db)):
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+
+    # # 发送欢迎邮件
+    # subject = "欢迎加入 PerfPulseAI！"
+    # body = f"<p>尊敬的 {new_user.name}，</p><p>欢迎您加入 PerfPulseAI！我们很高兴您能成为我们的一员。</p><p>如果您有任何问题，请随时联系我们。</p><p>此致，</p><p>PerfPulseAI 团队</p>"
+    # # 注意：在生产环境中，这里应该使用异步任务队列（如 Celery）来避免阻塞请求
+    # # 但为了演示目的，我们直接调用 await
+    # asyncio.create_task(send_email(subject, [new_user.email], body))
+
     return Response(data={"email": new_user.email, "name": new_user.name, "userId": new_user.id}, message="注册成功")
 
 @router.post("/logout")

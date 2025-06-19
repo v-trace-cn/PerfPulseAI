@@ -21,6 +21,7 @@ class User(Base):
     position = Column(String(100))
     phone = Column(String(20))
     github_url = Column(String(200), unique=True, nullable=True)
+    avatar_url = Column(String(255), nullable=True)
     join_date = Column(Date, default=datetime.utcnow)
     points = Column(Integer, default=0)
     level = Column(Integer, default=1)
@@ -33,7 +34,7 @@ class User(Base):
     activities = relationship('Activity', backref='user', lazy=True)
     
     def __init__(self, name, email, password=None, department=None, position=None, 
-                 phone=None, join_date=None, points=0, level=1, github_url=None):
+                 phone=None, join_date=None, points=0, level=1, github_url=None, avatar_url=None):
         """
         Initialize a new User.
         """
@@ -50,6 +51,7 @@ class User(Base):
         self.completed_tasks = 0
         self.pending_tasks = 0
         self.github_url = github_url
+        self.avatar_url = avatar_url
     
     def set_password(self, password):
         """设置密码哈希"""
@@ -71,6 +73,7 @@ class User(Base):
             "name": self.name,
             "email": self.email,
             "githubUrl": self.github_url,
+            "avatar": self.avatar_url,
             "department": self.department,
             "position": self.position,
             "phone": self.phone,

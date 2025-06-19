@@ -19,7 +19,7 @@ def analyze_pr_diff(diff_text: str) -> dict:
     )
     try:
         response = openai.ChatCompletion.create(
-            model="deepseek",
+            model="doubao",
             messages=[
                 {"role": "system", "content": "你是一个专业的代码审查助手。"},
                 {"role": "user", "content": prompt}

@@ -2,6 +2,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
+from starlette.staticfiles import StaticFiles
 
 # 自动批量注册 api 路由
 import pkgutil
@@ -28,6 +29,9 @@ for _, module_name, _ in pkgutil.iter_modules(api_path):
     if hasattr(module, "router"):
         app.include_router(module.router)
 
+# 添加静态文件服务
+app.mount("/static", StaticFiles(directory="./static"), name="static")
+
 @app.get("/api/health")
 async def health_check():
     return {"status": "ok", "code": 200, "message": "API服务器运行正常"}
@@ -45,13 +49,27 @@ async def favicon():
 async def create_tables():
     # 创建所有表（不包含已存在表的列）
     Base.metadata.create_all(bind=engine)
-    # 确保 users 表包含 github_username 列
+    # 确保 users 表包含 github_url 和 avatar_url 列
     try:
         inspector = inspect(engine)
         columns = [col['name'] for col in inspector.get_columns('users')]
-        if 'github_username' not in columns:
+        # 处理 github_username 到 github_url 的迁移
+        if 'github_username' in columns:
             with engine.connect() as conn:
-                conn.execute(text('ALTER TABLE users ADD COLUMN github_username VARCHAR(100)'))
-    except Exception:
-        # 若添加列失败（如列已存在或不支持），忽略
+                conn.execute(text('ALTER TABLE users DROP COLUMN github_username'))
+                conn.execute(text('ALTER TABLE users ADD COLUMN github_url VARCHAR(200)'))
+                print("Migrated github_username to github_url.")
+        elif 'github_url' not in columns:
+            with engine.connect() as conn:
+                conn.execute(text('ALTER TABLE users ADD COLUMN github_url VARCHAR(200)'))
+                print("Added github_url column.")
+
+        # 添加 avatar_url 列
+        if 'avatar_url' not in columns:
+            with engine.connect() as conn:
+                conn.execute(text('ALTER TABLE users ADD COLUMN avatar_url VARCHAR(255)'))
+                print("Added avatar_url column.")
+
+    except Exception as e:
+        print(f"Database migration failed: {e}") # 打印更详细的错误信息
         pass

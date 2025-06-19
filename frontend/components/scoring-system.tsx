@@ -104,7 +104,6 @@ export function ScoringSystem() {
     }
   }, [objectingScoreId, localScores])
 
-  // 根据活跃标签筛选分数记录
   const filteredScores = activeTab === "all" ? localScores : localScores.filter((score) => score.category === activeTab)
 
   return (

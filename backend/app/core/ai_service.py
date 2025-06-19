@@ -3,11 +3,8 @@ import openai
 import json
 from app.core.config import Settings
 
-# 从环境变量或 settings 中获取 OpenAI API Key
-# 如果豆包模型兼容 OpenAI API，可以使用 api_base 和 api_key
 openai.api_key = Settings.DOUBAO_API_KEY or os.getenv("OPENAI_API_KEY")
-if Settings.DOUBAO_API_BASE:
-    openai.api_base = Settings.DOUBAO_API_BASE
+openai.api_base = Settings.DOUBAO_BASE
 
 
 def analyze_pr_diff(diff_text: str) -> dict:

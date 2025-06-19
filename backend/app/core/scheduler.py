@@ -1,10 +1,13 @@
 import asyncio
 import requests
+from datetime import datetime
 from requests.exceptions import RequestException
 from uuid import uuid4
 from app.core.database import SessionLocal
 from app.models.activity import Activity
 from app.models.scoring import ScoreEntry
+from app.models.pull_request import PullRequest
+from app.models.pull_request_event import PullRequestEvent
 from app.core.ai_service import analyze_pr_diff
 
 async def process_pending_tasks():
@@ -24,10 +27,29 @@ async def process_pending_tasks():
                 result = analyze_pr_diff(diff_text)
                 score = int(result.get("score", 0))
                 analysis = result.get("analysis", "")
+                
+                # 更新 Activity
                 act.description = analysis
                 act.points = score
                 act.status = 'completed'
                 db.add(act)
+
+                # 更新 PullRequest 表
+                pr = db.query(PullRequest).filter(PullRequest.pr_node_id == act.id).first()
+                if pr:
+                    pr.score = score
+                    pr.analysis = analysis
+                    db.add(pr)
+
+                # 创建时间线事件
+                event = PullRequestEvent(
+                    pr_node_id=act.id,
+                    event_type='ai_evaluation',
+                    event_time=datetime.utcnow(),
+                    details=analysis
+                )
+                db.add(event)
+
                 entry = ScoreEntry(
                     id=str(uuid4()), user_id=act.user_id, activity_id=act.id,
                     criteria_id=None, score=score, factors={"analysis": analysis},

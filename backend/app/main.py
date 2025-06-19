@@ -8,10 +8,9 @@ from starlette.staticfiles import StaticFiles
 import pkgutil
 import importlib
 from app.api import __path__ as api_path
-
-from app.core.config import settings
 from app.core.database import engine, Base
-from sqlalchemy import inspect, text  # 新增用于检查和添加列
+from sqlalchemy import inspect, text 
+from app.api import pull_request as pr_router
 
 app = FastAPI(title="PerfPulseAI API")
 
@@ -28,6 +27,7 @@ for _, module_name, _ in pkgutil.iter_modules(api_path):
     module = importlib.import_module(f"app.api.{module_name}")
     if hasattr(module, "router"):
         app.include_router(module.router)
+app.include_router(pr_router.router)
 
 # # 添加静态文件服务
 # app.mount("/static", StaticFiles(directory="./static"), name="static")

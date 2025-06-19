@@ -347,7 +347,7 @@ export default function ClientPage() {
             font-size: calc(1.5rem * var(--font-size-factor));
           }
         `}</style>
-        <div className="flex-1 space-y-6 p-4 md:p-8 dark:bg-gradient-to-b dark:from-background dark:to-background/90">
+        <div className="flex-1 space-y-6 px-4 pb-4 md:px-8 md:pb-8 dark:bg-gradient-to-b dark:from-background dark:to-background/90">
           <div className="shadow-xl rounded-xl overflow-hidden bg-background/50 backdrop-blur-sm border border-black/5 dark:border-primary/20 dark:bg-background/30 dark:shadow-[0_8px_30px_rgba(79,70,229,0.15)]">
             <Dashboard />
           </div>

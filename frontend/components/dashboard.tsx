@@ -345,58 +345,51 @@ export default function Dashboard() {
     }
   }
 
+  // 组件渲染
   return (
-    <div className="flex flex-col min-h-screen w-full">
-      <style jsx global>{`
-        ${fadeInAnimation}
-        ${fadeInSlideUpAnimation}
-        ${pulseAnimation}
-        ${globalStyles}
-      `}</style>
-      <div className="w-full bg-background/95 backdrop-blur-md sticky top-0 z-10 border-b border-primary/10 shadow-sm transition-all duration-300 animate-fadeIn">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center h-16">
-            <div className="flex items-center space-x-2 group">
-              <div className="h-8 w-1 bg-gradient-to-b from-primary to-accent rounded-full transition-all duration-500 group-hover:h-10 group-hover:bg-gradient-to-b group-hover:from-accent group-hover:to-primary"></div>
-              <h2 className="text-lg font-semibold cyber-text relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-gradient-to-r after:from-primary after:to-accent after:transition-all after:duration-500 group-hover:after:w-full">
-                工作台
-              </h2>
-            </div>
+    <div className="h-full px-4 pt-0 pb-6 lg:px-8 lg:pb-10">
+      <style>{globalStyles}</style>
 
-            <Tabs defaultValue="overview" onValueChange={setActiveTab} value={activeTab} className="flex-1 ml-8">
-              <TabsList className="flex justify-center bg-muted/10 backdrop-blur-sm rounded-full border border-primary/5 p-1 shadow-inner">
-                <TabsTrigger
-                  value="overview"
-                  className="flex items-center px-4 py-2 rounded-full data-[state=active]:bg-primary/20 data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all duration-300 hover:bg-muted/30 relative overflow-hidden after:absolute after:inset-0 after:opacity-0 after:bg-gradient-to-r after:from-primary/10 after:to-transparent after:transition-opacity after:duration-500 hover:after:opacity-100"
-                >
-                  <Gauge className="mr-2 h-4 w-4" />
-                  <span>智能概览</span>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="rewards"
-                  className="flex items-center px-4 py-2 rounded-full data-[state=active]:bg-primary/20 data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all duration-300 hover:bg-muted/30 relative overflow-hidden after:absolute after:inset-0 after:opacity-0 after:bg-gradient-to-r after:from-primary/10 after:to-transparent after:transition-opacity after:duration-500 hover:after:opacity-100"
-                >
-                  <Award className="mr-2 h-4 w-4" />
-                  <span>积分系统</span>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="scoring"
-                  className="flex items-center px-4 py-2 rounded-full data-[state=active]:bg-primary/20 data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all duration-300 hover:bg-muted/30 relative overflow-hidden after:absolute after:inset-0 after:opacity-0 after:bg-gradient-to-r after:from-primary/10 after:to-transparent after:transition-opacity after:duration-500 hover:after:opacity-100"
-                >
-                  <ChartBar className="mr-2 h-4 w-4" />
-                  <span>治理机制</span>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="profile"
-                  className="flex items-center px-4 py-2 rounded-full data-[state=active]:bg-primary/20 data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all duration-300 hover:bg-muted/30 relative overflow-hidden after:absolute after:inset-0 after:opacity-0 after:bg-gradient-to-r after:from-primary/10 after:to-transparent after:transition-opacity after:duration-500 hover:after:opacity-100"
-                >
-                  <User className="mr-2 h-4 w-4" />
-                  <span>个人中心</span>
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
+      <div className="flex items-center justify-between space-y-2 mb-6">
+        <div className="flex items-center space-x-2 group">
+          <div className="h-8 w-1 bg-gradient-to-b from-primary to-accent rounded-full transition-all duration-500 group-hover:h-10 group-hover:bg-gradient-to-b group-hover:from-accent group-hover:to-primary"></div>
+          <h2 className="text-lg font-semibold cyber-text relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-gradient-to-r after:from-primary after:to-accent after:transition-all after:duration-500 group-hover:after:w-full">
+            工作台
+          </h2>
         </div>
+
+        <Tabs defaultValue="overview" onValueChange={setActiveTab} value={activeTab} className="flex-1 ml-8">
+          <TabsList className="flex justify-center bg-muted/10 backdrop-blur-sm rounded-full border border-primary/5 p-1 shadow-inner">
+            <TabsTrigger
+              value="overview"
+              className="flex items-center px-4 py-2 rounded-full data-[state=active]:bg-primary/20 data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all duration-300 hover:bg-muted/30 relative overflow-hidden after:absolute after:inset-0 after:opacity-0 after:bg-gradient-to-r after:from-primary/10 after:to-transparent after:transition-opacity after:duration-500 hover:after:opacity-100"
+            >
+              <Gauge className="mr-2 h-4 w-4" />
+              <span>智能概览</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="rewards"
+              className="flex items-center px-4 py-2 rounded-full data-[state=active]:bg-primary/20 data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all duration-300 hover:bg-muted/30 relative overflow-hidden after:absolute after:inset-0 after:opacity-0 after:bg-gradient-to-r after:from-primary/10 after:to-transparent after:transition-opacity after:duration-500 hover:after:opacity-100"
+            >
+              <Award className="mr-2 h-4 w-4" />
+              <span>积分系统</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="scoring"
+              className="flex items-center px-4 py-2 rounded-full data-[state=active]:bg-primary/20 data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all duration-300 hover:bg-muted/30 relative overflow-hidden after:absolute after:inset-0 after:opacity-0 after:bg-gradient-to-r after:from-primary/10 after:to-transparent after:transition-opacity after:duration-500 hover:after:opacity-100"
+            >
+              <ChartBar className="mr-2 h-4 w-4" />
+              <span>治理机制</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="profile"
+              className="flex items-center px-4 py-2 rounded-full data-[state=active]:bg-primary/20 data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all duration-300 hover:bg-muted/30 relative overflow-hidden after:absolute after:inset-0 after:opacity-0 after:bg-gradient-to-r after:from-primary/10 after:to-transparent after:transition-opacity after:duration-500 hover:after:opacity-100"
+            >
+              <User className="mr-2 h-4 w-4" />
+              <span>个人中心</span>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       <main className="space-y-8 max-w-7xl mx-auto flex-grow w-full pb-16">

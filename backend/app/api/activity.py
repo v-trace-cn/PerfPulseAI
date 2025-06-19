@@ -2,11 +2,12 @@
 
 import uuid
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, BackgroundTasks
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
 from app.models.activity import Activity
+from app.core.scheduler import process_pending_tasks
 
 router = APIRouter(prefix="/api/activities", tags=["activity"])
 
@@ -107,6 +108,7 @@ def get_activity_by_show_id(show_id: str, db: Session = Depends(get_db)):
 @router.put("/{activity_id}")
 def update_activity(
     activity_id: str,
+    background_tasks: BackgroundTasks,
     data: dict = Body(...),
     db: Session = Depends(get_db),
 ):
@@ -125,6 +127,8 @@ def update_activity(
             act.completed_at = datetime.utcnow()
     db.commit()
     db.refresh(act)
+    # 触发即时处理所有 pending 任务
+    background_tasks.add_task(process_pending_tasks)
     return {
         "data": act.to_dict(),
         "message": "更新成功",

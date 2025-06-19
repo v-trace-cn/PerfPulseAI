@@ -62,6 +62,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useTheme } from "next-themes"
 import { useApi } from "@/hooks/useApi"
 import Link from "next/link"
+import { TruncatedTextWithTooltip } from "@/components/common/truncated-text-with-tooltip"
 
 // 添加自定义动画
 const fadeInAnimation = `@keyframes fadeIn {
@@ -913,8 +914,8 @@ export default function Dashboard() {
                                   {activity.type === "review" && <MessageSquare className="h-4 w-4 text-purple-500" />}
                                 </div>
                               </div>
-                              <div className="ml-4 space-y-1 flex-1">
-                                <p className="text-sm font-medium leading-none">{activity.title}</p>
+                              <div className="ml-4 space-y-1 flex-1 overflow-hidden">
+                                <TruncatedTextWithTooltip text={activity.title} className="text-sm font-medium leading-none" />
                                 <p className="text-xs text-muted-foreground">{activity.date}</p>
                               </div>
                               <div className="ml-auto font-medium">

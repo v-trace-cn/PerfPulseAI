@@ -141,6 +141,17 @@ export const directUserApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  uploadAvatar: (userId: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return fetchDirectApi<any>(`${BACKEND_API_URL}/api/users/${userId}/upload_avatar`, {
+      method: 'POST',
+      body: formData, // 直接发送 FormData，不要 JSON.stringify
+      headers: { // 移除 Content-Type，让浏览器自动设置 multipart/form-data
+        'Accept': 'application/json',
+      },
+    });
+  },
 };
 
 // Activity API

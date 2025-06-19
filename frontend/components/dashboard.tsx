@@ -2,7 +2,7 @@
 
 import * as React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Overview } from "@/components/overview"
@@ -59,6 +59,7 @@ import { useAuth } from "@/lib/auth-context"
 import { cn } from "@/lib/utils"
 import { directUserApi } from "@/lib/direct-api"
 import { useToast } from "@/hooks/use-toast"
+import { useTheme } from "next-themes"
 
 // 添加自定义动画
 const fadeInAnimation = `@keyframes fadeIn {
@@ -203,6 +204,7 @@ export default function Dashboard() {
   const searchParams = useSearchParams()
   const { user } = useAuth()
   const { toast } = useToast()
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [userData, setUserData] = useState({
     name: user?.name || "",
     department: user?.department || "",
@@ -213,7 +215,7 @@ export default function Dashboard() {
     joinDate: (user as any)?.joinDate || "",
     points: user?.points || 0,
     level: user?.level || 0,
-    avatar: (user as any)?.avatar || "/placeholder.svg?height=128&width=128",
+    avatar: (user as any)?.avatar || "/placeholder-logo.png",
     skills: (user as any)?.skills || [],
     achievements: [
       { id: 1, title: "AI算法优化奖", date: "2023-Q2", icon: "🧠" },
@@ -294,6 +296,7 @@ export default function Dashboard() {
         joinDate: (user as any).joinDate || (user as any).join_date || "",
         points: user.points ?? prev.points,
         level: user.level ?? prev.level,
+        avatar: (user as any).avatar || "/placeholder-logo.png",
       }))
     }
   }, [user])
@@ -305,6 +308,41 @@ export default function Dashboard() {
   const isValidPhone = (phone: string) => {
     // 简单的中国手机号验证（11位数字，1开头）
     return /^1[3-9]\d{9}$/.test(phone)
+  }
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (files && files.length > 0 && user?.id) {
+      const file = files[0]
+      try {
+        const result = await directUserApi.uploadAvatar(String(user.id), file)
+        if (result.success && result.data.avatar) {
+          setUserData((prev) => ({ ...prev, avatar: result.data.avatar }))
+          toast({
+            title: "头像上传成功",
+            description: "您的头像已更新。",
+            variant: "default",
+          })
+        } else {
+          toast({
+            title: "头像上传失败",
+            description: result.message || "请稍后再试。",
+            variant: "destructive",
+          })
+        }
+      } catch (error) {
+        console.error("上传头像时出错:", error)
+        toast({
+          title: "上传错误",
+          description: "上传头像时发生错误，请重试。",
+          variant: "destructive",
+        })
+      }
+    }
   }
 
   return (

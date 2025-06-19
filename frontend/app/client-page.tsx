@@ -8,7 +8,6 @@ import {
   User,
   Settings,
   LogOut,
-  Bell,
   HelpCircle,
   LogIn,
   UserPlus,
@@ -370,16 +369,6 @@ export default function ClientPage() {
                     <Badge className="h-5 ml-1 mr-6 bg-primary/10 text-primary hover:bg-primary/20 border-none">
                       <span className="text-[10px]">{user?.points || 0}分</span>
                     </Badge>
-
-                    {/* 显式的通知指示器 */}
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
-                      <div className="relative">
-                        <Bell className="h-4 w-4 text-primary" />
-                        <span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-red-500 text-[8px] text-white font-bold">
-                          3
-                        </span>
-                      </div>
-                    </div>
                   </>
                 ) : (
                   <>
@@ -812,7 +801,22 @@ export default function ClientPage() {
                       document.getElementById("notifications")?.scrollIntoView({ behavior: "smooth" })
                     }}
                   >
-                    <Bell className="mr-2 h-4 w-4" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="mr-2"
+                    >
+                      <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                      <circle cx="12" cy="16" r="1" />
+                    </svg>
                     通知
                   </a>
                   <a
@@ -1072,7 +1076,22 @@ export default function ClientPage() {
               <section id="notifications" className="scroll-mt-4">
                 <div className="border-b pb-2 mb-4">
                   <h3 className="text-lg font-medium flex items-center">
-                    <Bell className="mr-2 h-5 w-5 text-primary" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="mr-2 text-primary"
+                    >
+                      <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                      <circle cx="12" cy="16" r="1" />
+                    </svg>
                     通知设置
                   </h3>
                 </div>

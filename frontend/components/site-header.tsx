@@ -12,9 +12,10 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Bell, HelpCircle, LogIn, LogOut, Settings, User, UserPlus } from "lucide-react"
+import { HelpCircle, LogIn, LogOut, Settings, User, UserPlus, Search, LayoutGrid } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { useState } from "react"
+import { Input } from "@/components/ui/input"
 
 export default function SiteHeader() {
   const { user, isAuthenticated, logout } = useAuth()
@@ -32,6 +33,15 @@ export default function SiteHeader() {
           </h1>
         </div>
         <div className="flex items-center gap-4">
+          <div className="relative">
+            <Input
+              type="text"
+              placeholder="Search..."
+              className="pl-8 pr-2 w-48 border-primary/20 focus-visible:ring-primary focus-visible:ring-offset-0"
+            />
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          </div>
+          <LayoutGrid className="h-5 w-5 text-primary cursor-pointer hover:opacity-80 transition-opacity" />
           <ThemeToggle />
           <DropdownMenu>
             <DropdownMenuTrigger className="flex items-center gap-2 data-pill hover:bg-muted/50 transition-colors relative pr-14 pl-3 py-1.5 ml-2">
@@ -48,16 +58,8 @@ export default function SiteHeader() {
                     <span className="text-[10px] text-muted-foreground">{user?.department || user?.email || "未知部门"}</span>
                   </div>
                   <Badge className="h-5 ml-1 mr-6 bg-primary/10 text-primary hover:bg-primary/20 border-none">
-                    <span className="text-[10px]">{user?.points || 0}分</span>
+                    <span className="text-[10px]">Lv. {user?.level || '1'}</span>
                   </Badge>
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
-                    <div className="relative">
-                      <Bell className="h-4 w-4 text-primary" />
-                      <span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-red-500 text-[8px] text-white font-bold">
-                        3
-                      </span>
-                    </div>
-                  </div>
                 </>
               ) : (
                 <>

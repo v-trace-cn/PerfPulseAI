@@ -4,6 +4,7 @@ import hashlib
 import requests
 import os
 import json
+import asyncio
 
 from uuid import uuid4
 from typing import Optional
@@ -46,6 +47,91 @@ async def verify_signature(request: Request, github_signature: str):
         raise HTTPException(status_code=403, detail="Signature verification failed")
 
 
+async def process_pull_request_event(
+    payload: dict, unique_id: str, file_path: str, db: Session
+):
+    """
+    异步处理 pull_request 事件的详细逻辑，包括 AI 分析和数据库操作。
+    """
+    action = payload.get("action")
+    pull_request = payload.get("pull_request")
+    repository = payload.get("repository")
+    repo_name = repository.get("full_name")
+
+    if pull_request and repository:
+        pr_number = pull_request.get("number")
+        pr_title = pull_request.get("title")
+        user_login = pull_request.get("user", {})
+        user_github_url = user_login.get("html_url")
+
+        print(f"  Repo: {repo_name}")
+        print(f"  PR #{pr_number}: '{pr_title}' - Action: {action}")
+        print(f"  user: {user_github_url}")
+
+        user = None
+        if user_github_url:
+            user = db.query(User).filter(User.github_url == user_github_url).first()
+            if not user:
+                print(f"User with GitHub URL {user_github_url} not found. Skipping PR processing.")
+                return 
+            user_id = user.id
+        else:
+            print("GitHub user URL not found in payload. Skipping PR processing.")
+            return
+
+        # AI 分析与评分
+        if action in ["opened", "synchronize"]:
+            # 获取 PR diff 内容
+            diff_url = pull_request.get("diff_url")
+            diff_resp = requests.get(diff_url, headers={"Accept": "application/vnd.github.v3.diff"})
+            diff_text = diff_resp.text
+            # 调用 AI 分析 diff
+            # ai_result = analyze_pr_diff(diff_text) # 启用真正的 AI 分析
+            ai_result = {"score":100, "analysis": "test TEST"}
+            score = ai_result.get("score", 0)
+            analysis = ai_result.get("analysis", "")
+            # 构造活动记录并保存
+            pr_node_id = pull_request.get("node_id") or str(pull_request.get("id"))
+
+            if unique_id != pr_node_id:
+                old_file_path = file_path
+                file_path = os.path.join("pr_results", f"{pr_node_id}.json")
+                os.rename(old_file_path, file_path)
+                print(f"    Renamed payload file to {file_path}")
+            
+            pr_title = pull_request.get("title")
+            existing_activity = db.query(Activity).filter(Activity.id == pr_node_id).first()
+            
+            try:
+                if not existing_activity:
+                    activity = Activity(id=pr_node_id, title=pr_title, description=analysis, points=int(score), user_id=user_id, status="completed")
+                    db.add(activity)
+                else:
+                    existing_activity.description = analysis
+                    existing_activity.points = int(score)
+                    existing_activity.status = "completed"
+                db.commit()
+                print(f"    Activity for PR #{pr_number} saved/updated successfully.")
+            except Exception as e:
+                db.rollback()
+                print(f"    Error saving/updating activity for PR #{pr_number}: {e}")
+
+            # 记录评分条目
+            try:
+                entry = ScoreEntry(id=str(uuid4()), user_id=user_id, activity_id=pr_node_id, criteria_id=None, score=int(score), factors={"analysis": analysis}, notes="AI 自动评分")
+                db.add(entry)
+                db.commit()
+                print(f"    Score entry for PR #{pr_number} saved successfully.")
+            except Exception as e:
+                db.rollback()
+                print(f"    Error saving score entry for PR #{pr_number}: {e}")
+
+            print(f"    AI scored PR #{pr_number}: {score}")
+
+    else:
+        print("  Received pull_request event but missing pull_request or repository data.")
+
+
 @router.post("/github")
 async def github_webhook_receiver(
     request: Request,
@@ -77,84 +163,14 @@ async def github_webhook_receiver(
     print(f"    Webhook payload written to {file_path}")
 
     if x_github_event == "pull_request":
-        action = payload.get("action")
-        pull_request = payload.get("pull_request")
-        repository = payload.get("repository")
-        repo_name = repository.get("full_name")
+        # 异步处理 PR 事件，不阻塞主线程
+        asyncio.create_task(process_pull_request_event(payload, unique_id, file_path, db))
 
-        if pull_request and repository:
-            pr_number = pull_request.get("number")
-            pr_title = pull_request.get("title")
-            user_login = pull_request.get("user", {})
-
-            print(f"  Repo: {repo_name}")
-            print(f"  PR #{pr_number}: '{pr_title}' - Action: {action}")
-            print(f"  user: {user_login}")
-
-            user_github_url = user_login.get("html_url")
-            user = None
-            if user_github_url:
-                user = db.query(User).filter(User.github_url == user_github_url).first()
-                user_id = user.id 
-            if not user:
-                return Response(status_code=201, content=f"Invalied PR.")
-
-            # AI 分析与评分
-            if action in ["opened", "synchronize"]:
-                # 获取 PR diff 内容
-                diff_url = pull_request.get("diff_url")
-                diff_resp = requests.get(diff_url, headers={"Accept": "application/vnd.github.v3.diff"})
-                diff_text = diff_resp.text
-                # 调用 AI 分析 diff
-                # ai_result = analyze_pr_diff(diff_text)
-                ai_result = {"score": 0, "analysis": "test ai result"}
-                score = ai_result.get("score", 0)
-                analysis = ai_result.get("analysis", "")
-                # 构造活动记录并保存
-                pr_node_id = pull_request.get("node_id") or str(pull_request.get("id"))
-                # 更新文件名为 PR 的 node_id，如果文件已经用 unique_id 创建
-                # 注意：这里如果文件已经写入，只是更新文件名，内容不会变
-                # 如果需要内容也更新，则需要重新写入文件
-                if unique_id != pr_node_id:
-                    old_file_path = file_path
-                    file_path = os.path.join(file_dir, f"{pr_node_id}.json")
-                    os.rename(old_file_path, file_path)
-                    print(f"    Renamed payload file to {file_path}")
-                
-                pr_title = pull_request.get("title")
-                existing_activity = db.query(Activity).filter(Activity.id == pr_node_id).first()
-                
-                try:
-                    if not existing_activity:
-                        activity = Activity(id=pr_node_id, title=pr_title, description=analysis, points=int(score), user_id=user_id, status="completed")
-                        db.add(activity)
-                    else:
-                        existing_activity.description = analysis
-                        existing_activity.points = int(score)
-                        existing_activity.status = "completed"
-                    db.commit()
-                    print(f"    Activity for PR #{pr_number} saved/updated successfully.")
-                except Exception as e:
-                    db.rollback()
-                    print(f"    Error saving/updating activity for PR #{pr_number}: {e}")
-
-                # 记录评分条目
-                try:
-                    entry = ScoreEntry(id=str(uuid4()), user_id=user_id, activity_id=pr_node_id, criteria_id=None, score=int(score), factors={"analysis": analysis}, notes="AI 自动评分")
-                    db.add(entry)
-                    db.commit()
-                    print(f"    Score entry for PR #{pr_number} saved successfully.")
-                except Exception as e:
-                    db.rollback()
-                    print(f"    Error saving score entry for PR #{pr_number}: {e}")
-
-                print(f"    AI scored PR #{pr_number}: {score}")
-
-        else:
-            print("  Received pull_request event but missing pull_request or repository data.")
     elif x_github_event == "ping":
         # GitHub 在设置 Webhook 后会发送一个 "ping" 事件来测试连接
         print(" Successfully received ping event from GitHub!")
     else:
         print(f"  Unhandled event type: {x_github_event}")
+
+    # GitHub 期望你的服务器返回 200 OK 状态码
     return Response(status_code=200)

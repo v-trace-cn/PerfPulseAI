@@ -17,4 +17,15 @@ class Settings:
     GITHUB_PRIVATE_KEY_PATH: str= os.getenv("GITHUB_PRIVATE_KEY_PATH")
     DATABASE_URL = os.getenv("DATABASE_URL")
 
+    # Email settings
+    MAIL_USERNAME: str = os.getenv("MAIL_USERNAME")
+    MAIL_PASSWORD: str = os.getenv("MAIL_PASSWORD")
+    MAIL_FROM: str = os.getenv("MAIL_FROM")
+    MAIL_PORT: int = int(os.getenv("MAIL_PORT", 587))  # 默认 SMTP 端口
+    MAIL_SERVER: str = os.getenv("MAIL_SERVER")
+    MAIL_TLS: bool = os.getenv("MAIL_TLS", "True").lower() == "true"
+    MAIL_SSL: bool = os.getenv("MAIL_SSL", "False").lower() == "true"
+    USE_CREDENTIALS: bool = os.getenv("USE_CREDENTIALS", "True").lower() == "true"
+    VALIDATE_CERTS: bool = os.getenv("VALIDATE_CERTS", "True").lower() == "true"
+
 settings = Settings()

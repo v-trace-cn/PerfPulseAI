@@ -5,6 +5,7 @@ import requests
 import os
 import json
 import asyncio
+from datetime import datetime
 
 from uuid import uuid4
 from typing import Optional
@@ -17,6 +18,8 @@ from app.models.activity import Activity
 from app.models.scoring import ScoreEntry
 from app.core.config import Settings
 from app.models.user import User
+from app.models.pull_request import PullRequest
+from app.models.pull_request_event import PullRequestEvent
 from app.core.scheduler import process_pending_tasks
 
 router = APIRouter(prefix="/api/webhook", tags=["webhook"])
@@ -48,6 +51,12 @@ async def verify_signature(request: Request, github_signature: str):
         raise HTTPException(status_code=403, detail="Signature verification failed")
 
 
+def parse_datetime(datetime_str: Optional[str]) -> Optional[datetime]:
+    if not datetime_str:
+        return None
+    return datetime.fromisoformat(datetime_str.replace('Z', '+00:00'))
+
+
 async def process_pull_request_event(
     payload: dict, unique_id: str
 ):
@@ -62,6 +71,7 @@ async def process_pull_request_event(
         repo_name = repository.get("full_name")
 
         if pull_request and repository:
+            pr_node_id = pull_request.get("node_id") or str(pull_request.get("id"))
             pr_number = pull_request.get("number")
             pr_title = pull_request.get("title")
             user_login = pull_request.get("user", {})
@@ -86,15 +96,42 @@ async def process_pull_request_event(
                 print("GitHub user URL not found in payload. Skipping PR processing.")
                 return
 
-            # 将 PR 任务标记为待处理，仅保存 diff_url
+            # 当 PR 打开或同步时，创建或更新 PR 详情
             if action in ["opened", "synchronize", "reopened"]:
+                pr = db.query(PullRequest).filter(PullRequest.pr_node_id == pr_node_id).first()
+                if not pr:
+                    pr = PullRequest(
+                        pr_node_id=pr_node_id,
+                        pr_number=pr_number,
+                        repository=repo_name,
+                        author=user_login.get("login")
+                    )
+                    db.add(pr)
+                
+                # 更新字段
+                pr.title = pr_title
+                pr.commit_sha = pull_request.get("head", {}).get("sha")
+                pr.created_at = parse_datetime(pull_request.get("created_at"))
+                pr.updated_at = parse_datetime(pull_request.get("updated_at"))
+
+                # 如果是 opened 事件，创建时间线事件
+                if action == "opened":
+                    event = PullRequestEvent(
+                        pr_node_id=pr_node_id,
+                        event_type='opened',
+                        event_time=pr.created_at,
+                        details=f"PR #{pr_number} by {pr.author} opened."
+                    )
+                    db.add(event)
+                
+                db.commit()
+
+                # 将分析任务放入队列
                 diff_url = pull_request.get("diff_url")
-                pr_node_id = pull_request.get("node_id") or str(pull_request.get("id"))
-                pr_title = pull_request.get("title")
                 existing_activity = db.query(Activity).filter(Activity.id == pr_node_id).first()
                 try:
                     if not existing_activity:
-                        activity = Activity(title=pr_title, description=None, points=0, user_id=user_id, status="pending")
+                        activity = Activity(title=pr_title, description=None, points=0, user_id=user.id, status="pending")
                         activity.id = pr_node_id
                         activity.diff_url = diff_url
                         db.add(activity)
@@ -103,13 +140,63 @@ async def process_pull_request_event(
                         existing_activity.diff_url = diff_url
                     db.commit()
                     print(f"    Pending task for PR #{pr_number} saved/updated successfully.")
-                    # 触发即时处理所有 pending 任务
                     asyncio.create_task(process_pending_tasks())
                 except Exception as e:
                     db.rollback()
                     print(f"    Error saving/updating pending task for PR #{pr_number}: {e}")
+
+            # 当 PR 关闭时
+            elif action == "closed":
+                if pull_request.get("merged"):
+                    pr = db.query(PullRequest).filter(PullRequest.pr_node_id == pr_node_id).first()
+                    if pr:
+                        pr.merged_at = parse_datetime(pull_request.get("merged_at"))
+                        event = PullRequestEvent(
+                            pr_node_id=pr_node_id,
+                            event_type='merged',
+                            event_time=pr.merged_at,
+                            details=f"PR #{pr_number} merged."
+                        )
+                        db.add(event)
+                        db.commit()
         else:
             print("  Received pull_request event but missing pull_request or repository data.")
+    finally:
+        db.close()
+
+
+async def process_pull_request_review_event(payload: dict):
+    """处理 PR 审查事件"""
+    db = SessionLocal()
+    try:
+        action = payload.get("action")
+        review = payload.get("review")
+        pull_request = payload.get("pull_request")
+        
+        # 我们只关心审查被提交且状态为"通过"的事件
+        if action == "submitted" and review and review.get("state") == "approved":
+            pr_node_id = pull_request.get("node_id")
+            
+            # 检查是否已存在相同的通过事件，防止重复记录
+            existing_event = db.query(PullRequestEvent).filter(
+                PullRequestEvent.pr_node_id == pr_node_id,
+                PullRequestEvent.event_type == 'review_passed'
+            ).first()
+
+            if not existing_event:
+                event = PullRequestEvent(
+                    pr_node_id=pr_node_id,
+                    event_type='review_passed',
+                    event_time=parse_datetime(review.get("submitted_at")),
+                    details=f"Code review approved by {review.get('user', {}).get('login')}."
+                )
+                db.add(event)
+                db.commit()
+                print(f"  PR {pull_request.get('number')} review approved event saved.")
+
+    except Exception as e:
+        db.rollback()
+        print(f"Error processing pull request review event: {e}")
     finally:
         db.close()
 
@@ -139,6 +226,9 @@ async def github_webhook_receiver(
     if x_github_event == "pull_request":
         # 异步处理 PR 事件，不阻塞主线程
         asyncio.create_task(process_pull_request_event(payload, unique_id))
+    
+    elif x_github_event == "pull_request_review":
+        asyncio.create_task(process_pull_request_review_event(payload))
 
     elif x_github_event == "ping":
         # GitHub 在设置 Webhook 后会发送一个 "ping" 事件来测试连接

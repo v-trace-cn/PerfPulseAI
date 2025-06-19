@@ -76,6 +76,7 @@ async def process_pull_request_event(
             pr_title = pull_request.get("title")
             user_login = pull_request.get("user", {})
             user_github_url = user_login.get("html_url")
+            title = f"{repo_name}-#{pr_number}-{pr_title}"
 
             print(f"  Repo: {repo_name}")
             print(f"  PR #{pr_number}: '{pr_title}' - Action: {action}")
@@ -131,7 +132,7 @@ async def process_pull_request_event(
                 existing_activity = db.query(Activity).filter(Activity.id == pr_node_id).first()
                 try:
                     if not existing_activity:
-                        activity = Activity(title=pr_title, description=None, points=0, user_id=user.id, status="pending")
+                        activity = Activity(title=title, description=None, points=0, user_id=user.id, status="pending")
                         activity.id = pr_node_id
                         activity.diff_url = diff_url
                         db.add(activity)

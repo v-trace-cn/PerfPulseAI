@@ -7,6 +7,7 @@ import uuid
 from sqlalchemy import Column, String, Text, Integer, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from app.core.database import Base
+from app.models.user import User
 
 class Activity(Base):
     """Activity model representing an activity in the system."""
@@ -18,6 +19,8 @@ class Activity(Base):
     description = Column(Text, nullable=True)
     points = Column(Integer, default=0)
     user_id = Column(Integer, ForeignKey('users.id'))
+    # 关联到 User 模型，需要与 User.activities 的 back_populates 对应
+    user = relationship('User', back_populates='activities')
     status = Column(String(20), default='pending')
     created_at = Column(DateTime, default=datetime.utcnow)
     completed_at = Column(DateTime, nullable=True)
@@ -61,6 +64,14 @@ class Activity(Base):
         Returns:
             dict: Dictionary representation of the activity
         """
+        user_data = None
+        if self.user:
+            user_data = {
+                "name": self.user.name,
+                "avatar": self.user.avatar_url,
+                "initials": self.user.name[0] if self.user.name else "无",
+            }
+        
         return {
             "id": self.id,
             "show_id": self.show_id,
@@ -71,7 +82,8 @@ class Activity(Base):
             "status": self.status,
             "created_at": self.created_at.isoformat() if isinstance(self.created_at, datetime) else self.created_at,
             "completed_at": self.completed_at.isoformat() if isinstance(self.completed_at, datetime) else self.completed_at,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "user": user_data
         }
     
     @classmethod

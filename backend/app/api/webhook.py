@@ -48,7 +48,7 @@ async def verify_signature(request: Request, github_signature: str):
 
 
 async def process_pull_request_event(
-    payload: dict, unique_id: str, file_path: str
+    payload: dict, unique_id: str
 ):
     """
     异步处理 pull_request 事件的详细逻辑，包括 AI 分析和数据库操作。
@@ -72,7 +72,11 @@ async def process_pull_request_event(
 
             user = None
             if user_github_url:
+                # Strip whitespace to avoid mismatch issues
+                user_github_url = user_github_url.strip()
                 user = db.query(User).filter(User.github_url == user_github_url).first()
+                print(f"Query result for user: {user}") # Added for debugging
+
                 if not user:
                     print(f"User with GitHub URL {user_github_url} not found.")
                     return
@@ -94,13 +98,6 @@ async def process_pull_request_event(
                 analysis = ai_result.get("analysis", "")
                 # 构造活动记录并保存
                 pr_node_id = pull_request.get("node_id") or str(pull_request.get("id"))
-
-                if unique_id != pr_node_id:
-                    old_file_path = file_path
-                    file_path = os.path.join("pr_results", f"{pr_node_id}.json")
-                    if os.path.exists(old_file_path):
-                        os.rename(old_file_path, file_path)
-                        print(f"    Renamed payload file to {file_path}")
 
                 pr_title = pull_request.get("title")
                 existing_activity = db.query(Activity).filter(Activity.id == pr_node_id).first()
@@ -160,16 +157,9 @@ async def github_webhook_receiver(
     # 对于 pull_request 事件，后续会尝试使用 PR 的 node_id。
     unique_id = str(uuid4())
 
-    file_dir = "pr_results"
-    os.makedirs(file_dir, exist_ok=True)
-    file_path = os.path.join(file_dir, f"{unique_id}.json")
-    with open(file_path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=2)
-    print(f"    Webhook payload written to {file_path}")
-
     if x_github_event == "pull_request":
         # 异步处理 PR 事件，不阻塞主线程
-        asyncio.create_task(process_pull_request_event(payload, unique_id, file_path))
+        asyncio.create_task(process_pull_request_event(payload, unique_id))
 
     elif x_github_event == "ping":
         # GitHub 在设置 Webhook 后会发送一个 "ping" 事件来测试连接

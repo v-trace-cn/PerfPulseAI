@@ -170,6 +170,14 @@ export const directActivityApi = {
     ),
 };
 
+// Pull Request API
+export const directPrApi = {
+  analyzePr: (prNodeId: string) =>
+    fetchDirectApi<{ message: string; analysis_result: any }>(`${BACKEND_API_URL}/api/pr/${prNodeId}/analyze`, {
+      method: 'POST',
+    }),
+};
+
 // Reward API
 export const directRewardApi = {
   getRewards: (token: string) => 

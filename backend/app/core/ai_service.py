@@ -39,7 +39,6 @@ def analyze_pr_diff(diff_text: str) -> dict:
         )
 
         completion = client.chat.completions.create(
-            # 将推理接入点 <Model>替换为 Model ID
             model=DOUBAO_MODEL,
             messages=[
                 {"role": "system", "content": "你是一个专业的代码审查助手。"},

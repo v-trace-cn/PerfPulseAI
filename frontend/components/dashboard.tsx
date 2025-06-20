@@ -479,7 +479,7 @@ export default function Dashboard() {
                   <div className="flex items-center justify-between mt-2 text-xs">
                     <span className="flex items-center">
                       <Users className="h-3.5 w-3.5 text-purple-500 mr-1" />
-                      团队加分: <span className="text-purple-500 font-medium ml-1">+28</span>
+                      团队加分: <span className="text-purple-500 font-medium ml-1"></span>
                     </span>
                     <span className="text-muted-foreground">本周新增</span>
                   </div>

@@ -18,7 +18,6 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = React.useReducer(reducer, { toasts: [] })
 
   React.useEffect(() => {
-    console.log("ToastProvider State Updated:", state.toasts);
   }, [state.toasts]);
 
   const toast = React.useCallback((props: Omit<ToasterToast, "id">) => {
@@ -71,7 +70,6 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
 export function useToastContext() {
   const context = React.useContext(ToastContext)
-  console.log("useToastContext: Context value received:", context);
   if (context === undefined) {
     throw new Error("useToastContext must be used within a ToastProvider")
   }

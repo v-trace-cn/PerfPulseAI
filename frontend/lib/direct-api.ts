@@ -10,7 +10,6 @@ const NEXTJS_API_URL = BACKEND_API_URL;
 // Generic fetch function with error handling and detailed logging
 async function fetchDirectApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = endpoint.startsWith('http') ? endpoint : `${NEXTJS_API_URL}${endpoint}`;
-  console.log(`Making direct API request to: ${url}`);
   
   try {
     const response = await fetch(url, {
@@ -22,17 +21,14 @@ async function fetchDirectApi<T>(endpoint: string, options: RequestInit = {}): P
       },
     });
 
-    console.log(`Response status from ${endpoint}:`, response.status);
-
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       console.error(`API error from ${endpoint}:`, errorData);
-      const errorMessage = errorData.message || errorData.error || `u670du52a1u5668u9519u8bef: ${response.status}`;
+      const errorMessage = errorData.message || errorData.error || `服务器错误: ${response.status}`;
       throw new Error(errorMessage);
     }
 
     const data = await response.json();
-    console.log(`Successful response from ${endpoint}:`, data);
     return data;
   } catch (error) {
     console.error(`API request to ${endpoint} failed:`, error);

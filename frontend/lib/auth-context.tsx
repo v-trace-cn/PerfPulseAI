@@ -65,12 +65,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      console.log('Attempting login with:', { email });
       const response = await directAuthApi.login(email, password);
-      console.log('Login response:', response);
       
       if (!response.success) {
-        throw new Error(response.message || '\u767b\u5f55\u5931\u8d25');
+        throw new Error(response.message || '登录失败');
       }
       
       // Store user ID as token since backend uses sessions
@@ -91,12 +89,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           });
         }
       } else {
-        throw new Error('\u767b\u5f55\u6210\u529f\uff0c\u4f46\u672a\u8fd4\u56de\u7528\u6237ID');
+        throw new Error('登录成功但未返回用户ID');
       }
       return true;
     } catch (err: any) {
       console.error('Login error:', err);
-      setError(err.message || '\u767b\u5f55\u5931\u8d25\uff0c\u8bf7\u68c0\u67e5\u60a8\u7684\u51ed\u636e');
+      setError(err.message || '登录失败，请检查您的输入');
       return false;
     } finally {
       setIsLoading(false);
@@ -108,12 +106,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      console.log('Attempting registration with:', { email, name: name || email.split('@')[0] });
       const response = await directAuthApi.register(email, password, name || email.split('@')[0]);
-      console.log('Registration response:', response);
       
       if (!response.success) {
-        throw new Error(response.message || '\u6ce8\u518c\u5931\u8d25');
+        throw new Error(response.message || '注册失败');
       }
       
       // Store user ID as token since backend uses sessions
@@ -130,12 +126,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser({ id: response.data.userId, email, name: name || email.split('@')[0] });
         }
       } else {
-        throw new Error('\u6ce8\u518c\u6210\u529f\uff0c\u4f46\u672a\u8fd4\u56de\u7528\u6237ID');
+        throw new Error('注册成功但未返回用户ID');
       }
       return true;
     } catch (err: any) {
       console.error('Registration error:', err);
-      setError(err.message || '\u6ce8\u518c\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u518d\u8bd5');
+      setError(err.message || '注册失败，请稍后再试');
       return false;
     } finally {
       setIsLoading(false);

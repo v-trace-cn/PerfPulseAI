@@ -3,7 +3,6 @@ import { backendUrl } from '../../../lib/config/server-api-config';
 
 export async function GET() {
   const testUrl = `${backendUrl}/api/health`;
-  console.log(`正在测试后端连接: ${testUrl}`);
 
   try {
     // 测试性请求，添加详细日志
@@ -14,14 +13,11 @@ export async function GET() {
       }
     });
 
-    console.log(`后端响应状态: ${response.status}`);
-    
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
 
     const data = await response.json();
-    console.log('后端健康检查响应:', data);
     
     return NextResponse.json(data, {
       headers: {
@@ -29,12 +25,6 @@ export async function GET() {
       }
     });
   } catch (error) {
-    console.error('连接测试失败:', {
-      error: (error as Error).message,
-      attemptedUrl: testUrl,
-      timestamp: new Date().toISOString()
-    });
-    
     return NextResponse.json(
       {
         success: false,

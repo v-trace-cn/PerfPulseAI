@@ -17,10 +17,8 @@ export default function ApiTestPage() {
     try {
       const response = await directAuthApi.checkHealth();
       setHealthStatus(response);
-      console.log('Health response:', response);
     } catch (err: any) {
       setError(`健康检查失败: ${err.message || String(err)}`);
-      console.error('Health check error:', err);
     } finally {
       setLoading(null);
     }
@@ -32,17 +30,14 @@ export default function ApiTestPage() {
     try {
       const response = await directAuthApi.login('test@example.com', 'password123');
       setLoginResponse(response);
-      console.log('Login response:', response);
       
       if (response.success && response.data && response.data.userId) {
         // Try to get user profile
         const userData = await directUserApi.getProfile(response.data.userId);
         setUserResponse(userData);
-        console.log('User data:', userData);
       }
     } catch (err: any) {
       setError(`登录测试失败: ${err.message || String(err)}`);
-      console.error('Login test error:', err);
     } finally {
       setLoading(null);
     }
@@ -58,18 +53,16 @@ export default function ApiTestPage() {
         `Test User ${Date.now()}`
       );
       setRegisterResponse(response);
-      console.log('Register response:', response);
       
       if (response.success && response.data && response.data.userId) {
         // Try to get user profile
         const userData = await directUserApi.getProfile(response.data.userId);
         setUserResponse(userData);
-        console.log('User data:', userData);
       }
     } catch (err: any) {
       setError(`注册测试失败: ${err.message || String(err)}`);
-      console.error('Register test error:', err);
-    } finally {
+    }
+    finally {
       setLoading(null);
     }
   };

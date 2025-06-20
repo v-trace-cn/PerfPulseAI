@@ -12,7 +12,6 @@ import {
 
 export function Toaster() {
   const { toasts } = useToast()
-  console.log("Toaster rendering, current toasts:", toasts);
 
   return (
     <ToastProvider>

@@ -62,7 +62,6 @@ export default function ActivityDetailPage() {
   }, [activity, fetchUserProfile])
 
   const handleAnalyzeClick = async () => {
-    console.log("handleAnalyzeClick triggered");
     if (!activityId) return;
 
     if (activity?.status === 'analyzed' || activity?.status === 'completed') {
@@ -96,14 +95,11 @@ export default function ActivityDetailPage() {
   };
 
   const handleCalculatePointsClick = async () => {
-    console.log("handleCalculatePointsClick triggered");
     if (!activityId) {
-      console.log("handleCalculatePointsClick: activityId is missing.");
       return;
     }
 
     if (activity?.status === "completed") {
-      console.log("handleCalculatePointsClick: Activity status is completed.");
       toast({
         title: "积分已授予",
         description: "该活动的积分已经计算并授予，无需重复操作。",
@@ -112,7 +108,6 @@ export default function ActivityDetailPage() {
     }
     
     if (!activity?.ai_analysis) {
-      console.log("handleCalculatePointsClick: AI analysis data is missing.");
       toast({
         title: "缺少分析结果",
         description: "请先点击上方的'获取 AI 评分'按钮，待分析完成后再计算积分。",

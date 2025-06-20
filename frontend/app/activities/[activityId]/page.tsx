@@ -26,7 +26,7 @@ import { ArrowLeft } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useApi } from "@/hooks/useApi"
 import { directActivityApi, directUserApi, directPrApi } from "@/lib/direct-api"
-import { toast } from "@/components/ui/use-toast"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function ActivityDetailPage() {
   const params = useParams()
@@ -36,6 +36,8 @@ export default function ActivityDetailPage() {
   const { execute: triggerAnalysis, isLoading: isAnalyzing, error: analysisError } = useApi(directPrApi.analyzePr)
   const { execute: triggerPointCalculation, isLoading: isCalculatingPoints, error: calculationError } = useApi(directPrApi.calculatePrPoints)
   
+  const { toast } = useToast();
+
   const [activity, setActivity] = useState<any | null>(null)
   const [userProfileData, setUserProfileData] = useState<any | null>(null)
 
@@ -60,54 +62,104 @@ export default function ActivityDetailPage() {
   }, [activity, fetchUserProfile])
 
   const handleAnalyzeClick = async () => {
+    console.log("handleAnalyzeClick triggered");
     if (!activityId) return;
-    toast({ title: "AI 评分", description: "正在触发 AI 评分..." });
+
+    if (activity?.status === 'analyzed' || activity?.status === 'completed') {
+        toast({
+            title: "评分已存在",
+            description: "该活动的 AI 评分已完成，您可直接计算积分。",
+        });
+        return;
+    }
+
+    toast({ title: "正在获取 AI 评分", description: "请求已发送，AI 正在分析中，请稍候..." });
     try {
       const res = await triggerAnalysis(activityId);
       if (res && res.message) {
-        toast({ title: "AI 评分", description: res.message, variant: "default" });
-        // 重新获取活动数据以显示最新评分 (仅更新分析结果)
-        fetchActivity(activityId).then((res: any) => {
-          if (res && res.success) {
-            setActivity(res.data);
+        toast({
+            title: "🎉 AI 评分完成！",
+            description: "AI 已完成评分，您现在可以查看评价详情或计算积分了。",
+        });
+        fetchActivity(activityId).then((refreshedRes: any) => {
+          if (refreshedRes && refreshedRes.success) {
+            setActivity(refreshedRes.data);
           }
         });
       } else {
-        toast({ title: "AI 评分失败", description: "未知错误", variant: "destructive" });
+        toast({ title: "AI 评分失败", description: "收到未知响应，请稍后重试。", variant: "destructive" });
       }
     } catch (err: any) {
-      toast({ title: "AI 评分失败", description: err.message || "服务器错误", variant: "destructive" });
+      toast({ title: "AI 评分失败", description: err.message || "连接服务器失败，请稍后重试。", variant: "destructive" });
       console.error("AI analysis error:", err);
     }
   };
 
   const handleCalculatePointsClick = async () => {
-    if (!activityId) return;
-    if (activity?.status === "completed") {
-      toast({ title: "积分计算", description: "该活动积分已计算，不能重复计算。" });
-      return;
-    }
-    if (!activity?.ai_analysis?.overall_score) {
-      toast({ title: "积分计算失败", description: "请先进行 AI 评价以获取分析结果。", variant: "destructive" });
+    console.log("handleCalculatePointsClick triggered");
+    if (!activityId) {
+      console.log("handleCalculatePointsClick: activityId is missing.");
       return;
     }
 
-    toast({ title: "积分计算", description: "正在计算并授予积分..." });
+    if (activity?.status === "completed") {
+      console.log("handleCalculatePointsClick: Activity status is completed.");
+      toast({
+        title: "积分已授予",
+        description: "该活动的积分已经计算并授予，无需重复操作。",
+      });
+      return;
+    }
+    
+    if (!activity?.ai_analysis) {
+      console.log("handleCalculatePointsClick: AI analysis data is missing.");
+      toast({
+        title: "缺少分析结果",
+        description: "请先点击上方的'获取 AI 评分'按钮，待分析完成后再计算积分。",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "正在计算积分",
+      description: "已将请求发送给 AI，请稍候...",
+    });
+    
     try {
       const res = await triggerPointCalculation(activityId);
-      if (res && res.message) {
-        toast({ title: "积分计算", description: res.message, variant: "default" });
-        // 重新获取活动数据以显示最新积分和状态
-        fetchActivity(activityId).then((res: any) => {
-          if (res && res.success) {
-            setActivity(res.data);
+      
+      if (res?.message.includes("already awarded")) {
+         toast({
+            title: "无法重复计算",
+            description: "该活动的积分已经计算并授予，无需重复操作。",
+         });
+         return;
+      }
+
+      if (res && res.points_awarded !== undefined) {
+        toast({
+          title: "🎉 积分计算成功！",
+          description: `恭喜！您已成功获得 ${res.points_awarded} 积分。`,
+        });
+        fetchActivity(activityId).then((refreshedRes: any) => {
+          if (refreshedRes && refreshedRes.success) {
+            setActivity(refreshedRes.data);
           }
         });
       } else {
-        toast({ title: "积分计算失败", description: "未知错误", variant: "destructive" });
+        toast({
+          title: "计算出错",
+          description: res?.message || "未能成功计算积分，请稍后重试。",
+          variant: "destructive",
+        });
       }
     } catch (err: any) {
-      toast({ title: "积分计算失败", description: err.message || "服务器错误", variant: "destructive" });
+      toast({
+        title: "计算失败",
+        description: err.message || "连接服务器失败，请检查您的网络连接或联系管理员。",
+        variant: "destructive",
+      });
       console.error("Points calculation error:", err);
     }
   };
@@ -302,13 +354,13 @@ export default function ActivityDetailPage() {
                   </Button>
                 </CardHeader>
                 <CardContent>
-                  {activity.ai_analysis?.dimensions ? (
+                  {activity.ai_analysis?.detailed_points ? (
                     <>
-                      <PointItem label="代码质量" points={Math.round((activity.ai_analysis.dimensions.code_quality || 0) * 1.5)} color="green" />
-                      <PointItem label="创新性" points={Math.round((activity.ai_analysis.dimensions.innovation || 0) * 1.5)} color="blue" />
-                      <PointItem label="文档完整性" points={Math.round((activity.ai_analysis.dimensions.documentation_completeness || 0) * 1.5)} color="purple" />
-                      <PointItem label="测试覆盖率" points={Math.round((activity.ai_analysis.dimensions.test_coverage || 0) * 1.5)} color="yellow" />
-                      <PointItem label="性能优化" points={Math.round((activity.ai_analysis.dimensions.performance_optimization || 0) * 1.5)} color="orange" />
+                      <PointItem label="代码质量" points={activity.ai_analysis.detailed_points.code_quality || 0} color="green" />
+                      <PointItem label="创新性" points={activity.ai_analysis.detailed_points.innovation || 0} color="blue" />
+                      <PointItem label="文档完整性" points={activity.ai_analysis.detailed_points.documentation_completeness || 0} color="purple" />
+                      <PointItem label="测试覆盖率" points={activity.ai_analysis.detailed_points.test_coverage || 0} color="yellow" />
+                      <PointItem label="性能优化" points={activity.ai_analysis.detailed_points.performance_optimization || 0} color="orange" />
                     </>
                   ) : (
                     <p className="text-gray-500">暂无积分明细</p>

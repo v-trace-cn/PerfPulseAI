@@ -18,10 +18,81 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { PlusCircle, Network } from "lucide-react"
+import {
+  PlusCircle,
+  Network,
+  Lightbulb,
+  Brain,
+  Code,
+  Eye,
+  Users,
+  Shield,
+  FileTextIcon,
+  GraduationCapIcon,
+  MessageSquare,
+  Layers,
+} from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { ScoreCard } from "@/components/ui/score-card"
-import { avatars, recentScores, scoringCategories } from "@/lib/data"
+
+// Define mock data for scoringCategories and recentScores directly
+const scoringCategories = [
+  { name: "设计贡献", icon: Brain, color: "text-blue-500" },
+  { name: "开发贡献", icon: Code, color: "text-green-500" },
+  { name: "代码审查", icon: Eye, color: "text-red-500" },
+  { name: "社区参与", icon: Users, color: "text-purple-500" },
+  { name: "Bug 修复", icon: Shield, color: "text-yellow-500" },
+  { name: "文档", icon: FileTextIcon, color: "text-indigo-500" },
+  { name: "指导", icon: GraduationCapIcon, color: "text-pink-500" },
+  { name: "研究与创新", icon: Lightbulb, color: "text-orange-500" },
+  { name: "团队协作", icon: Network, color: "text-teal-500" },
+  { name: "客户支持", icon: MessageSquare, color: "text-cyan-500" },
+  { name: "项目管理", icon: Layers, color: "text-lime-500" },
+];
+
+const recentScores = [
+  {
+    id: 1,
+    user: "当前用户",
+    avatar: "/placeholder-user.jpg",
+    category: "开发贡献",
+    points: 15,
+    description: "完成了新的用户认证模块的开发",
+    date: "2023-10-26T10:00:00Z",
+    likes: ["张明", "李华"],
+    comments: [{ user: "王芳", text: "很棒的模块！" }],
+  },
+  {
+    id: 2,
+    user: "张明",
+    avatar: "/placeholder-user.jpg",
+    category: "代码审查",
+    points: 8,
+    description: "审查了后端 API 的拉取请求，并提供了宝贵建议",
+    date: "2023-10-25T14:30:00Z",
+    likes: ["当前用户"],
+    comments: [],
+  },
+  {
+    id: 3,
+    user: "李华",
+    avatar: "/placeholder-user.jpg",
+    category: "社区参与",
+    points: 10,
+    description: "在社区论坛积极回答用户问题，提升了品牌形象",
+    date: "2023-10-24T09:00:00Z",
+    likes: [],
+    comments: [],
+  },
+];
+
+const avatars: { [key: string]: string } = {
+  "当前用户": "/placeholder-user.jpg",
+  "张明": "/placeholder-user.jpg", 
+  "李华": "/placeholder-user.jpg",
+  "王芳": "/placeholder-user.jpg",
+  // 添加更多用户及其头像路径
+};
 
 // 获取分类图标
 function getCategoryIcon(category: string) {
@@ -543,7 +614,7 @@ export function ScoringSystem() {
               </Dialog>
               <div className="flex flex-wrap gap-2">
                 {scoringCategories.map((category) => (
-                  <Badge key={category.id} variant="outline" className={`${category.color} text-xs`}>
+                  <Badge key={category.name} variant="outline" className={`${category.color} text-xs`}>
                     <category.icon className="h-3 w-3 mr-1" />
                     {category.name}
                   </Badge>
@@ -901,7 +972,7 @@ export function ScoringSystem() {
                   全部
                 </TabsTrigger>
                 {scoringCategories.map((category) => (
-                  <TabsTrigger key={category.id} value={category.name} className="text-xs">
+                  <TabsTrigger key={category.name} value={category.name} className="text-xs">
                     {React.createElement(category.icon, { className: "h-3.5 w-3.5 mr-1" })}
                     {category.name}
                   </TabsTrigger>

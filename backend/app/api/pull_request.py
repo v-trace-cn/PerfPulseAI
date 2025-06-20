@@ -27,13 +27,13 @@ def get_pull_request_details(pr_node_id: str, db: Session = Depends(get_db)):
         
     return pr.to_dict()
 
-@router.post("/{pr_node_id}/analyze")
-def analyze_pull_request(pr_node_id: str, db: Session = Depends(get_db)):
+@router.post("/{activity_show_id}/analyze")
+def analyze_pull_request(activity_show_id: str, db: Session = Depends(get_db)):
     """
     触发指定 PR 的 AI 评分。
     """
     try:
-        analysis_result = trigger_pr_analysis(db, pr_node_id)
+        analysis_result = trigger_pr_analysis(db, activity_show_id)
         return {"message": "PR AI analysis triggered successfully", "analysis_result": analysis_result}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

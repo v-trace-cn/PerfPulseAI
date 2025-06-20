@@ -114,6 +114,7 @@ async def process_pull_request_event(
                 pr.commit_sha = pull_request.get("head", {}).get("sha")
                 pr.created_at = parse_datetime(pull_request.get("created_at"))
                 pr.updated_at = parse_datetime(pull_request.get("updated_at"))
+                pr.diff_url = pull_request.get("diff_url")
 
                 # 如果是 opened 事件，创建时间线事件
                 if action == "opened":
@@ -128,17 +129,17 @@ async def process_pull_request_event(
                 db.commit()
 
                 # 将分析任务放入队列
-                diff_url = pull_request.get("diff_url")
                 existing_activity = db.query(Activity).filter(Activity.id == pr_node_id).first()
                 try:
                     if not existing_activity:
-                        activity = Activity(title=title, description=None, points=0, user_id=user.id, status="pending")
+                        activity = Activity(title=title, description=None, points=0, user_id=user.id, status="pending", created_at=pr.created_at)
                         activity.id = pr_node_id
-                        activity.diff_url = diff_url
+                        activity.diff_url = pr.diff_url
                         db.add(activity)
                     else:
                         existing_activity.status = "pending"
-                        existing_activity.diff_url = diff_url
+                        existing_activity.diff_url = pr.diff_url
+                        existing_activity.created_at = pr.created_at
                     db.commit()
                     print(f"    Pending task for PR #{pr_number} saved/updated successfully.")
                     asyncio.create_task(process_pending_tasks())

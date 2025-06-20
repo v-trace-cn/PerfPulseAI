@@ -20,6 +20,9 @@ class PullRequest(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     merged_at = Column(DateTime, nullable=True)
     
+    # 新增 diff_url 字段
+    diff_url = Column(String(500), nullable=True)
+
     # AI 分析结果
     score = Column(Integer, nullable=True)
     analysis = Column(Text, nullable=True)
@@ -40,6 +43,7 @@ class PullRequest(Base):
             "created_at": self.created_at.isoformat() if isinstance(self.created_at, datetime) else self.created_at,
             "updated_at": self.updated_at.isoformat() if isinstance(self.updated_at, datetime) else self.updated_at,
             "merged_at": self.merged_at.isoformat() if isinstance(self.merged_at, datetime) else self.merged_at,
+            "diff_url": self.diff_url,
             "score": self.score,
             "analysis": self.analysis,
             "events": [event.to_dict() for event in self.events]

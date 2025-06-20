@@ -26,7 +26,7 @@ import { ArrowLeft } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useApi } from "@/hooks/useApi"
 import { directActivityApi, directUserApi, directPrApi } from "@/lib/direct-api"
-import { toast } from "@/components/ui/use-toast"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function ActivityDetailPage() {
   const params = useParams()
@@ -34,7 +34,10 @@ export default function ActivityDetailPage() {
   const { execute: fetchActivity, data: activityRes, isLoading, error } = useApi(directActivityApi.getActivityByShowId)
   const { execute: fetchUserProfile, data: userProfile, isLoading: profileLoading, error: profileError } = useApi(directUserApi.getProfile)
   const { execute: triggerAnalysis, isLoading: isAnalyzing, error: analysisError } = useApi(directPrApi.analyzePr)
+  const { execute: triggerPointCalculation, isLoading: isCalculatingPoints, error: calculationError } = useApi(directPrApi.calculatePrPoints)
   
+  const { toast } = useToast();
+
   const [activity, setActivity] = useState<any | null>(null)
   const [userProfileData, setUserProfileData] = useState<any | null>(null)
 
@@ -59,24 +62,105 @@ export default function ActivityDetailPage() {
   }, [activity, fetchUserProfile])
 
   const handleAnalyzeClick = async () => {
+    console.log("handleAnalyzeClick triggered");
     if (!activityId) return;
-    toast({ title: "AI 评分", description: "正在触发 AI 评分..." });
+
+    if (activity?.status === 'analyzed' || activity?.status === 'completed') {
+        toast({
+            title: "评分已存在",
+            description: "该活动的 AI 评分已完成，您可直接计算积分。",
+        });
+        return;
+    }
+
+    toast({ title: "正在获取 AI 评分", description: "请求已发送，AI 正在分析中，请稍候..." });
     try {
       const res = await triggerAnalysis(activityId);
       if (res && res.message) {
-        toast({ title: "AI 评分", description: res.message, variant: "default" });
-        // 重新获取活动数据以显示最新评分
-        fetchActivity(activityId).then((res: any) => {
-          if (res && res.success) {
-            setActivity(res.data);
+        toast({
+            title: "🎉 AI 评分完成！",
+            description: "AI 已完成评分，您现在可以查看评价详情或计算积分了。",
+        });
+        fetchActivity(activityId).then((refreshedRes: any) => {
+          if (refreshedRes && refreshedRes.success) {
+            setActivity(refreshedRes.data);
           }
         });
       } else {
-        toast({ title: "AI 评分失败", description: "未知错误", variant: "destructive" });
+        toast({ title: "AI 评分失败", description: "收到未知响应，请稍后重试。", variant: "destructive" });
       }
     } catch (err: any) {
-      toast({ title: "AI 评分失败", description: err.message || "服务器错误", variant: "destructive" });
+      toast({ title: "AI 评分失败", description: err.message || "连接服务器失败，请稍后重试。", variant: "destructive" });
       console.error("AI analysis error:", err);
+    }
+  };
+
+  const handleCalculatePointsClick = async () => {
+    console.log("handleCalculatePointsClick triggered");
+    if (!activityId) {
+      console.log("handleCalculatePointsClick: activityId is missing.");
+      return;
+    }
+
+    if (activity?.status === "completed") {
+      console.log("handleCalculatePointsClick: Activity status is completed.");
+      toast({
+        title: "积分已授予",
+        description: "该活动的积分已经计算并授予，无需重复操作。",
+      });
+      return;
+    }
+    
+    if (!activity?.ai_analysis) {
+      console.log("handleCalculatePointsClick: AI analysis data is missing.");
+      toast({
+        title: "缺少分析结果",
+        description: "请先点击上方的'获取 AI 评分'按钮，待分析完成后再计算积分。",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "正在计算积分",
+      description: "已将请求发送给 AI，请稍候...",
+    });
+    
+    try {
+      const res = await triggerPointCalculation(activityId);
+      
+      if (res?.message.includes("already awarded")) {
+         toast({
+            title: "无法重复计算",
+            description: "该活动的积分已经计算并授予，无需重复操作。",
+         });
+         return;
+      }
+
+      if (res && res.points_awarded !== undefined) {
+        toast({
+          title: "🎉 积分计算成功！",
+          description: `恭喜！您已成功获得 ${res.points_awarded} 积分。`,
+        });
+        fetchActivity(activityId).then((refreshedRes: any) => {
+          if (refreshedRes && refreshedRes.success) {
+            setActivity(refreshedRes.data);
+          }
+        });
+      } else {
+        toast({
+          title: "计算出错",
+          description: res?.message || "未能成功计算积分，请稍后重试。",
+          variant: "destructive",
+        });
+      }
+    } catch (err: any) {
+      toast({
+        title: "计算失败",
+        description: err.message || "连接服务器失败，请检查您的网络连接或联系管理员。",
+        variant: "destructive",
+      });
+      console.error("Points calculation error:", err);
     }
   };
 
@@ -101,7 +185,7 @@ export default function ActivityDetailPage() {
               <ArrowLeft className="mr-1 w-4 h-4" /> 返回个人中心
             </Link>
             <div className="flex items-center justify-between mb-4">
-              <h1 className="text-3xl font-bold text-gray-900">活动详情: {activity.title}</h1>
+              <h1 className="text-3xl font-bold text-gray-900">{activity.title}</h1>
               <Badge variant="secondary" className={activity.status === "completed" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
                 {activity.status === "completed" ? <><CheckCircle className="w-4 h-4 mr-1" />已完成</> : activity.status}
               </Badge>
@@ -130,7 +214,7 @@ export default function ActivityDetailPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center">
                     <GitPullRequest className="w-5 h-5 mr-2 text-blue-600" />
-                    活动描述
+                    描述
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -175,6 +259,9 @@ export default function ActivityDetailPage() {
 
                   {/* Detailed Scores */}
                   <div className="space-y-4">
+                    <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <h4 className="font-medium text-gray-900">评分明细</h4>
+                    </div>
                     {activity.ai_analysis?.dimensions && Object.entries(activity.ai_analysis.dimensions).map(([key, value]: [string, any]) => (
                       <ScoreItem
                         key={key}
@@ -189,11 +276,11 @@ export default function ActivityDetailPage() {
                         value={(value / 10) * 100} // Convert 0-10 score to 0-100 for progress bar
                         score={value}
                         color={
-                          key === 'code_quality' ? 'blue' :
+                          key === 'code_quality' ? 'purple' :
                           key === 'innovation' ? 'green' :
-                          key === 'documentation_completeness' ? 'yellow' :
-                          key === 'test_coverage' ? 'purple' :
-                          key === 'performance_optimization' ? 'indigo' :
+                          key === 'documentation_completeness' ? 'amber' :
+                          key === 'test_coverage' ? 'blue' :
+                          key === 'performance_optimization' ? 'sky' :
                           'gray' // fallback color
                         }
                       />
@@ -255,14 +342,29 @@ export default function ActivityDetailPage() {
 
               {/* Points Breakdown */}
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-lg">积分明细</CardTitle>
+                  <Button onClick={handleCalculatePointsClick} disabled={isCalculatingPoints} size="sm">
+                    {isCalculatingPoints ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Star className="mr-2 h-4 w-4" />
+                    )}
+                    {isCalculatingPoints ? "计算中..." : "计算积分"}
+                  </Button>
                 </CardHeader>
                 <CardContent>
-                  <PointItem label="代码质量" points={10} color="green" />
-                  <PointItem label="创新加分" points={8} color="blue" />
-                  <PointItem label="测试完整性" points={5} color="purple" />
-                  <PointItem label="及时完成" points={2} color="yellow" />
+                  {activity.ai_analysis?.detailed_points ? (
+                    <>
+                      <PointItem label="代码质量" points={activity.ai_analysis.detailed_points.code_quality || 0} color="green" />
+                      <PointItem label="创新性" points={activity.ai_analysis.detailed_points.innovation || 0} color="blue" />
+                      <PointItem label="文档完整性" points={activity.ai_analysis.detailed_points.documentation_completeness || 0} color="purple" />
+                      <PointItem label="测试覆盖率" points={activity.ai_analysis.detailed_points.test_coverage || 0} color="yellow" />
+                      <PointItem label="性能优化" points={activity.ai_analysis.detailed_points.performance_optimization || 0} color="orange" />
+                    </>
+                  ) : (
+                    <p className="text-gray-500">暂无积分明细</p>
+                  )}
                   <Separator className="my-2" />
                   <div className="flex justify-between items-center font-semibold">
                     <span>总计</span>
@@ -281,25 +383,40 @@ export default function ActivityDetailPage() {
 /* ----------------- 辅助子组件 ----------------- */
 
 function ScoreItem({ label, value, score, color }: { label: string; value: number; score: number; color: string }) {
-  let progressColorClass;
-  switch (color) {
-    case 'blue': progressColorClass = 'bg-blue-500'; break;
-    case 'green': progressColorClass = 'bg-green-500'; break;
-    case 'yellow': progressColorClass = 'bg-yellow-500'; break;
-    case 'purple': progressColorClass = 'bg-purple-500'; break;
-    case 'indigo': progressColorClass = 'bg-indigo-500'; break;
-    default: progressColorClass = 'bg-gray-500';
-  }
+  const getColorClass = (baseColor: string) => {
+    switch (baseColor) {
+      case 'blue': return 'bg-blue-500';
+      case 'green': return 'bg-green-500';
+      case 'yellow': return 'bg-yellow-500';
+      case 'purple': return 'bg-purple-500';
+      case 'indigo': return 'bg-indigo-500';
+      case 'amber': return 'bg-amber-500';
+      case 'sky': return 'bg-sky-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getScoreTextColorClass = (score: number) => {
+    if (score >= 8) {
+      return 'text-green-600';
+    } else if (score >= 5) {
+      return 'text-yellow-600';
+    } else {
+      return 'text-red-600';
+    }
+  };
 
   return (
-    <div className="flex items-center space-x-4">
-      <div className="flex-1">
-        <p className="text-sm font-medium text-gray-700">{label}</p>
-        <Progress value={value} className="h-2 mt-1" indicatorClassName={progressColorClass} />
+    <div className="flex items-center justify-between">
+      <div className="text-sm text-gray-700">{label}</div>
+      <div className="flex items-center space-x-2">
+        <div className={`text-sm font-semibold ${getScoreTextColorClass(score)}`}>{score.toFixed(1)}/10</div>
+        <div className="w-24">
+          <Progress value={value} className={`h-2 ${getColorClass(color)}`} />
+        </div>
       </div>
-      <span className="text-sm font-semibold text-gray-800">{score.toFixed(1)}/10</span>
     </div>
-  )
+  );
 }
 
 function CommentItem({ text, warning = false }: { text: string; warning?: boolean }) {

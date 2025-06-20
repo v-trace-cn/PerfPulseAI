@@ -176,6 +176,10 @@ export const directPrApi = {
     fetchDirectApi<{ message: string; analysis_result: any }>(`${BACKEND_API_URL}/api/pr/${prNodeId}/analyze`, {
       method: 'POST',
     }),
+  calculatePrPoints: (activityShowId: string) =>
+    fetchDirectApi<{ message: string; points_awarded: number }>(`${BACKEND_API_URL}/api/pr/${activityShowId}/calculate-points`, {
+      method: 'POST',
+    }),
 };
 
 // Reward API

@@ -15,7 +15,7 @@ export async function POST(request: Request) {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'Origin': 'http://localhost:3000'
+        'Origin': 'http://192.168.0.29:3000'
       },
       body: JSON.stringify(body),
     });

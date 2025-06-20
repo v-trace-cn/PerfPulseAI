@@ -3,7 +3,7 @@
  */
 
 // Base URL for the backend API
-const BACKEND_API_URL = 'http://localhost:5000';
+const BACKEND_API_URL = 'http://192.168.0.29:5000';
 // Base URL for our Next.js API routes (use backend URL to directly call API)
 const NEXTJS_API_URL = BACKEND_API_URL;
 

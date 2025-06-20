@@ -39,15 +39,15 @@ export default function SiteHeader({ onLoginClick, onRegisterClick, onHelpClick,
             <span className="cyber-text">PerfPulseAI</span>
           </h1>
         </Link>
-        <div className="flex items-center gap-4">
-          <div className="relative">
-            <Input
-              type="text"
-              placeholder="Search..."
-              className="pl-8 pr-2 w-48 border-primary/20 focus-visible:ring-primary focus-visible:ring-offset-0"
-            />
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          </div>
+        <div className="relative ml-8">
+          <Input
+            type="text"
+            placeholder="Search..."
+            className="pl-8 pr-2 w-48 border-primary/20 focus-visible:ring-primary focus-visible:ring-offset-0"
+          />
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        </div>
+        <div className="flex items-center gap-4 ml-auto">
           <LayoutGrid className="h-5 w-5 text-primary cursor-pointer hover:opacity-80 transition-opacity" />
           <ThemeToggle />
           <DropdownMenu>

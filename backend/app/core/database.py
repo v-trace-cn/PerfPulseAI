@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
 from pathlib import Path
 
@@ -10,25 +10,29 @@ DATABASE_URL = settings.DATABASE_URL
 
 # 如果是 SQLite，确保数据库文件所在的目录存在
 if DATABASE_URL and DATABASE_URL.startswith("sqlite"):
+    # Change the prefix for async SQLite
+    DATABASE_URL = DATABASE_URL.replace("sqlite:///", "sqlite+aiosqlite:///")
     db_file_path_str = DATABASE_URL.split("///")[1]
     db_dir = Path(db_file_path_str).parent
     os.makedirs(db_dir, exist_ok=True)
 
-# 根据 DATABASE_URL 判断数据库类型
-is_sqlite = DATABASE_URL.startswith("sqlite")
-
-# 配置数据库引擎
-engine = create_engine(
+# 配置异步数据库引擎
+async_engine = create_async_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False} if is_sqlite else {},
+    echo=False,
+    connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {},
 )
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# 配置异步会话工厂
+AsyncSessionLocal = sessionmaker(
+    async_engine, class_=AsyncSession, expire_on_commit=False
+)
+
 Base = declarative_base()
 
-def get_db():
-    db = SessionLocal()
+async def get_db():
+    db = AsyncSessionLocal()
     try:
         yield db
     finally:
-        db.close()
+        await db.close()

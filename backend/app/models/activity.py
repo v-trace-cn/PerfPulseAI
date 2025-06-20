@@ -8,6 +8,7 @@ from sqlalchemy import Column, String, Text, Integer, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 from app.models.user import User
+from app.models.pull_request_result import PullRequestResult
 
 class Activity(Base):
     """Activity model representing an activity in the system."""
@@ -21,6 +22,8 @@ class Activity(Base):
     user_id = Column(Integer, ForeignKey('users.id'))
     # 关联到 User 模型，需要与 User.activities 的 back_populates 对应
     user = relationship('User', back_populates='activities')
+    # 添加与 PullRequestResult 的一对一关系
+    pull_request_result = relationship("PullRequestResult", primaryjoin="Activity.id == PullRequestResult.pr_node_id", uselist=False, backref="activity")
     status = Column(String(20), default='pending')
     activity_type = Column(String(50), default='individual')
     # 存储 PR diff 链接，用于后续定时任务拉取和分析
@@ -88,7 +91,8 @@ class Activity(Base):
             "created_at": self.created_at.isoformat() if isinstance(self.created_at, datetime) else self.created_at,
             "completed_at": self.completed_at.isoformat() if isinstance(self.completed_at, datetime) else self.completed_at,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-            "user": user_data
+            "user": user_data,
+            "ai_analysis": self.pull_request_result.ai_analysis_result if self.pull_request_result else None
         }
     
     @classmethod

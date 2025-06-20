@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Integer, Text, DateTime, JSON
+from sqlalchemy import Column, String, Integer, Text, DateTime, JSON, ForeignKey
 from app.core.database import Base
 
 class PullRequestResult(Base):
@@ -8,7 +8,7 @@ class PullRequestResult(Base):
     __tablename__ = 'pull_request_results'
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    pr_node_id = Column(String(100), unique=True, nullable=False)
+    pr_node_id = Column(String(100), ForeignKey('activities.id'), unique=True, nullable=False)
     pr_number = Column(Integer, nullable=False)
     repository = Column(String(100), nullable=False)
     action = Column(String(30), nullable=False)

@@ -1,12 +1,9 @@
 import os
 import openai
 import json
-import requests
+import httpx
 from openai import OpenAI
-from sqlalchemy.orm import Session
 from app.core.config import Settings
-from app.models.pull_request import PullRequest
-from app.models.activity import Activity
 
 
 DOUBAO_MODEL=Settings.DOUBAO_MODEL
@@ -57,49 +54,24 @@ def analyze_pr_diff(diff_text: str) -> dict:
         print(f"AI 分析 PR 失败: {e}")
         return {"overall_score": 0, "dimensions": {}, "suggestions": [{"type": "negative", "content": f"AI 分析失败: {e}"}]}
 
-def trigger_pr_analysis(db: Session, activity_show_id: str):
+async def perform_pr_analysis(pr_node_id: str, diff_url: str) -> dict:
     """
-    触发指定 PR 的 AI 分析并更新数据库。
+    执行指定 PR 的 AI 分析，不触及数据库。
     """
-    # 首先通过 activity_show_id 查询 Activity 表
-    activity = db.query(Activity).filter(Activity.show_id == activity_show_id).first()
-    if not activity:
-        raise ValueError(f"Activity with show ID {activity_show_id} not found.")
-
-    # 从 Activity 对象中获取实际的 GitHub PR 节点 ID
-    pr_node_id = activity.id 
-
-    pr = db.query(PullRequest).filter(PullRequest.pr_node_id == pr_node_id).first()
-    if not pr:
-        raise ValueError(f"Pull Request with node ID {pr_node_id} (from activity.id) not found.")
-
-    if not pr.diff_url:
+    if not diff_url:
         raise ValueError(f"Pull Request {pr_node_id} does not have a diff URL.")
 
     try:
-        response = requests.get(pr.diff_url)
-        response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
-        diff_content = response.text
-    except requests.exceptions.RequestException as e:
-        raise ValueError(f"Failed to fetch diff from {pr.diff_url}: {e}")
+        async with httpx.AsyncClient() as client:
+            response = await client.get(diff_url)
+            response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
+            diff_content = response.text
+    except httpx.RequestError as e:
+        raise ValueError(f"Failed to fetch diff from {diff_url}: {e}")
 
     try:
         ai_analysis_result = analyze_pr_diff(diff_content)
-        
-        pr.score = ai_analysis_result.get("overall_score")
-        pr.analysis = json.dumps(ai_analysis_result) # 将字典转换为 JSON 字符串保存
-
-        # 更新关联的 Activity
-        activity.score = pr.score # 更新 activity 的 score
-        activity.analysis = pr.analysis # 更新 activity 的 analysis
-        activity.status = "completed" # 假设分析完成后状态变为 completed
-
-        db.commit()
-        db.refresh(pr) # 刷新 PR 对象以获取最新的数据
-        db.refresh(activity) # 刷新 activity 对象以获取最新的数据
-        
         return ai_analysis_result
     except Exception as e:
-        db.rollback() # 出现异常时回滚
-        print(f"Error during AI analysis and DB update for PR {pr_node_id}: {e}")
+        print(f"Error during AI analysis for PR {pr_node_id}: {e}")
         raise 

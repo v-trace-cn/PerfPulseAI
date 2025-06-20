@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
+from sqlalchemy import select, func
 
 from app.core.database import get_db
 from app.models.scoring import ScoringCriteria, ScoringFactor, ScoreEntry, GovernanceMetric
@@ -90,17 +91,19 @@ scoring_factors = [
 ]
 
 @router.get("/criteria")
-def get_scoring_criteria(db: Session = Depends(get_db)):
-    items = db.query(ScoringCriteria).all()
+async def get_scoring_criteria(db: Session = Depends(get_db)):
+    result = await db.execute(select(ScoringCriteria))
+    items = result.scalars().all()
     return {"data": [c.to_dict() for c in items], "message": "查询成功", "success": True}
 
 @router.get("/factors")
-def get_scoring_factors(db: Session = Depends(get_db)):
-    items = db.query(ScoringFactor).all()
+async def get_scoring_factors(db: Session = Depends(get_db)):
+    result = await db.execute(select(ScoringFactor))
+    items = result.scalars().all()
     return {"data": [f.to_dict() for f in items], "message": "查询成功", "success": True}
 
 @router.post("/calculate")
-def calculate_score(data: dict = Body(...), db: Session = Depends(get_db)):
+async def calculate_score(data: dict = Body(...), db: Session = Depends(get_db)):
     user_id = data.get("user_id")
     activity_id = data.get("activity_id")
     notes = data.get("notes", "")
@@ -131,27 +134,45 @@ def calculate_score(data: dict = Body(...), db: Session = Depends(get_db)):
     rounded_score = round(sum(item["weighted_score"] for item in breakdown))
 
     if user_id and activity_id:
-        user = db.query(User).filter(User.id == user_id).first()
-        activity = db.query(Activity).filter(Activity.id == activity_id).first()
+        user_result = await db.execute(select(User).filter(User.id == user_id))
+        user = user_result.scalars().first()
+        activity_result = await db.execute(select(Activity).filter(Activity.id == activity_id))
+        activity = activity_result.scalars().first()
         if user and activity:
             entry = ScoreEntry(id=str(uuid.uuid4()), user_id=user_id, activity_id=activity_id, score=rounded_score, factors=factor_values, notes=notes)
             user.points += rounded_score
             db.add(entry)
-            db.commit()
+            await db.commit()
 
     return {"data": {"score": rounded_score, "breakdown": breakdown}, "message": "计算成功", "success": True}
 
 @router.get("/entries")
-def get_score_entries(db: Session = Depends(get_db)):
-    user_id = db.query(User).filter(User.id == db.query(ScoreEntry.user_id).first()).first()
-    activity_id = db.query(Activity).filter(Activity.id == db.query(ScoreEntry.activity_id).first()).first()
-    entries = db.query(ScoreEntry).filter(ScoreEntry.user_id == user_id.id, ScoreEntry.activity_id == activity_id.id).all()
+async def get_score_entries(db: Session = Depends(get_db)):
+    user_id_result = await db.execute(select(ScoreEntry.user_id))
+    first_user_id = user_id_result.scalars().first()
+    user_from_db_result = await db.execute(select(User).filter(User.id == first_user_id))
+    user_from_db = user_from_db_result.scalars().first()
+
+    activity_id_result = await db.execute(select(ScoreEntry.activity_id))
+    first_activity_id = activity_id_result.scalars().first()
+    activity_from_db_result = await db.execute(select(Activity).filter(Activity.id == first_activity_id))
+    activity_from_db = activity_from_db_result.scalars().first()
+
+    if user_from_db and activity_from_db:
+        entries_result = await db.execute(select(ScoreEntry).filter(ScoreEntry.user_id == user_from_db.id, ScoreEntry.activity_id == activity_from_db.id))
+        entries = entries_result.scalars().all()
+    else:
+        entries = []
+
     return {"data": [entry.to_dict() for entry in entries], "message": "查询成功", "success": True}
 
 @router.get("/governance-metrics")
-def get_governance_metrics(db: Session = Depends(get_db)):
-    dimension = db.query(GovernanceMetric.dimension).first()
-    metrics = db.query(GovernanceMetric).filter(GovernanceMetric.dimension == dimension).all()
+async def get_governance_metrics(db: Session = Depends(get_db)):
+    dimension_result = await db.execute(select(GovernanceMetric.dimension))
+    dimension = dimension_result.scalars().first()
+    
+    metrics_result = await db.execute(select(GovernanceMetric).filter(GovernanceMetric.dimension == dimension))
+    metrics = metrics_result.scalars().all()
     if not metrics:
         sample_metrics = {
             "department": {
@@ -179,18 +200,19 @@ def get_governance_metrics(db: Session = Depends(get_db)):
     return {"data": metric_dict, "message": "查询成功", "success": True}
 
 @router.post("/governance-metrics")
-def create_governance_metric(data: dict = Body(...), db: Session = Depends(get_db)):
+async def create_governance_metric(data: dict = Body(...), db: Session = Depends(get_db)):
     dimension = data.get("dimension")
     metric_name = data.get("metric_name")
     value = data.get("value")
     if not all([dimension, metric_name, value]):
         return {"data": None, "message": "缺少必填字段", "success": False}
-    existing_metric = db.query(GovernanceMetric).filter(GovernanceMetric.dimension == dimension, GovernanceMetric.metric_name == metric_name).first()
+    existing_metric_result = await db.execute(select(GovernanceMetric).filter(GovernanceMetric.dimension == dimension, GovernanceMetric.metric_name == metric_name))
+    existing_metric = existing_metric_result.scalars().first()
     if existing_metric:
         existing_metric.value = value
         existing_metric.timestamp = datetime.utcnow()
     else:
         new_metric = GovernanceMetric(id=str(uuid.uuid4()), dimension=dimension, metric_name=metric_name, value=value)
         db.add(new_metric)
-    db.commit()
+    await db.commit()
     return {"data": None, "message": "指标已保存", "success": True}

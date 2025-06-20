@@ -1,5 +1,12 @@
 import { useState, useCallback } from 'react';
 
+class TimeoutError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TimeoutError";
+  }
+}
+
 type ApiState<T> = {
   data: T | null;
   isLoading: boolean;
@@ -20,7 +27,8 @@ type ApiResponse<T> = {
  * @returns Object containing data, loading state, error state, and execute function
  */
 export function useApi<T>(
-  apiFunction: (...args: any[]) => Promise<T>
+  apiFunction: (...args: any[]) => Promise<T>,
+  timeout: number = 10000 // Default timeout of 10 seconds
 ): ApiResponse<T> {
   const [state, setState] = useState<ApiState<T>>({
     data: null,
@@ -32,29 +40,35 @@ export function useApi<T>(
     async (...args: any[]): Promise<T | null> => {
       try {
         setState({ data: null, isLoading: true, error: null });
-        const data = await apiFunction(...args);
+
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new TimeoutError('请求超时，请稍后再试')), timeout)
+        );
+
+        const data = await Promise.race([apiFunction(...args), timeoutPromise]);
         setState({ data, isLoading: false, error: null });
         return data;
       } catch (error: any) {
         let errorMessage: string;
-        if (error instanceof Error) {
+        if (error instanceof TimeoutError) {
+          errorMessage = error.message;
+        } else if (error instanceof Error) {
           errorMessage = error.message;
         } else if (typeof error === 'string') {
           errorMessage = error;
         } else {
-          errorMessage = '发生未知错误，请稍后再试'; // More specific fallback for truly unknown errors
+          errorMessage = '发生未知错误，请稍后再试';
         }
         
-        // A more general fallback for when error.message is still empty or too generic
         if (!errorMessage || errorMessage.includes('Failed to fetch') || errorMessage.includes('TypeError')) {
-             errorMessage = '请求活动数据失败，请检查网络或联系管理员'; // More descriptive message for user
+             errorMessage = '请求活动数据失败，请检查网络或联系管理员';
         }
 
         setState({ data: null, isLoading: false, error: errorMessage });
         return null;
       }
     },
-    [apiFunction]
+    [apiFunction, timeout]
   );
 
   const reset = useCallback(() => {

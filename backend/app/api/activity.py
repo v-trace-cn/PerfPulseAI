@@ -4,34 +4,37 @@ import uuid
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Body, BackgroundTasks
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import select, func
 
 from app.core.database import get_db
 from app.models.activity import Activity
 from app.core.scheduler import process_pending_tasks
+from app.models.pull_request_result import PullRequestResult
 
 router = APIRouter(prefix="/api/activities", tags=["activity"])
 
 @router.get("/")
-def get_activities(
+async def get_activities(
     page: int = 1,
     per_page: int = 10,
     search: str = "",
     db: Session = Depends(get_db),
 ):
-    query = db.query(Activity)
+    stmt = select(Activity).options(joinedload(Activity.pull_request_result), joinedload(Activity.user))
     if search:
         pattern = f"%{search}%"
-        query = query.filter(
+        stmt = stmt.filter(
             Activity.title.ilike(pattern) |
             Activity.description.ilike(pattern)
         )
-    total = query.count()
-    items = (
-        query.order_by(Activity.created_at.desc())
+    total_result = await db.execute(select(func.count()).select_from(stmt.subquery()))
+    total = total_result.scalar_one()
+    items_result = (
+        await db.execute(stmt.order_by(Activity.created_at.desc())
              .offset((page - 1) * per_page)
-             .limit(per_page)
-             .all()
+             .limit(per_page))
     )
+    items = items_result.scalars().all()
     return {
         "data": {
             "activities": [a.to_dict() for a in items],
@@ -44,15 +47,15 @@ def get_activities(
     }
 
 @router.get("/recent")
-def get_recent_activities(user_id: str | None = None, db: Session = Depends(get_db)):
-    query = db.query(Activity).options(joinedload(Activity.user))
+async def get_recent_activities(user_id: str | None = None, db: Session = Depends(get_db)):
+    stmt = select(Activity).options(joinedload(Activity.user), joinedload(Activity.pull_request_result))
     if user_id:
-        query = query.filter(Activity.user_id == user_id)
-    recent = (
-        query.order_by(Activity.created_at.desc())
-          .limit(5)
-          .all()
+        stmt = stmt.filter(Activity.user_id == user_id)
+    recent_result = (
+        await db.execute(stmt.order_by(Activity.created_at.desc())
+          .limit(5))
     )
+    recent = recent_result.scalars().all()
     return {
         "data": [a.to_dict() for a in recent],
         "message": "查询成功",
@@ -60,7 +63,7 @@ def get_recent_activities(user_id: str | None = None, db: Session = Depends(get_
     }
 
 @router.post("/")
-def create_activity(
+async def create_activity(
     data: dict = Body(...),
     db: Session = Depends(get_db),
 ):
@@ -76,16 +79,26 @@ def create_activity(
     )
     new_act.show_id = activity_uuid
     db.add(new_act)
-    db.commit()
+    await db.commit()
+    await db.refresh(new_act)
+
+    # Fetch the newly created activity with eager loaded relationships
+    result = await db.execute(select(Activity).options(joinedload(Activity.user), joinedload(Activity.pull_request_result)).filter(Activity.id == new_act.id))
+    loaded_act = result.scalars().first()
+
+    if not loaded_act:
+        raise HTTPException(status_code=500, detail="无法加载新创建的活动")
+
     return {
-        "data": new_act.to_dict(),
+        "data": loaded_act.to_dict(),
         "message": "创建成功",
         "success": True,
     }
 
 @router.get("/{activity_id}")
-def get_activity(activity_id: str, db: Session = Depends(get_db)):
-    act = db.query(Activity).filter(Activity.id == activity_id).first()
+async def get_activity(activity_id: str, db: Session = Depends(get_db)):
+    result = await db.execute(select(Activity).options(joinedload(Activity.pull_request_result), joinedload(Activity.user)).filter(Activity.id == activity_id))
+    act = result.scalars().first()
     if not act:
         raise HTTPException(status_code=404, detail="找不到活动")
     return {
@@ -95,8 +108,9 @@ def get_activity(activity_id: str, db: Session = Depends(get_db)):
     }
 
 @router.get("/show/{show_id}")
-def get_activity_by_show_id(show_id: str, db: Session = Depends(get_db)):
-    act = db.query(Activity).filter(Activity.show_id == show_id).first()
+async def get_activity_by_show_id(show_id: str, db: Session = Depends(get_db)):
+    result = await db.execute(select(Activity).options(joinedload(Activity.pull_request_result), joinedload(Activity.user)).filter(Activity.show_id == show_id))
+    act = result.scalars().first()
     if not act:
         raise HTTPException(status_code=404, detail="找不到活动")
     return {
@@ -106,13 +120,14 @@ def get_activity_by_show_id(show_id: str, db: Session = Depends(get_db)):
     }
 
 @router.put("/{activity_id}")
-def update_activity(
+async def update_activity(
     activity_id: str,
     background_tasks: BackgroundTasks,
     data: dict = Body(...),
     db: Session = Depends(get_db),
 ):
-    act = db.query(Activity).filter(Activity.id == activity_id).first()
+    result = await db.execute(select(Activity).options(joinedload(Activity.pull_request_result), joinedload(Activity.user)).filter(Activity.id == activity_id))
+    act = result.scalars().first()
     if not act:
         raise HTTPException(status_code=404, detail="找不到活动")
     if "title" in data:
@@ -125,8 +140,8 @@ def update_activity(
         act.status = data["status"]
         if data["status"] == "completed" and not act.completed_at:
             act.completed_at = datetime.utcnow()
-    db.commit()
-    db.refresh(act)
+    await db.commit()
+    await db.refresh(act)
     # 触发即时处理所有 pending 任务
     background_tasks.add_task(process_pending_tasks)
     return {
@@ -136,12 +151,13 @@ def update_activity(
     }
 
 @router.delete("/{activity_id}")
-def delete_activity(activity_id: str, db: Session = Depends(get_db)):
-    act = db.query(Activity).filter(Activity.id == activity_id).first()
+async def delete_activity(activity_id: str, db: Session = Depends(get_db)):
+    result = await db.execute(select(Activity).options(joinedload(Activity.pull_request_result), joinedload(Activity.user)).filter(Activity.id == activity_id))
+    act = result.scalars().first()
     if not act:
         raise HTTPException(status_code=404, detail="找不到活动")
-    db.delete(act)
-    db.commit()
+    await db.delete(act)
+    await db.commit()
     return {
         "message": "删除成功",
         "success": True,

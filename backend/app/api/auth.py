@@ -3,7 +3,8 @@ import json
 from dataclasses import dataclass
 from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Body
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 import asyncio
 
 from app.core.database import get_db
@@ -29,13 +30,14 @@ def public_key():
     )
 
 @router.post("/login")
-def login(data: dict = Body(...), db: Session = Depends(get_db)):
+async def login(data: dict = Body(...), db: AsyncSession = Depends(get_db)):
     """用户登录"""
     if "encrypted" in data:
         data = decrypt_rsa(data["encrypted"])
     email = data.get("email")
     password = data.get("password")
-    user = db.query(User).filter(User.email == email).first()
+    result = await db.execute(select(User).filter(User.email == email))
+    user = result.scalars().first()
     if not user:
         return Response(data={}, message="登录失败，没有该用户，请注册", status_code=404, success=False)
     if user and user.check_password(password):
@@ -43,7 +45,7 @@ def login(data: dict = Body(...), db: Session = Depends(get_db)):
     raise HTTPException(status_code=401, detail=f"无效的邮箱或密码")
 
 @router.post("/register")
-def register(data: dict = Body(...), db: Session = Depends(get_db)):
+async def register(data: dict = Body(...), db: AsyncSession = Depends(get_db)):
     """注册新用户"""
     # 前端数据加密，先解密
     if "encrypted" in data:
@@ -52,14 +54,15 @@ def register(data: dict = Body(...), db: Session = Depends(get_db)):
     password = data.get("password")
     if not all([ email, password]):
         raise HTTPException(status_code=400, detail="缺少必填字段")
-    if db.query(User).filter(User.email == email).first():
+    result = await db.execute(select(User).filter(User.email == email))
+    if result.scalars().first():
         return Response(data={}, message="该邮箱已被注册", status_code=400, success=False)
     name = email.split("@")[0]
     new_user = User(name=name, email=email)
     new_user.set_password(password)
     db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+    await db.commit()
+    await db.refresh(new_user)
 
     # # 发送欢迎邮件
     # subject = "欢迎加入 PerfPulseAI！"
@@ -71,12 +74,12 @@ def register(data: dict = Body(...), db: Session = Depends(get_db)):
     return Response(data={"email": new_user.email, "name": new_user.name, "userId": new_user.id}, message="注册成功")
 
 @router.post("/logout")
-def logout():
+async def logout():
     """用户登出路由"""
     return Response(data={}, message="登出成功")
 
 @router.post("/reset-password")
-def reset_password(data: dict = Body(...), db: Session = Depends(get_db)):
+async def reset_password(data: dict = Body(...), db: AsyncSession = Depends(get_db)):
     """重置用户密码"""
     if "encrypted" in data:
         data = decrypt_rsa(data["encrypted"])
@@ -84,24 +87,26 @@ def reset_password(data: dict = Body(...), db: Session = Depends(get_db)):
     password = data.get("password")
     if not email or not password:
         raise HTTPException(status_code=400, detail="缺少邮箱或密码")
-    user = db.query(User).filter(User.email == email).first()
+    result = await db.execute(select(User).filter(User.email == email))
+    user = result.scalars().first()
     if not user:
         return Response(data={}, message="用户不存在", status_code=404, success=False)
     # 更新密码
     user.set_password(password)
-    db.commit()
+    await db.commit()
     return Response(data={}, message="重置密码成功")
 
 @router.get("/session")
-def get_session():
+async def get_session():
     """检查当前会话状态"""
     return Response(data={"authenticated": False}, message="")
 
 # 加载测试数据的路由
 @router.post("/setup")
-def setup_test_user(db: Session = Depends(get_db)):
+async def setup_test_user(db: AsyncSession = Depends(get_db)):
     """创建测试用户"""
-    if db.query(User).filter(User.username == 'admin').first():
+    result = await db.execute(select(User).filter(User.username == 'admin'))
+    if result.scalars().first():
         return Response(data={}, message="测试用户已存在", status_code=400, success=False)
     
     test_user = User(
@@ -114,7 +119,7 @@ def setup_test_user(db: Session = Depends(get_db)):
     test_user.set_password('password')
     
     db.add(test_user)
-    db.commit()
+    await db.commit()
     
     return Response(data={
         "id": test_user.id,

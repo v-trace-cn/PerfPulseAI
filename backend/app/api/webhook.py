@@ -9,11 +9,11 @@ from datetime import datetime
 
 from uuid import uuid4
 from typing import Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Request, HTTPException, Header, Response, Depends
+from sqlalchemy import select
 
-from app.core.database import get_db, SessionLocal
-from app.core.ai_service import analyze_pr_diff
+from app.core.database import get_db, AsyncSessionLocal
 from app.models.activity import Activity
 from app.models.scoring import ScoreEntry
 from app.core.config import Settings
@@ -63,7 +63,7 @@ async def process_pull_request_event(
     """
     异步处理 pull_request 事件的详细逻辑，包括 AI 分析和数据库操作。
     """
-    db = SessionLocal()
+    db = AsyncSessionLocal()
     try:
         action = payload.get("action")
         pull_request = payload.get("pull_request")
@@ -86,7 +86,8 @@ async def process_pull_request_event(
             if user_github_url:
                 # Strip whitespace to avoid mismatch issues
                 user_github_url = user_github_url.strip()
-                user = db.query(User).filter(User.github_url == user_github_url).first()
+                user_result = await db.execute(select(User).filter(User.github_url == user_github_url))
+                user = user_result.scalars().first()
                 print(f"Query result for user: {user}") # Added for debugging
 
                 if not user:
@@ -99,7 +100,8 @@ async def process_pull_request_event(
 
             # 当 PR 打开或同步时，创建或更新 PR 详情
             if action in ["opened", "synchronize", "reopened"]:
-                pr = db.query(PullRequest).filter(PullRequest.pr_node_id == pr_node_id).first()
+                pr_result = await db.execute(select(PullRequest).filter(PullRequest.pr_node_id == pr_node_id))
+                pr = pr_result.scalars().first()
                 if not pr:
                     pr = PullRequest(
                         pr_node_id=pr_node_id,
@@ -126,10 +128,11 @@ async def process_pull_request_event(
                     )
                     db.add(event)
                 
-                db.commit()
+                await db.commit()
 
                 # 将分析任务放入队列
-                existing_activity = db.query(Activity).filter(Activity.id == pr_node_id).first()
+                existing_activity_result = await db.execute(select(Activity).filter(Activity.id == pr_node_id))
+                existing_activity = existing_activity_result.scalars().first()
                 try:
                     if not existing_activity:
                         activity = Activity(title=title, description=None, points=0, user_id=user.id, status="pending", created_at=pr.created_at)
@@ -140,17 +143,19 @@ async def process_pull_request_event(
                         existing_activity.status = "pending"
                         existing_activity.diff_url = pr.diff_url
                         existing_activity.created_at = pr.created_at
-                    db.commit()
+                    await db.commit()
                     print(f"    Pending task for PR #{pr_number} saved/updated successfully.")
+                    
                     asyncio.create_task(process_pending_tasks())
                 except Exception as e:
-                    db.rollback()
+                    await db.rollback()
                     print(f"    Error saving/updating pending task for PR #{pr_number}: {e}")
 
             # 当 PR 关闭时
             elif action == "closed":
                 if pull_request.get("merged"):
-                    pr = db.query(PullRequest).filter(PullRequest.pr_node_id == pr_node_id).first()
+                    pr_closed_result = await db.execute(select(PullRequest).filter(PullRequest.pr_node_id == pr_node_id))
+                    pr = pr_closed_result.scalars().first()
                     if pr:
                         pr.merged_at = parse_datetime(pull_request.get("merged_at"))
                         event = PullRequestEvent(
@@ -160,16 +165,16 @@ async def process_pull_request_event(
                             details=f"PR #{pr_number} merged."
                         )
                         db.add(event)
-                        db.commit()
+                        await db.commit()
         else:
             print("  Received pull_request event but missing pull_request or repository data.")
     finally:
-        db.close()
+        await db.close()
 
 
 async def process_pull_request_review_event(payload: dict):
     """处理 PR 审查事件"""
-    db = SessionLocal()
+    db = AsyncSessionLocal()
     try:
         action = payload.get("action")
         review = payload.get("review")
@@ -180,10 +185,11 @@ async def process_pull_request_review_event(payload: dict):
             pr_node_id = pull_request.get("node_id")
             
             # 检查是否已存在相同的通过事件，防止重复记录
-            existing_event = db.query(PullRequestEvent).filter(
+            existing_event_result = await db.execute(select(PullRequestEvent).filter(
                 PullRequestEvent.pr_node_id == pr_node_id,
                 PullRequestEvent.event_type == 'review_passed'
-            ).first()
+            ))
+            existing_event = existing_event_result.scalars().first()
 
             if not existing_event:
                 event = PullRequestEvent(
@@ -193,21 +199,22 @@ async def process_pull_request_review_event(payload: dict):
                     details=f"Code review approved by {review.get('user', {}).get('login')}."
                 )
                 db.add(event)
-                db.commit()
+                await db.commit()
                 print(f"  PR {pull_request.get('number')} review approved event saved.")
 
     except Exception as e:
-        db.rollback()
+        await db.rollback()
         print(f"Error processing pull request review event: {e}")
     finally:
-        db.close()
+        await db.close()
 
 
 @router.post("/github")
 async def github_webhook_receiver(
     request: Request,
     x_github_event: str = Header(..., alias="X-GitHub-Event"),
-    x_hub_signature_256: Optional[str] = Header(None, alias="X-Hub-Signature-256")
+    x_hub_signature_256: Optional[str] = Header(None, alias="X-Hub-Signature-256"),
+    db: AsyncSession = Depends(get_db)
 ):
     """
     接收并处理来自 GitHub 的 Webhook 请求。

@@ -109,7 +109,7 @@ export default function ActivityDetailPage() {
             <div className="flex items-center space-x-6 text-sm text-gray-600">
               <div className="flex items-center">
                 <Calendar className="w-4 h-4 mr-1" />
-                {new Date(activity.created_at).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                {activity.created_at ? new Date(activity.created_at).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
               </div>
               <div className="flex items-center">
                 <User className="w-4 h-4 mr-1" />

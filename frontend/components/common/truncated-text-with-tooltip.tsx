@@ -19,7 +19,7 @@ export function TruncatedTextWithTooltip({ text, className, asChild = false }: T
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild={asChild}>
-          <p className={cn("truncate", className)}>
+          <p className={cn("truncate overflow-hidden whitespace-nowrap", className)}>
             {text}
           </p>
         </TooltipTrigger>

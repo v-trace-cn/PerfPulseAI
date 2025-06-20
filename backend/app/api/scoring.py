@@ -90,6 +90,21 @@ scoring_factors = [
     }
 ]
 
+DIMENSION_LABELS = {
+    "code_quality": "代码质量",
+    "innovation": "创新性",
+    "documentation_completeness": "文档完整性",
+    "test_coverage": "测试覆盖率",
+    "performance_optimization": "性能优化",
+}
+
+@router.get("/dimensions")
+async def get_scoring_dimensions():
+    """
+    返回评分维度的显示标签
+    """
+    return {"data": DIMENSION_LABELS, "success": True}
+
 @router.get("/criteria")
 async def get_scoring_criteria(db: Session = Depends(get_db)):
     result = await db.execute(select(ScoringCriteria))

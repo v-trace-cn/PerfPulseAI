@@ -16,24 +16,28 @@ def analyze_pr_diff(diff_text: str) -> dict:
     调用 AI API 对 PR diff 文本进行分析和评分，返回包含 score（评分）和 analysis（分析理由）的字典。
     """
     # 构造提示信息，让模型返回 JSON 格式结果
-    prompt = (
-        "你是一个代码审查专家。" 
-        "请分析以下 GitHub Pull Request 的代码 diff，并从 0 到 10 进行评分。" 
-        "评分标准基于代码质量、创新性、文档完整性、测试覆盖率和性能优化。" 
-        "返回一个 JSON 格式的结果，包含以下字段：" 
-        "- `overall_score`: 综合评分 (0-10 之间的浮点数)。" 
-        "- `dimensions`: 一个对象，包含以下维度的评分 (0-10 之间的浮点数)：" 
-        "  - `code_quality`: 代码质量。" 
-        "  - `innovation`: 创新性。" 
-        "  - `documentation_completeness`: 文档完整性。" 
-        "  - `test_coverage`: 测试覆盖率。" 
-        "  - `performance_optimization`: 性能优化。" 
-        "  - `suggestions`: 一个数组，包含 AI 评估意见。每个意见是一个对象，包含：" 
-        "  - `type`: 意见类型 ('positive', 'neutral', 'negative'，或表示建议的类型如 'suggestion')。" 
-        "  - `content`: 意见的具体内容（字符串）。" 
-        "请确保所有的评分都在 0 到 10 之间。" 
-        f"\n\n```diff\n{diff_text}\n```"
-    )
+    prompt = f"""你是一位资深软件工程师，以进行深入、严格且富有建设性的代码审查而闻名。你的目标是帮助团队提升代码质量，而不仅仅是评分。
+请分析以下 GitHub Pull Request 的代码 diff。你的分析需要全面，并且以 JSON 格式返回，包含以下字段：
+- `overall_score`: 综合评分 (0-10 之间的浮点数)。
+- `dimensions`: 一个对象，包含以下维度的评分 (0-10 之间的浮点数)：
+  - `code_quality`: 代码质量（评估代码的可读性、简洁性、是否遵循最佳实践、以及错误处理的健壮性）。
+  - `innovation`: 创新性（评估解决方案的新颖性或解决问题的巧妙程度）。
+  - `documentation_completeness`: 文档完整性（检查代码注释、README 更新等是否清晰、完整）。
+  - `performance_optimization`: 性能优化（关注代码的效率、资源使用）。
+  - `test_coverage`: 测试覆盖率（**附加分项**，见下文说明）。
+- `suggestions`: 一个数组，包含具体的、可执行的评估意见。每个意见对象包含：
+  - `type`: 意见类型 ('positive', 'neutral', 'negative', 'suggestion')。
+  - `content`: 意见的具体内容，如果适用，请提供代码示例。
+
+--- 评分和建议指南 ---
+1. **评分原则**: 评分必须严格。优秀的、堪称典范的代码才能获得 9-10 分。大多数不错的 PR 应该在 6-8 分之间。有明显问题的代码应该得到 5 分或更低。你的目标是拉开分数差距，以反映真实的代码质量差异。
+2. **测试覆盖率**: 这是一个**附加分项**。如果 PR 包含了全面、有效的测试，请在此项上给予高分（最高 10 分）。如果**没有**测试，**此项得分为 0**，但这**不应**显著拉低 `overall_score`。`overall_score` 应主要基于其他核心维度。
+3. **建议质量**: 提供的建议必须是**具体、可执行的**。不要说"代码可以更清晰"，而要指出**哪一行**、**哪个函数**可以如何重构，并尽可能给出代码示例。
+
+--- 开始分析 ---
+```diff
+{diff_text}
+```"""
     try:
         client = OpenAI(
             api_key=DOUBAO_API_KEY, 
@@ -73,7 +77,7 @@ async def perform_pr_analysis(pr_node_id: str, diff_url: str) -> dict:
             response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
             diff_content = response.text
     except httpx.RequestError as e:
-        raise ValueError(f"Failed to fetch diff from {diff_url}: {e}")
+        raise ValueError(f"无法从 GitHub 获取 PR diff。请检查网络连接或 GitHub 访问权限。错误详情: {e}")
     except Exception as e:
         # Catch any other unexpected errors during the fetch operation
         raise ValueError(f"An unexpected error occurred while fetching diff from {diff_url}: {e}")

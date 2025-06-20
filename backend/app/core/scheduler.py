@@ -7,9 +7,10 @@ from app.models.activity import Activity
 from app.models.scoring import ScoreEntry
 from app.models.pull_request import PullRequest
 from app.models.pull_request_event import PullRequestEvent
-from app.core.ai_service import analyze_pr_diff
+from app.core.ai_service import analyze_pr_diff, perform_pr_analysis
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from app.models.pull_request_result import PullRequestResult
 
 async def process_pending_tasks():
     """
@@ -23,17 +24,17 @@ async def process_pending_tasks():
                 try:
                     if not act.diff_url:
                         continue
-                    async with httpx.AsyncClient() as client:
-                        resp = await client.get(act.diff_url, headers={"Accept": "application/vnd.github.v3.diff"}, timeout=10)
-                        resp.raise_for_status()
-                        diff_text = resp.text
-                    result = analyze_pr_diff(diff_text)
-                    score = int(result.get("score", 0))
-                    analysis = result.get("analysis", "")
                     
+                    # 直接调用 perform_pr_analysis 来获取 diff 并进行 AI 分析
+                    result = await perform_pr_analysis(act.id, act.diff_url)
+
+                    # 从 AI 分析结果中提取总分和建议
+                    overall_score = int(result.get("overall_score", 0))
+                    suggestions_text = " ".join([s["content"] for s in result.get("suggestions", [])])
+
                     # 更新 Activity
-                    act.description = analysis
-                    act.points = score
+                    act.description = suggestions_text
+                    act.points = overall_score
                     act.status = 'completed'
                     db.add(act)
 
@@ -41,30 +42,56 @@ async def process_pending_tasks():
                     pr_result = await db.execute(select(PullRequest).filter(PullRequest.pr_node_id == act.id))
                     pr = pr_result.scalars().first()
                     if pr:
-                        pr.score = score
-                        pr.analysis = analysis
+                        pr.score = overall_score
+                        pr.analysis = suggestions_text
                         db.add(pr)
+
+                        # 保存完整的 AI 分析结果到 PullRequestResult 表
+                        existing_pr_analysis_result = await db.execute(
+                            select(PullRequestResult).filter(PullRequestResult.pr_node_id == act.id)
+                        )
+                        pr_analysis_entry = existing_pr_analysis_result.scalars().first()
+
+                        if not pr_analysis_entry:
+                            # 如果不存在，则创建新记录
+                            pr_analysis_entry = PullRequestResult(
+                                pr_node_id=act.id,
+                                pr_number=pr.pr_number,
+                                repository=pr.repository,
+                                action="ai_analyzed", # 表示由 AI 分析
+                                ai_analysis_result=result, # 存储完整的 JSON 结果
+                                created_at=datetime.utcnow()
+                            )
+                            db.add(pr_analysis_entry)
+                        else:
+                            # 如果已存在，则更新记录
+                            pr_analysis_entry.ai_analysis_result = result
+                            pr_analysis_entry.created_at = datetime.utcnow()
+                            db.add(pr_analysis_entry)
+                    else:
+                        print(f"Warning: PullRequest with node_id {act.id} not found when processing pending task.")
 
                     # 创建时间线事件
                     event = PullRequestEvent(
                         pr_node_id=act.id,
                         event_type='ai_evaluation',
                         event_time=datetime.utcnow(),
-                        details=analysis
+                        details=suggestions_text
                     )
                     db.add(event)
 
                     entry = ScoreEntry(
                         id=str(uuid4()), user_id=act.user_id, activity_id=act.id,
-                        criteria_id=None, score=score, factors={"analysis": analysis},
+                        criteria_id=None, score=overall_score, factors={"analysis": suggestions_text},
                         notes="事件触发 AI 自动评分"
                     )
                     db.add(entry)
                     await db.commit()
-                    print(f"[任务执行] PR {act.id} 评分完成，得分：{score}")
-                except httpx.RequestError as e:
+                    print(f"[任务执行] PR {act.id} 评分完成，得分：{overall_score}")
+                except ValueError as e: # 捕获来自 perform_pr_analysis 的 ValueError
                     await db.rollback()
-                    print(f"[任务执行] 拉取 PR {act.id} diff 失败：{e}")
+                    # 提供更友好的提示
+                    print(f"[任务执行] PR {act.id} 分析失败：无法联调 GitHub。错误详情：{e}")
                 except Exception as e:
                     await db.rollback()
                     print(f"[任务执行] PR {act.id} 分析失败：{e}")

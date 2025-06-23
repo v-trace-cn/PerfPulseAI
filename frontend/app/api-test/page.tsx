@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from 'react';
-import { authApi, directUserApi } from '@/lib/api';
+import { authApi } from '@/lib/api';
+import { directUserApi } from '@/lib/direct-api';
 
 export default function ApiTestPage() {
   const [healthStatus, setHealthStatus] = useState<any>(null);

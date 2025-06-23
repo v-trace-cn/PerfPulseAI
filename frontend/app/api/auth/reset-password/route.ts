@@ -4,8 +4,10 @@ import { backendUrl } from '../../../../lib/config/api-config';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    // Forward the request to the backend auth 登录接口
-    const response = await fetch(`${backendUrl}/api/auth/login`, {
+    console.log('Reset password request received in Next.js API route:', body);
+    console.log('Backend URL for reset password:', backendUrl);
+    
+    const response = await fetch(`${backendUrl}/api/auth/reset-password`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -15,11 +17,8 @@ export async function POST(request: Request) {
       body: JSON.stringify(body),
     });
 
-    console.log('Backend login response status:', response.status);
-    
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.error('Backend login error response:', errorData);
       return NextResponse.json(
         { 
           success: false, 
@@ -33,14 +32,14 @@ export async function POST(request: Request) {
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('Reset password error:', error);
     return NextResponse.json(
       { 
         success: false,
-        message: error instanceof Error ? error.message : 'Failed to process login request',
+        message: error instanceof Error ? error.message : 'Failed to process reset password request',
         error: String(error)
       },
       { status: 500 }
     );
   }
-}
+} 

@@ -20,6 +20,7 @@ import {
   BookOpenIcon,
   DownloadIcon,
   ExternalLinkIcon,
+  Loader2,
 } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import {
@@ -49,14 +50,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useTheme } from "next-themes"
 import { useToast } from "@/components/ui/use-toast"
-import { directAuthApi } from "@/lib/direct-api"  // 导入密码重置 API
+import { authApi } from "@/lib/api"  // 导入密码重置 API
 import SiteHeader from "@/components/site-header"
+import { useAuthDialog } from "@/lib/auth-dialog-context"
 
 export default function ClientPage() {
   const { user, isAuthenticated, isLoading, error, login, register, logout } = useAuth()
   const router = useRouter()
-  const [authDialogOpen, setAuthDialogOpen] = useState(false)
-  const [authMode, setAuthMode] = useState<"login" | "register" | "reset">("login")
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -86,6 +86,22 @@ export default function ClientPage() {
   const [themeColor, setThemeColor] = useState<string>("primary")
   const { setTheme } = useTheme()
   const { toast } = useToast()
+  const { authDialogOpen, authMode, setAuthDialogOpen, setAuthMode, openResetPasswordDialog } = useAuthDialog();
+
+  // 当 authMode 改变时，重置表单数据和错误状态
+  useEffect(() => {
+    setFormData({
+      email: "",
+      password: "",
+      confirmPassword: "",
+    });
+    setErrors({
+      email: "",
+      password: "",
+      confirmPassword: "",
+      passwordMatch: "",
+    });
+  }, [authMode]);
 
   // 应用字体大小变化的函数
   const applyFontSize = (size: "small" | "medium" | "large") => {
@@ -197,8 +213,9 @@ export default function ClientPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target
-    // 同步更新表单数据
-    setFormData((prev) => ({ ...prev, [id]: value }))
+    // 创建新的表单数据状态
+    const newFormData = { ...formData, [id]: value };
+    setFormData(newFormData); // 更新 formData 状态
 
     // 清除对应字段的错误
     if (errors[id as keyof typeof errors]) {
@@ -208,19 +225,15 @@ export default function ClientPage() {
       }))
     }
 
-    // 如果是密码字段变更，检查密码匹配
+    // 总是重新评估密码匹配错误
     if (id === "password" || id === "confirmPassword") {
-      if (id === "password" && formData.confirmPassword && value !== formData.confirmPassword) {
-        setErrors((prev) => ({
-          ...prev,
-          passwordMatch: "两次输入的密码不一致",
-        }))
-      } else if (id === "confirmPassword" && value !== formData.password) {
+      if (newFormData.password && newFormData.confirmPassword && newFormData.password !== newFormData.confirmPassword) {
         setErrors((prev) => ({
           ...prev,
           passwordMatch: "两次输入的密码不一致",
         }))
       } else {
+        // 清除 passwordMatch 错误，如果它们现在匹配或其中一个为空
         setErrors((prev) => ({
           ...prev,
           passwordMatch: "",
@@ -297,7 +310,7 @@ export default function ClientPage() {
     } else if (authMode === "reset") {
       // 重置密码逻辑
       try {
-        const resp = await directAuthApi.resetPassword(formData.email, formData.password);
+        const resp = await authApi.resetPassword(formData.email, formData.password);
         if (resp.success) {
           toast({ title: "重置成功", description: "请使用新密码登录系统", variant: "default" });
           // 切回登录模式并重置表单
@@ -313,18 +326,6 @@ export default function ClientPage() {
     }
   }
 
-  // 处理登录弹窗的显示
-  const handleLoginClick = () => {
-    setAuthMode("login")
-    setAuthDialogOpen(true)
-  }
-
-  // 处理注册弹窗的显示
-  const handleRegisterClick = () => {
-    setAuthMode("register")
-    setAuthDialogOpen(true)
-  }
-
   // 处理帮助弹窗的显示
   const handleHelpClick = () => {
     setHelpDialogOpen(true)
@@ -338,8 +339,6 @@ export default function ClientPage() {
   return (
     <>
       <SiteHeader
-        onLoginClick={handleLoginClick}
-        onRegisterClick={handleRegisterClick}
         onHelpClick={handleHelpClick}
         onSettingsClick={handleSettingsClick}
       />
@@ -414,7 +413,7 @@ export default function ClientPage() {
                     {registrationStatus.includes("但未返回") ? (
                       <div className="mr-2 flex-shrink-0 mt-0.5">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                         </svg>
                       </div>
                     ) : (
@@ -453,7 +452,7 @@ export default function ClientPage() {
                   <Button
                     variant="link"
                     className="text-xs p-0"
-                    onClick={() => setAuthMode("reset")}
+                    onClick={openResetPasswordDialog}
                     disabled={isLoading}
                   >
                     忘记密码？
@@ -509,7 +508,8 @@ export default function ClientPage() {
               )}
             </div>
             <DialogFooter className="flex justify-between items-center">
-              <div className="flex flex-col items-start space-y-1">
+              {/* Right side group */}
+              <div className="flex items-center space-x-2">
                 {authMode === "login" && (
                   <Button
                     variant="link"
@@ -517,7 +517,7 @@ export default function ClientPage() {
                     onClick={() => setAuthMode("register")}
                     disabled={isLoading}
                   >
-                    没有账号？注册新账号
+                    还没有账号？立即注册
                   </Button>
                 )}
                 {authMode === "register" && (
@@ -527,7 +527,7 @@ export default function ClientPage() {
                     onClick={() => setAuthMode("login")}
                     disabled={isLoading}
                   >
-                    已有账号？返回登录
+                    已有账号？立即登录
                   </Button>
                 )}
                 {authMode === "reset" && (
@@ -540,17 +540,18 @@ export default function ClientPage() {
                     返回登录
                   </Button>
                 )}
+                <Button onClick={handleSubmit} disabled={isLoading}>
+                  {isLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : authMode === "login" ? (
+                    "登录"
+                  ) : authMode === "register" ? (
+                    "注册"
+                  ) : (
+                    "重置密码"
+                  )}
+                </Button>
               </div>
-              <Button type="submit" onClick={handleSubmit} disabled={isLoading} className="w-28 justify-center">
-                {isLoading ? (
-                  <>
-                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
-                    {authMode === "login" ? "登录中..." : authMode === "register" ? "注册中..." : "重置中..."}
-                  </>
-                ) : (
-                  authMode === "login" ? "登录" : authMode === "register" ? "注册" : "重置密码"
-                )}
-              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

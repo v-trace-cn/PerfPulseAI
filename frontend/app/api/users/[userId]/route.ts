@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { backendUrl } from '../../../../lib/config/server-api-config';
+import { backendUrl } from '../../../../lib/config/api-config';
 
 export async function GET(
   request: Request,
@@ -19,7 +19,7 @@ export async function GET(
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'Origin': 'http://192.168.0.29:3000'
+        'Origin': backendUrl
       }
     });
     
@@ -55,7 +55,7 @@ export async function PUT(
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'Origin': 'http://192.168.0.29:3000'
+        'Origin': backendUrl
       },
       body: JSON.stringify(body),
     });

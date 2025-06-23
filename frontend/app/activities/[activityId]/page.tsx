@@ -65,32 +65,24 @@ export default function ActivityDetailPage() {
     if (!activityId) return;
 
     if (activity?.status === 'analyzed' || activity?.status === 'completed') {
-        toast({
-            title: "评分已存在",
-            description: "该活动的 AI 评分已完成，您可直接计算积分。",
-        });
-        return;
+        if (activity.ai_analysis && activity.ai_analysis.overall_score > 0) {
+            toast({
+                title: "评分已存在",
+                description: "该活动的 AI 评分已完成，您可直接计算积分。",
+            });
+            return;
+        }
     }
 
-    toast({ title: "正在获取 AI 评分", description: "请求已发送，AI 正在分析中，请稍候..." });
     try {
-      const res = await triggerAnalysis(activityId);
-      if (res && res.message) {
-        toast({
-            title: "🎉 AI 评分完成！",
-            description: "AI 已完成评分，您现在可以查看评价详情或计算积分了。",
-        });
-        fetchActivity(activityId).then((refreshedRes: any) => {
-          if (refreshedRes && refreshedRes.success) {
-            setActivity(refreshedRes.data);
-          }
-        });
-      } else {
-        toast({ title: "AI 评分失败", description: "收到未知响应，请稍后重试。", variant: "destructive" });
-      }
+      await triggerAnalysis(activityId);
+      toast({
+          title: "分析已触发！",
+          description: "AI 分析请求已发送，结果将在后台处理。请稍后刷新页面查看。",
+      });
     } catch (err: any) {
-      toast({ title: "AI 评分失败", description: err.message || "连接服务器失败，请稍后重试。", variant: "destructive" });
-      console.error("AI analysis error:", err);
+      toast({ title: "AI 分析触发失败", description: err.message || "连接服务器失败，未能成功触发分析。", variant: "destructive" });
+      console.error("AI analysis trigger error:", err);
     }
   };
 
@@ -171,7 +163,7 @@ export default function ActivityDetailPage() {
 
   return (
     <>
-      <SiteHeader onLoginClick={() => {}} onRegisterClick={() => {}} onHelpClick={() => {}} onSettingsClick={() => {}} />
+      <SiteHeader onHelpClick={() => {}} onSettingsClick={() => {}} />
       <div className="min-h-screen bg-gray-50 pt-6">
         <div className="max-w-7xl mx-auto px-6 py-8 bg-white rounded-lg shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
           {/* Activity Header */}
@@ -372,7 +364,7 @@ export default function ActivityDetailPage() {
         </div>
       </div>
     </>
-  )
+  );
 }
 
 /* ----------------- 辅助子组件 ----------------- */

@@ -2,13 +2,11 @@
  * API service for communicating with the backend
  */
 
-// Use Next.js API route handlers to avoid CORS issues
-const API_BASE_URL = '';
-
 // Generic fetch function with error handling
 async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const url = `/api${endpoint}`;
+    const response = await fetch(url, {
       ...options,
       credentials: 'include', // Include cookies for cross-origin requests
       headers: {
@@ -34,15 +32,21 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
 // Auth API
 export const authApi = {
   login: (email: string, password: string) => 
-    fetchApi<{ token: string; user: any }>('/auth/login', {
+    fetchApi<{ data: { userId: string; name: string; email: string }; message: string; success: boolean }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     }),
 
   register: (email: string, password: string, name: string) => 
-    fetchApi<{ token: string; user: any }>('/auth/register', {
+    fetchApi<{ data: { userId: string; name: string; email: string }; message: string; success: boolean }>('/auth/register', {
       method: 'POST',
       body: JSON.stringify({ email, password, name }),
+    }),
+
+  resetPassword: (email: string, password: string) =>
+    fetchApi<{ success: boolean; message: string }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
     }),
 
   checkHealth: () => 
@@ -54,21 +58,24 @@ export const authApi = {
 
 // User API
 export const userApi = {
-  getProfile: () => 
-    fetchApi<any>('/user/profile', {
+  getProfile: () => {
+    const userId = localStorage.getItem('token');
+    return fetchApi<any>(`/users/${userId}`, {
       headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
+        Authorization: `Bearer ${userId}`,
       },
-    }),
-
-  updateProfile: (data: any) => 
-    fetchApi<any>('/user/profile', {
+    });
+  },
+  updateProfile: (data: any) => {
+    const userId = localStorage.getItem('token');
+    return fetchApi<any>(`/users/${userId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
       headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
+        Authorization: `Bearer ${userId}`,
       },
-    }),
+    });
+  },
 };
 
 // Activity API

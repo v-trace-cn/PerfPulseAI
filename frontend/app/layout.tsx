@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/lib/auth-context"
 import { Toaster } from "@/components/ui/toaster"
 import { ToastProvider } from "@/lib/toast-context"
+import { AuthDialogProvider } from "@/lib/auth-dialog-context"
 
 const inter = Inter({
   subsets: ["latin"],
@@ -28,7 +29,9 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
           <ToastProvider>
             <AuthProvider>
-              {children}
+              <AuthDialogProvider>
+                {children}
+              </AuthDialogProvider>
               <Toaster />
             </AuthProvider>
           </ToastProvider>

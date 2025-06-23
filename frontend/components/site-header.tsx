@@ -18,17 +18,17 @@ import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { Input } from "@/components/ui/input"
+import { useAuthDialog } from "@/lib/auth-dialog-context"
 
 interface SiteHeaderProps {
-  onLoginClick: () => void;
-  onRegisterClick: () => void;
   onHelpClick: () => void;
   onSettingsClick: () => void;
 }
 
-export default function SiteHeader({ onLoginClick, onRegisterClick, onHelpClick, onSettingsClick }: SiteHeaderProps) {
+export default function SiteHeader({ onHelpClick, onSettingsClick }: SiteHeaderProps) {
   const { user, isAuthenticated, logout } = useAuth()
   const router = useRouter()
+  const { openLoginDialog, openRegisterDialog } = useAuthDialog()
 
   return (
     <header className="border-b backdrop-blur-sm bg-background/70 sticky top-0 z-50 transition-colors duration-300 dark:border-primary/10 border-black/5">
@@ -90,8 +90,8 @@ export default function SiteHeader({ onLoginClick, onRegisterClick, onHelpClick,
                 </>
               ) : (
                 <>
-                  <DropdownMenuItem onClick={onLoginClick}> <LogIn className="mr-2 h-4 w-4" /> 登录系统</DropdownMenuItem>
-                  <DropdownMenuItem onClick={onRegisterClick}> <UserPlus className="mr-2 h-4 w-4" /> 注册账号</DropdownMenuItem>
+                  <DropdownMenuItem onClick={openLoginDialog}> <LogIn className="mr-2 h-4 w-4" /> 登录系统</DropdownMenuItem>
+                  <DropdownMenuItem onClick={openRegisterDialog}> <UserPlus className="mr-2 h-4 w-4" /> 注册账号</DropdownMenuItem>
                 </>
               )}
             </DropdownMenuContent>

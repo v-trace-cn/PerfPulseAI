@@ -176,7 +176,7 @@ async def analyze_pull_request(
         if not pr:
             raise HTTPException(status_code=404, detail=f"Pull Request with node ID {activity.id} (from activity.id) not found.")
 
-        analysis_result = await perform_pr_analysis(pr.pr_node_id, pr.diff_url)
+        analysis_result = await perform_pr_analysis(pr)
         
         response_data = {"message": "PR AI analysis triggered successfully", "analysis_result": analysis_result}
 

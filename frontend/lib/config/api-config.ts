@@ -1,61 +1,46 @@
 /**
  * API Configuration
  * 
- * This file centralizes all backend API configuration.
- * To switch backends, just modify the values in this file.
+ * This file centralizes all backend API and frontend Origin configuration.
+ * Addresses are determined based on the NODE_ENV environment variable.
+ * You can override these defaults using NEXT_PUBLIC_BACKEND_API_URL and NEXT_PUBLIC_FRONTEND_ORIGIN in your .env file.
  */
 
-// Available backend environments
-export enum BackendEnvironment {
-  LOCAL = 'local',
-  DEVELOPMENT = 'development',
-  STAGING = 'staging',
-  PRODUCTION = 'production'
-}
-
-// Current active environment
-export const ACTIVE_ENVIRONMENT: BackendEnvironment = BackendEnvironment.LOCAL;
-
-// Configuration for each environment
-interface EnvironmentConfig {
-  backendApiUrl: string;
-  nextjsApiUrl: string;
-  useNextjsApi: boolean; // Whether to use Next.js API routes or direct backend calls
-}
-
-const environmentConfigs: Record<BackendEnvironment, EnvironmentConfig> = {
-  [BackendEnvironment.LOCAL]: {
-    backendApiUrl: 'http://127.0.0.1:5006',
-    nextjsApiUrl: '', // Empty string means relative path
-    useNextjsApi: true
-  },
-  [BackendEnvironment.DEVELOPMENT]: {
-    backendApiUrl: 'https://dev-api.perfpulseai.com',
-    nextjsApiUrl: '',
-    useNextjsApi: true
-  },
-  [BackendEnvironment.STAGING]: {
-    backendApiUrl: 'https://staging-api.perfpulseai.com',
-    nextjsApiUrl: '',
-    useNextjsApi: true
-  },
-  [BackendEnvironment.PRODUCTION]: {
-    backendApiUrl: 'https://api.perfpulseai.com',
-    nextjsApiUrl: '',
-    useNextjsApi: true
+// Function to get the backend API URL based on environment
+export const getBackendApiUrl = (): string => {
+  let url = process.env.NEXT_PUBLIC_BACKEND_API_URL;
+  if (!url) {
+    if (process.env.NODE_ENV === 'production') {
+      url = 'http://192.168.0.29:5000';
+    } else {
+      url = 'http://192.168.2.13:5000';
+    }
   }
+  // 自动补全 http:// 前缀
+  if (!/^https?:\/\//.test(url)) {
+    url = 'http://' + url;
+  }
+  return url;
 };
 
-// Export the active configuration
-export const apiConfig = environmentConfigs[ACTIVE_ENVIRONMENT];
+// Function to get the frontend Origin URL based on environment
+export const getFrontendOriginUrl = (): string => {
+  if (process.env.NEXT_PUBLIC_FRONTEND_ORIGIN) {
+    return process.env.NEXT_PUBLIC_FRONTEND_ORIGIN;
+  }
+  if (process.env.NODE_ENV === 'production') {
+    return 'http://192.168.0.29:3000'; // 生产环境前端 Origin URL
+  }
+  return 'http://192.168.2.13:3000'; // 开发环境前端 Origin URL
+};
 
 // Helper function to get the appropriate URL for an endpoint
-export function getApiUrl(endpoint: string, useDirectBackend = false): string {
-  // If forced to use direct backend or the config specifies direct backend
-  if (useDirectBackend || !apiConfig.useNextjsApi) {
-    return `${apiConfig.backendApiUrl}${endpoint}`;
-  }
-  
-  // Otherwise use Next.js API routes
-  return `${apiConfig.nextjsApiUrl}${endpoint}`;
+// For client-side fetches directly to backend
+export function getApiUrl(endpoint: string): string {
+  return `${getBackendApiUrl()}${endpoint}`;
 }
+
+// Export the backend URL for direct usage where needed (e.g., in Next.js API routes acting as proxies)
+export const backendUrl = getBackendApiUrl();
+// Export the frontend origin for direct usage where needed (e.g., in CORS headers in Next.js API routes)
+export const frontendOrigin = getFrontendOriginUrl();

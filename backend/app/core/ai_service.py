@@ -57,7 +57,8 @@ def analyze_pr_diff(diff_text: str) -> dict:
         return result
     except Exception as e:
         print(f"AI 分析 PR 失败: {e}")
-        return {"overall_score": 0, "dimensions": {}, "suggestions": [{"type": "negative", "content": f"AI 分析失败: {e}"}]}
+        # 抛出异常而不是返回一个错误字典，确保上层函数能捕获到并进行错误处理
+        raise ValueError(f"AI 分析 PR 失败: {e}")
 
 async def perform_pr_analysis(pr_node_id: str, diff_url: str) -> dict:
     """

@@ -51,9 +51,14 @@ async def _save_analysis_to_db(activity_show_id: str, analysis_result: dict):
                 pr_result.ai_analysis_result = analysis_result
                 pr_result.action = "analyzed"
 
-            # 更新关联的 Activity
-            # 这里只更新 PullRequestResult 的 AI 分析结果，不处理积分和活动状态
-            activity.status = "analyzed" # 设置为已分析状态，但不标记为完成
+            # 更新关联的 Activity 和 PullRequestResult 的状态
+            if overall_score is not None:
+                activity.status = "analyzed" # 设置为已分析状态，但不标记为完成
+                pr_result.action = "analyzed" # 明确设置为已分析
+            else:
+                activity.status = "analysis_failed" # AI 分析失败
+                pr_result.action = "analysis_failed" # 明确设置为分析失败
+                pr_result.ai_analysis_result = None # 清除 AI 分析结果，因为它失败了
 
             await db.commit()
             await db.refresh(pr)
@@ -158,12 +163,14 @@ async def analyze_pull_request(
     触发指定 PR 的 AI 评分。
     优先返回 AI 分析结果给前端，然后异步更新表数据。
     """
+    print(f"Received analyze request for activity_show_id: {activity_show_id}")
     try:
         activity_result = await db.execute(select(Activity).filter(Activity.show_id == activity_show_id))
         activity = activity_result.scalars().first()
         if not activity:
             raise HTTPException(status_code=404, detail=f"Activity with show ID {activity_show_id} not found.")
         
+        print(f"Found activity with id: {activity.id}, attempting to find PullRequest with pr_node_id: {activity.id}")
         pr_result = await db.execute(select(PullRequest).filter(PullRequest.pr_node_id == activity.id))
         pr = pr_result.scalars().first()
         if not pr:

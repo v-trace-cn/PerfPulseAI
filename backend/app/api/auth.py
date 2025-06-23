@@ -42,7 +42,7 @@ async def login(data: dict = Body(...), db: AsyncSession = Depends(get_db)):
         return Response(data={}, message="登录失败，没有该用户，请注册", status_code=404, success=False)
     if user and user.check_password(password):
         return Response(data={"email": user.email, "name": user.name, "userId": user.id}, message="登录成功")
-    raise HTTPException(status_code=401, detail=f"无效的邮箱或密码")
+    raise HTTPException(status_code=401, detail=f"密码错误")
 
 @router.post("/register")
 async def register(data: dict = Body(...), db: AsyncSession = Depends(get_db)):

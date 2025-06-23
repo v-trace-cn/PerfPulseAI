@@ -62,7 +62,12 @@ import { useToast } from "@/hooks/use-toast"
 import { useTheme } from "next-themes"
 import { useApi } from "@/hooks/useApi"
 import Link from "next/link"
-import { TruncatedTextWithTooltip } from "@/components/common/truncated-text-with-tooltip"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 // 添加自定义动画
 const fadeInAnimation = `@keyframes fadeIn {
@@ -898,33 +903,43 @@ export default function Dashboard() {
                     <TabsContent value="activities" className="space-y-4">
                       <div className="space-y-4">
                         {userData.recentActivities.map((activity: any) => (
-                          <Link
-                            key={activity.id}
-                            href={`
-                              /activities/${activity.show_id}?tab=profile
-                            `.trim()}
-                          >
-                            <div className="flex items-center p-3 rounded-lg hover:bg-muted/20 transition-colors duration-300">
-                              <div className="relative">
-                                <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
-                                  {activity.type === "task" && <CheckCircle2 className="h-4 w-4 text-green-500" />}
-                                  {activity.type === "contribution" && (
-                                    <GitPullRequest className="h-4 w-4 text-blue-500" />
-                                  )}
-                                  {activity.type === "review" && <MessageSquare className="h-4 w-4 text-purple-500" />}
-                                </div>
-                              </div>
-                              <div className="ml-4 space-y-1 flex-1 overflow-hidden min-w-0">
-                                <TruncatedTextWithTooltip text={activity.title} className="text-sm font-medium leading-none" />
-                                <p className="text-xs text-muted-foreground">{activity.date}</p>
-                              </div>
-                              <div className="ml-auto font-medium">
-                                <div className="data-pill bg-primary/10 text-primary shadow-sm">
-                                  +{activity.points} 积分
-                                </div>
-                              </div>
-                            </div>
-                          </Link>
+                          <TooltipProvider key={activity.id}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Link
+                                  href={`
+                                    /activities/${activity.show_id}?tab=profile
+                                  `.trim()}
+                                >
+                                  <div className="flex items-center p-3 rounded-lg hover:bg-muted/20 transition-colors duration-300">
+                                    <div className="relative">
+                                      <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
+                                        {activity.type === "task" && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                                        {activity.type === "contribution" && (
+                                          <GitPullRequest className="h-4 w-4 text-blue-500" />
+                                        )}
+                                        {activity.type === "review" && <MessageSquare className="h-4 w-4 text-purple-500" />}
+                                      </div>
+                                    </div>
+                                    <div className="ml-4 space-y-1 flex-1 overflow-hidden min-w-0">
+                                      <p className="truncate text-sm font-medium leading-none">
+                                        {activity.title}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground">{activity.date}</p>
+                                    </div>
+                                    <div className="ml-auto font-medium">
+                                      <div className="data-pill bg-primary/10 text-primary shadow-sm">
+                                        +{activity.points} 积分
+                                      </div>
+                                    </div>
+                                  </div>
+                                </Link>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>{activity.title}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         ))}
                       </div>
                     </TabsContent>

@@ -20,11 +20,13 @@ export async function POST(request: Request) {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       console.error('Backend login error response:', errorData);
+      // 优先使用后端提供的 detail 或 message，然后回退到中文通用提示
+      const errorMsg = errorData.detail || errorData.message || `后端错误: ${response.status}`;
       return NextResponse.json(
-        { 
-          success: false, 
-          message: errorData.message || `Backend error: ${response.status}`,
-          error: errorData.message || `Backend error: ${response.status}` 
+        {
+          success: false,
+          message: errorMsg,
+          error: errorMsg
         },
         { status: response.status }
       );

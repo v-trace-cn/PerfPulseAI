@@ -14,7 +14,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { TruncatedTextWithTooltip } from "@/components/common/truncated-text-with-tooltip"
 
 interface Activity {
   id: string;
@@ -114,33 +113,44 @@ export function RecentActivities() {
   return (
     <div className="space-y-6">
       {activities.map((activity) => (
-        <Link href={`/activities/${activity.show_id}`} key={activity.id}>
-          <div className="flex items-center p-3 rounded-lg hover:bg-muted/20 transition-colors duration-300">
-            <div className="relative">
-              <Avatar className="h-9 w-9 border transition-colors duration-300 dark:border-white/10 border-black/5 shadow-sm">
-                <AvatarImage src={activity.user.avatar} alt="Avatar" />
-                <AvatarFallback className="bg-primary/10 text-primary">{activity.user.initials}</AvatarFallback>
-              </Avatar>
-              <div className="absolute -bottom-1 -right-1 rounded-full bg-card p-0.5">
-                {getActivityIcon(activity.type)}
-              </div>
-            </div>
-            <div className="ml-4 space-y-1 overflow-hidden flex-1 min-w-0">
-              <p className="text-sm font-medium leading-none">{activity.user.name}</p>
-              <TruncatedTextWithTooltip text={activity.title} className="text-sm text-muted-foreground" />
-              <div className="flex items-center">
-                <p className="text-xs text-muted-foreground">
-                  {getRelativeDate(activity.created_at)}
-                </p>
-              </div>
-            </div>
-            <div className="ml-auto font-medium">
-              <div className="data-pill bg-primary/10 text-primary shadow-sm">
-                +{activity.points} 积分
-              </div>
-            </div>
-          </div>
-        </Link>
+        <TooltipProvider key={activity.id}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link href={`/activities/${activity.show_id}`}>
+                <div className="flex items-center p-3 rounded-lg hover:bg-muted/20 transition-colors duration-300">
+                  <div className="relative">
+                    <Avatar className="h-9 w-9 border transition-colors duration-300 dark:border-white/10 border-black/5 shadow-sm">
+                      <AvatarImage src={activity.user.avatar} alt="Avatar" />
+                      <AvatarFallback className="bg-primary/10 text-primary">{activity.user.initials}</AvatarFallback>
+                    </Avatar>
+                    <div className="absolute -bottom-1 -right-1 rounded-full bg-card p-0.5">
+                      {getActivityIcon(activity.type)}
+                    </div>
+                  </div>
+                  <div className="ml-4 space-y-1 overflow-hidden flex-1 min-w-0">
+                    <p className="text-sm font-medium leading-none">{activity.user.name}</p>
+                    <p className="truncate text-sm text-muted-foreground">
+                      {activity.title}
+                    </p>
+                    <div className="flex items-center">
+                      <p className="text-xs text-muted-foreground">
+                        {getRelativeDate(activity.created_at)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="ml-auto font-medium">
+                    <div className="data-pill bg-primary/10 text-primary shadow-sm">
+                      +{activity.points} 积分
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{activity.title}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       ))}
     </div>
   )

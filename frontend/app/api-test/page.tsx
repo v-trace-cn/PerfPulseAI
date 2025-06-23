@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { directAuthApi, directUserApi } from '@/lib/direct-api';
+import { authApi, directUserApi } from '@/lib/api';
 
 export default function ApiTestPage() {
   const [healthStatus, setHealthStatus] = useState<any>(null);
@@ -15,7 +15,7 @@ export default function ApiTestPage() {
     setLoading('health');
     setError(null);
     try {
-      const response = await directAuthApi.checkHealth();
+      const response = await authApi.checkHealth();
       setHealthStatus(response);
     } catch (err: any) {
       setError(`健康检查失败: ${err.message || String(err)}`);
@@ -28,7 +28,7 @@ export default function ApiTestPage() {
     setLoading('login');
     setError(null);
     try {
-      const response = await directAuthApi.login('test@example.com', 'password123');
+      const response = await authApi.login('test@example.com', 'password123');
       setLoginResponse(response);
       
       if (response.success && response.data && response.data.userId) {
@@ -47,7 +47,7 @@ export default function ApiTestPage() {
     setLoading('register');
     setError(null);
     try {
-      const response = await directAuthApi.register(
+      const response = await authApi.register(
         `test${Date.now()}@example.com`, 
         'password123', 
         `Test User ${Date.now()}`

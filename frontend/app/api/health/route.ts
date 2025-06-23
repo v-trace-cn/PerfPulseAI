@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { backendUrl } from '../../../lib/config/server-api-config';
+import { backendUrl, frontendOrigin } from '../../../lib/config/api-config';
 
 export async function GET() {
   const testUrl = `${backendUrl}/api/health`;
@@ -9,7 +9,7 @@ export async function GET() {
     const response = await fetch(testUrl, {
       method: 'GET',
       headers: {
-        'Origin': 'http://192.168.2.13:3000' // 确保与前端地址一致
+        'Origin': frontendOrigin // 确保与前端地址一致
       }
     });
 
@@ -21,7 +21,7 @@ export async function GET() {
     
     return NextResponse.json(data, {
       headers: {
-        'Access-Control-Allow-Origin': 'http://192.168.2.13:3000'
+        'Access-Control-Allow-Origin': frontendOrigin
       }
     });
   } catch (error) {
@@ -38,7 +38,7 @@ export async function GET() {
       { 
         status: 200,
         headers: {
-          'Access-Control-Allow-Origin': 'http://192.168.2.13:3000'
+          'Access-Control-Allow-Origin': frontendOrigin
         }
       }
     );

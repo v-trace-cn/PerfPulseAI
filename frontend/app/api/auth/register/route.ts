@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { backendUrl } from '../../../../lib/config/server-api-config';
+import { backendUrl } from '../../../../lib/config/api-config';
 
 export async function POST(request: Request) {
   try {
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'Origin': 'http://192.168.0.29:3000'
+        'Origin': backendUrl
       },
       body: JSON.stringify(body),
     });

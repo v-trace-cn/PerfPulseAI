@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { directAuthApi, directUserApi } from './direct-api';
+import { authApi, userApi } from './api';
 
 // Define the User type
 export interface User {
@@ -46,8 +46,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        const userData = await directUserApi.getProfile(token);
-        setUser(userData);
+        const userData = await userApi.getProfile();
+        setUser(userData.data);
       } catch (err) {
         console.error('Profile fetch error:', err);
         // Clear invalid token
@@ -65,31 +65,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      const response = await directAuthApi.login(email, password);
+      const response = await authApi.login(email, password);
       
-      if (!response.success) {
+      if (!response.success || !response.data || !response.data.userId) {
         throw new Error(response.message || '登录失败');
       }
       
-      // Store user ID as token since backend uses sessions
-      if (typeof window !== 'undefined' && response.data && response.data.userId) {
+      if (typeof window !== 'undefined') {
         localStorage.setItem('token', response.data.userId);
-        
-        try {
-          // Fetch user profile with the userId
-          const userData = await directUserApi.getProfile(response.data.userId);
-          setUser(userData);
-        } catch (profileError) {
-          console.error('Failed to fetch user profile:', profileError);
-          // Create a minimal user object with the userId and basic info
-          setUser({ 
-            id: response.data.userId, 
-            email: response.data.email || email,
-            name: response.data.name || email.split('@')[0]
-          });
-        }
-      } else {
-        throw new Error('登录成功但未返回用户ID');
+        setUser({ ...response.data, id: response.data.userId });
       }
       return true;
     } catch (err: any) {
@@ -106,27 +90,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      const response = await directAuthApi.register(email, password, name || email.split('@')[0]);
+      const response = await authApi.register(email, password, name || email.split('@')[0]);
       
-      if (!response.success) {
+      if (!response.success || !response.data || !response.data.userId) {
         throw new Error(response.message || '注册失败');
       }
       
-      // Store user ID as token since backend uses sessions
-      if (typeof window !== 'undefined' && response.data && response.data.userId) {
+      if (typeof window !== 'undefined') {
         localStorage.setItem('token', response.data.userId);
-        
-        try {
-          // Fetch user profile with the userId
-          const userData = await directUserApi.getProfile(response.data.userId);
-          setUser(userData);
-        } catch (profileError) {
-          console.error('Failed to fetch user profile:', profileError);
-          // Create a minimal user object with the userId and provided info
-          setUser({ id: response.data.userId, email, name: name || email.split('@')[0] });
-        }
-      } else {
-        throw new Error('注册成功但未返回用户ID');
+        setUser({ ...response.data, id: response.data.userId });
       }
       return true;
     } catch (err: any) {

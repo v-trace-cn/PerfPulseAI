@@ -14,6 +14,7 @@ class Settings:
     GITHUB_APP_ID: str          = os.getenv("GITHUB_APP_ID")
     GITHUB_WEBHOOK_SECRET: str  = os.getenv("GITHUB_WEBHOOK_SECRET")
     GITHUB_PRIVATE_KEY_PATH: str= os.getenv("GITHUB_PRIVATE_KEY_PATH")
+    GITHUB_PAT: str             = os.getenv("GITHUB_PAT", "")
     
     DATABASE_URL = f"sqlite:///{BACKEND_DIR / 'db' / 'perf.db'}"
 

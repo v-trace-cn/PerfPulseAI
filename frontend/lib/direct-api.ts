@@ -2,14 +2,11 @@
  * Direct API service for communicating with the backend without Next.js API routes
  */
 
-// Base URL for the backend API
-const BACKEND_API_URL = 'http://192.168.0.29:5000';
-// Base URL for our Next.js API routes (use backend URL to directly call API)
-const NEXTJS_API_URL = BACKEND_API_URL;
+import { getApiUrl } from "./config/api-config";
 
 // Generic fetch function with error handling and detailed logging
 async function fetchDirectApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const url = endpoint.startsWith('http') ? endpoint : `${NEXTJS_API_URL}${endpoint}`;
+  const url = endpoint.startsWith('http') ? endpoint : getApiUrl(endpoint, true);
   
   try {
     const response = await fetch(url, {
@@ -85,7 +82,7 @@ export const directAuthApi = {
     const encrypted = await encryptPayload({ email, password });
     const body = encrypted ? { encrypted } : { email, password };
     return fetchDirectApi<{ success: boolean; message: string; data?: { userId: string; name: string; email: string } }>(
-      `${NEXTJS_API_URL}/api/auth/login`, {
+      `/api/auth/login`, {
         method: 'POST',
         body: JSON.stringify(body),
       }
@@ -96,7 +93,7 @@ export const directAuthApi = {
     const encrypted = await encryptPayload({ email, password, name });
     const body = encrypted ? { encrypted } : { email, password, name };
     return fetchDirectApi<{ success: boolean; message: string; data?: { userId: string; name: string; email: string } }>(
-      `${NEXTJS_API_URL}/api/auth/register`, {
+      `/api/auth/register`, {
         method: 'POST',
         body: JSON.stringify(body),
       }
@@ -107,7 +104,7 @@ export const directAuthApi = {
     const encrypted = await encryptPayload({ email, password });
     const body = encrypted ? { encrypted } : { email, password };
     return fetchDirectApi<{ success: boolean; message: string }>(
-      `${NEXTJS_API_URL}/api/auth/reset-password`, {
+      `/api/auth/reset-password`, {
         method: 'POST',
         body: JSON.stringify(body),
       }
@@ -115,32 +112,32 @@ export const directAuthApi = {
   },
 
   checkHealth: () => 
-    fetchDirectApi<{ status: string; code: number; message: string }>(`${NEXTJS_API_URL}/api/health`),
+    fetchDirectApi<{ status: string; code: number; message: string }>(`/api/health`),
 };
 
 // User API
 export const directUserApi = {
   getProfile: async (token: string) => {
     const res = await fetchDirectApi<{ data: any; message: string; success: boolean }>(
-      `${NEXTJS_API_URL}/api/users/${token}`
+      `/api/users/${token}`
     );
     return res.data;
   },
   updateProfile: (token: string, data: any) => 
-    fetchDirectApi<any>(`${NEXTJS_API_URL}/api/users/${token}`, {
+    fetchDirectApi<any>(`/api/users/${token}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
     
   updateUserInfo: (userId: string, data: any) => 
-    fetchDirectApi<any>(`${BACKEND_API_URL}/api/users/${userId}/updateInfo`, {
+    fetchDirectApi<any>(`/api/users/${userId}/updateInfo`, {
       method: 'POST',
       body: JSON.stringify(data),
     }),
   uploadAvatar: (userId: string, file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    return fetchDirectApi<any>(`${BACKEND_API_URL}/api/users/${userId}/upload_avatar`, {
+    return fetchDirectApi<any>(`/api/users/${userId}/upload_avatar`, {
       method: 'POST',
       body: formData, // 直接发送 FormData，不要 JSON.stringify
       headers: { // 移除 Content-Type，让浏览器自动设置 multipart/form-data
@@ -159,21 +156,21 @@ export const directActivityApi = {
       },
     }),
   getRecentActivities: (userId: string) => 
-    fetchDirectApi<{ data: any[]; message: string; success: boolean }>(`${BACKEND_API_URL}/api/activities/recent?user_id=${userId}`),
+    fetchDirectApi<{ data: any[]; message: string; success: boolean }>(`/api/activities/recent?user_id=${userId}`),
   getActivityByShowId: (showId: string) =>
     fetchDirectApi<{ data: any; message: string; success: boolean }>(
-      `${BACKEND_API_URL}/api/activities/show/${showId}`
+      `/api/activities/show/${showId}`
     ),
 };
 
 // Pull Request API
 export const directPrApi = {
   analyzePr: (prNodeId: string) =>
-    fetchDirectApi<{ message: string; analysis_result: any }>(`${BACKEND_API_URL}/api/pr/${prNodeId}/analyze`, {
+    fetchDirectApi<{ message: string; analysis_result: any }>(`/api/pr/${prNodeId}/analyze`, {
       method: 'POST',
     }),
   calculatePrPoints: (activityShowId: string) =>
-    fetchDirectApi<{ message: string; points_awarded: number }>(`${BACKEND_API_URL}/api/pr/${activityShowId}/calculate-points`, {
+    fetchDirectApi<{ message: string; points_awarded: number }>(`/api/pr/${activityShowId}/calculate-points`, {
       method: 'POST',
     }),
 };

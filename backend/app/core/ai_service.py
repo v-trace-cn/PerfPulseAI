@@ -5,6 +5,7 @@ import httpx
 import certifi
 from openai import OpenAI
 from app.core.config import Settings
+from app.models.pull_request import PullRequest
 
 
 DOUBAO_MODEL=Settings.DOUBAO_MODEL
@@ -60,36 +61,60 @@ def analyze_pr_diff(diff_text: str) -> dict:
         # 抛出异常而不是返回一个错误字典，确保上层函数能捕获到并进行错误处理
         raise ValueError(f"AI 分析 PR 失败: {e}")
 
-async def perform_pr_analysis(pr_node_id: str, diff_url: str) -> dict:
+async def perform_pr_analysis(pr: PullRequest) -> dict:
     """
     执行指定 PR 的 AI 分析，不触及数据库。
     """
-    if not diff_url:
-        raise ValueError(f"Pull Request {pr_node_id} does not have a diff URL.")
+    owner, repo_name = pr.repository.split('/')
+    pr_number = pr.pr_number
+
+    github_api_url = f"https://api.github.com/repos/{owner}/{repo_name}/pulls/{pr_number}/files"
 
     diff_content = ""
     try:
+        print(f"正在通过 GitHub API 获取 PR 文件列表，URL: {github_api_url}")
         headers = {
             "User-Agent": "PerfPulseAI-Bot/1.0 (https://github.com/v-trace-cn/PerfPulseAI)",
-            "Accept": "application/vnd.github.v3.diff"
+            "Accept": "application/vnd.github.v3+json"
         }
-        async with httpx.AsyncClient(verify=certifi.where()) as client:
-            response = await client.get(diff_url, headers=headers, follow_redirects=True)
-            response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
-            diff_content = response.text
+
+        github_pat = Settings.GITHUB_PAT
+        if github_pat:
+            print(f"Debug: Loaded GITHUB_PAT (first 5 and last 5 chars): {github_pat[:5]}...{github_pat[-5:]}")
+            headers["Authorization"] = f"token {github_pat}"
+
+        print(f"Debug: Sending HTTP request to GitHub API with headers: {headers}")
+
+        async with httpx.AsyncClient(verify=False) as client:
+            response = await client.get(github_api_url, headers=headers, follow_redirects=True)
+            response.raise_for_status()
+            files_data = response.json()
+
+            for file in files_data:
+                if 'patch' in file and file['patch']:
+                    diff_content += file['patch'] + "\n"
+
     except httpx.RequestError as e:
-        raise ValueError(f"无法从 GitHub 获取 PR diff。请检查网络连接或 GitHub 访问权限。错误详情: {e}")
+        raise ValueError(f"无法从 GitHub API 获取 PR 文件列表。请检查网络连接或 GitHub 访问权限。错误详情: {e}")
+    except httpx.HTTPStatusError as e:
+        print(f"Debug: Received HTTP status error {e.response.status_code} for URL {e.request.url}")
+        print(f"Debug: Response headers: {e.response.headers}")
+        print(f"Debug: Response body: {e.response.text}")
+        raise ValueError(f"无法从 GitHub API 获取 PR 文件列表。请检查网络连接或 GitHub 访问权限。错误详情: {e}")
     except Exception as e:
-        # Catch any other unexpected errors during the fetch operation
-        raise ValueError(f"An unexpected error occurred while fetching diff from {diff_url}: {e}")
+        raise ValueError(f"An unexpected error occurred while fetching diff from GitHub API: {e}")
+
+    if not diff_content:
+        print(f"Warning: No diff content found for PR {pr_number} in repository {pr.repository}.")
+        raise ValueError(f"No diff content found for Pull Request {pr.pr_number} in repository {pr.repository}.")
 
     try:
         ai_analysis_result = analyze_pr_diff(diff_content)
         return ai_analysis_result
     except Exception as e:
-        print(f"Error during AI analysis for PR {pr_node_id}: {e}")
-        raise 
-    
+        print(f"Error during AI analysis for PR {pr.pr_node_id}: {e}")
+        raise
+
 def calculate_points_from_analysis(analysis_result: dict) -> dict:
     """
     根据 AI 分析结果，调用 AI 模型判断应授予的积分。
@@ -119,7 +144,7 @@ def calculate_points_from_analysis(analysis_result: dict) -> dict:
                 {"role": "system", "content": "你是一个专业的积分评估助手，请根据提供的分析结果给出一个合理的积分。"},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.2, # 降低随机性，使积分更稳定
+            temperature=0.2,
         )
         content = completion.choices[0].message.content
         points_data = json.loads(content)
@@ -127,12 +152,10 @@ def calculate_points_from_analysis(analysis_result: dict) -> dict:
         total_points = int(points_data.get("total_points", 0))
         detailed_points = points_data.get("detailed_points", {})
         
-        # 确保 detailed_points 中的值是整数
         for key, value in detailed_points.items():
             detailed_points[key] = int(value)
 
         return {"total_points": total_points, "detailed_points": detailed_points}
     except Exception as e:
         print(f"根据分析结果计算积分失败: {e}")
-        # 如果计算失败，返回默认值
         return {"total_points": 0, "detailed_points": {}} 

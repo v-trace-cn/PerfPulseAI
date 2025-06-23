@@ -2,13 +2,12 @@
  * API service for communicating with the backend
  */
 
-// Use Next.js API route handlers to avoid CORS issues
-const API_BASE_URL = '';
+import { getApiUrl } from "./config/api-config"; // Changed import path
 
 // Generic fetch function with error handling
 async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const response = await fetch(getApiUrl(endpoint), {
       ...options,
       credentials: 'include', // Include cookies for cross-origin requests
       headers: {

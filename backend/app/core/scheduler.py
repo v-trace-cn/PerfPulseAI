@@ -96,4 +96,4 @@ async def process_pending_tasks():
                     await db.rollback()
                     print(f"[任务执行] PR {act.id} 分析失败：{e}")
         except Exception as e:
-            print(f"[任务调度器] 处理待处理任务时发生错误: {e}") 
+            print(f"[任务调度器] 处理待处理任务时发生异步操作错误，请检查数据库连接和事件循环配置: {e}") 

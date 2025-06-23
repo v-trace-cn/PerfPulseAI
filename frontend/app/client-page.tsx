@@ -20,6 +20,7 @@ import {
   BookOpenIcon,
   DownloadIcon,
   ExternalLinkIcon,
+  Loader2,
 } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import {
@@ -51,12 +52,11 @@ import { useTheme } from "next-themes"
 import { useToast } from "@/components/ui/use-toast"
 import { directAuthApi } from "@/lib/direct-api"  // 导入密码重置 API
 import SiteHeader from "@/components/site-header"
+import { useAuthDialog } from "@/lib/auth-dialog-context"
 
 export default function ClientPage() {
   const { user, isAuthenticated, isLoading, error, login, register, logout } = useAuth()
   const router = useRouter()
-  const [authDialogOpen, setAuthDialogOpen] = useState(false)
-  const [authMode, setAuthMode] = useState<"login" | "register" | "reset">("login")
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -86,6 +86,7 @@ export default function ClientPage() {
   const [themeColor, setThemeColor] = useState<string>("primary")
   const { setTheme } = useTheme()
   const { toast } = useToast()
+  const { authDialogOpen, authMode, setAuthDialogOpen, setAuthMode, openResetPasswordDialog } = useAuthDialog();
 
   // 应用字体大小变化的函数
   const applyFontSize = (size: "small" | "medium" | "large") => {
@@ -313,18 +314,6 @@ export default function ClientPage() {
     }
   }
 
-  // 处理登录弹窗的显示
-  const handleLoginClick = () => {
-    setAuthMode("login")
-    setAuthDialogOpen(true)
-  }
-
-  // 处理注册弹窗的显示
-  const handleRegisterClick = () => {
-    setAuthMode("register")
-    setAuthDialogOpen(true)
-  }
-
   // 处理帮助弹窗的显示
   const handleHelpClick = () => {
     setHelpDialogOpen(true)
@@ -338,8 +327,6 @@ export default function ClientPage() {
   return (
     <>
       <SiteHeader
-        onLoginClick={handleLoginClick}
-        onRegisterClick={handleRegisterClick}
         onHelpClick={handleHelpClick}
         onSettingsClick={handleSettingsClick}
       />
@@ -453,7 +440,7 @@ export default function ClientPage() {
                   <Button
                     variant="link"
                     className="text-xs p-0"
-                    onClick={() => setAuthMode("reset")}
+                    onClick={openResetPasswordDialog}
                     disabled={isLoading}
                   >
                     忘记密码？
@@ -514,10 +501,10 @@ export default function ClientPage() {
                   <Button
                     variant="link"
                     className="text-xs p-0"
-                    onClick={() => setAuthMode("register")}
+                    onClick={openResetPasswordDialog}
                     disabled={isLoading}
                   >
-                    没有账号？注册新账号
+                    忘记密码？
                   </Button>
                 )}
                 {authMode === "register" && (
@@ -527,7 +514,7 @@ export default function ClientPage() {
                     onClick={() => setAuthMode("login")}
                     disabled={isLoading}
                   >
-                    已有账号？返回登录
+                    已有账号？立即登录
                   </Button>
                 )}
                 {authMode === "reset" && (
@@ -541,14 +528,15 @@ export default function ClientPage() {
                   </Button>
                 )}
               </div>
-              <Button type="submit" onClick={handleSubmit} disabled={isLoading} className="w-28 justify-center">
+              <Button onClick={handleSubmit} disabled={isLoading}>
                 {isLoading ? (
-                  <>
-                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
-                    {authMode === "login" ? "登录中..." : authMode === "register" ? "注册中..." : "重置中..."}
-                  </>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : authMode === "login" ? (
+                  "登录"
+                ) : authMode === "register" ? (
+                  "注册"
                 ) : (
-                  authMode === "login" ? "登录" : authMode === "register" ? "注册" : "重置密码"
+                  "重置密码"
                 )}
               </Button>
             </DialogFooter>

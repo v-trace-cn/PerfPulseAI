@@ -5,6 +5,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Body, BackgroundTasks
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import select, func
+import asyncio
 
 from app.core.database import get_db
 from app.models.activity import Activity
@@ -143,7 +144,7 @@ async def update_activity(
     await db.commit()
     await db.refresh(act)
     # 触发即时处理所有 pending 任务
-    background_tasks.add_task(process_pending_tasks)
+    asyncio.create_task(process_pending_tasks())
     return {
         "data": act.to_dict(),
         "message": "更新成功",

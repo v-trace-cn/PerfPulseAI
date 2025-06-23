@@ -4,8 +4,6 @@ import { backendUrl } from '../../../../lib/config/api-config';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    console.log('Reset password request received in Next.js API route:', body);
-    console.log('Backend URL for reset password:', backendUrl);
     
     const response = await fetch(`${backendUrl}/api/auth/reset-password`, {
       method: 'POST',

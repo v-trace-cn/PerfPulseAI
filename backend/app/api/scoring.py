@@ -96,9 +96,14 @@ DIMENSION_LABELS = {
     "code_quality": "代码质量",
     "maintainability": "可维护性",
     "security": "安全性",
-    "documentation_completeness": "文档完整性",
     "performance_optimization": "性能优化",
+    "innovation": "创新性",
+
+    # bonus points dimensions
+    "documentation_completeness": "文档完整性",
     "test_coverage": "测试覆盖率",
+    "ci_cd_quality": "CI/CD 质量",
+    "observability": "可观测性",
 }
 
 class ScoringResult(BaseModel):

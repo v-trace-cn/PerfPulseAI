@@ -64,16 +64,20 @@ export default function ActivityDetailPage() {
   }, [activity, fetchUserProfile])
 
   useEffect(() => {
-    directScoringApi.getScoringDimensions()
-      .then(labels => setDimensionLabels(labels))
-      .catch(err => {
-        console.error("获取维度标签失败", err)
+    (async () => {
+      try {
+        const { directScoringApi } = await import("@/lib/direct-api");
+        const labels = await directScoringApi.getScoringDimensions();
+        setDimensionLabels(labels.data);
+      } catch (err) {
+        console.error("获取维度标签失败", err);
         toast({
           title: "错误",
           description: "无法加载评分维度标签，请稍后重试。",
-          variant: "destructive"
-        })
-      });
+          variant: "destructive",
+        });
+      }
+    })();
   }, [toast]);
 
   const handleAnalyzeClick = async () => {
@@ -166,6 +170,36 @@ export default function ActivityDetailPage() {
     }
   };
 
+  const handleResetPointsClick = async () => {
+    if (!activity?.id) return;
+    try {
+      const res = await resetActivityPoints(activity.id);
+      if (res && res.success) {
+        toast({
+          title: "积分已重置",
+          description: "该活动的积分已重置，您可以重新分析和计算。",
+        });
+        fetchActivity(activityId).then((refreshedRes: any) => {
+          if (refreshedRes && refreshedRes.success) {
+            setActivity(refreshedRes.data);
+          }
+        });
+      } else {
+        toast({
+          title: "重置失败",
+          description: res?.message || "未能成功重置积分，请稍后重试。",
+          variant: "destructive",
+        });
+      }
+    } catch (err: any) {
+      toast({
+        title: "重置失败",
+        description: err.message || "连接服务器失败，请检查您的网络连接或联系管理员。",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (isLoading) {
     return <div className="text-center p-4">加载中...</div>
   }
@@ -187,7 +221,23 @@ export default function ActivityDetailPage() {
               <ArrowLeft className="mr-1 w-4 h-4" /> 返回个人中心
             </Link>
             <div className="flex items-center justify-between mb-4">
-              <h1 className="text-3xl font-bold text-gray-900">{activity.title}</h1>
+              {
+                (() => {
+                  const title = activity.title || '';
+                  const match = title.match(/^(.*?)\s*#(\d+)-\s*(.*)$/);
+                  if (match) {
+                    const [, prefix, number, suffix] = match;
+                    return (
+                      <h1 className="text-3xl font-bold text-gray-900">
+                        {prefix} #{number}<br />
+                        <span className="text-xl font-medium text-gray-700">{suffix}</span>
+                      </h1>
+                    );
+                  } else {
+                    return <h1 className="text-3xl font-bold text-gray-900">{title}</h1>;
+                  }
+                })()
+              }
               <Badge variant="secondary" className={activity.status === "completed" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
                 {activity.status === "completed" ? <><CheckCircle className="w-4 h-4 mr-1" />已完成</> : activity.status}
               </Badge>
@@ -339,14 +389,26 @@ export default function ActivityDetailPage() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-lg">积分明细</CardTitle>
-                  <Button onClick={handleCalculatePointsClick} disabled={isCalculatingPoints} size="sm">
-                    {isCalculatingPoints ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Star className="mr-2 h-4 w-4" />
+                  <div className="flex gap-2">
+                    <Button onClick={handleCalculatePointsClick} disabled={isCalculatingPoints} size="sm">
+                      {isCalculatingPoints ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Star className="mr-2 h-4 w-4" />
+                      )}
+                      {isCalculatingPoints ? "计算中..." : "计算积分"}
+                    </Button>
+                    {activity.status === "completed" && (
+                      <Button onClick={handleResetPointsClick} disabled={isResettingPoints} size="sm" variant="outline">
+                        {isResettingPoints ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <AlertCircle className="mr-2 h-4 w-4" />
+                        )}
+                        {isResettingPoints ? "重置中..." : "重置积分"}
+                      </Button>
                     )}
-                    {isCalculatingPoints ? "计算中..." : "计算积分"}
-                  </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {activity.ai_analysis?.detailed_points ? (

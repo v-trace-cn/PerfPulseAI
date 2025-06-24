@@ -17,11 +17,10 @@ def analyze_pr_diff(diff_text: str, additions: int = None, deletions: int = None
     调用 AI API 对 PR diff 文本进行分析和评分，返回包含 score（评分）和 analysis（分析理由）的字典。
     """
     # 构造提示信息，让模型返回 JSON 格式结果
-    # extra_info = ""
-    # if additions is not None and deletions is not None:
-    #     extra_info = f"本次 PR 新增了 {additions} 行代码，删除了 {deletions} 行代码。请结合代码行数变化，综合分析和评分。\n"
-    # prompt = f"""你是公司的技术负责人和代码架构师，以进行深入、严格且极富洞察力的代码审查而闻名。你的目标不仅仅是提升代码质量，更是通过代码审查来指导和提升团队成员的技术能力。\n{extra_info}请详细分析以下 GitHub Pull Request 的代码 diff。你的分析需要非常全面，并且以 JSON 格式返回，包含以下字段：
-    prompt = f"""你是公司的技术负责人和代码架构师，以进行深入、严格且极富洞察力的代码审查而闻名。你的目标不仅仅是提升代码质量，更是通过代码审查来指导和提升团队成员的技术能力。\n你的分析需要非常全面，并且以 JSON 格式返回，包含以下字段：
+    extra_info = ""
+    if additions is not None and deletions is not None:
+        extra_info = f"本次 PR 新增了 {additions} 行代码，删除了 {deletions} 行代码。请结合代码行数变化，综合分析和评分。\n"
+    prompt = f"""你是公司的技术负责人和代码架构师，以进行深入、严格且极富洞察力的代码审查而闻名。你的目标不仅仅是提升代码质量，更是通过代码审查来指导和提升团队成员的技术能力。\n{extra_info}请详细分析以下 GitHub Pull Request 的代码 diff。你的分析需要非常全面，并且以 JSON 格式返回，包含以下字段：
 - `summary`: 一个简短的总体摘要，高亮PR的优点和主要需要改进的地方。
 - `pr_type`: PR 类型，字符串，仅能为以下之一：'substantial'（有实质内容优化）、'format_only'（仅格式/空格/注释/文档/无用内容删除等无实质内容优化）。
 - `overall_score`: 综合评分 (0-10 之间的浮点数)。
@@ -30,8 +29,12 @@ def analyze_pr_diff(diff_text: str, additions: int = None, deletions: int = None
   - `maintainability`: 可维护性（代码的可扩展性、模块化、是否遵循现有架构）。
   - `security`: 安全性（是否存在潜在的安全漏洞，如注入、XSS、硬编码密钥等）。
   - `performance_optimization`: 性能优化（代码效率、资源使用）。
-  - `documentation_completeness`: 文档完整性（代码注释、README、API文档等）。
-  - `test_coverage`: 测试覆盖率（**附加分项**，见下文说明）。
+  - `innovation`: 创新性（新功能、独特算法、技术突破等）。
+  - `observability`: 可观测性（监控、日志、指标、追踪等）。
+- `bonus_points`（对象，可选，附加分项，0-10 分）：如果 PR 在以下方面有突出表现，可酌情给分；如未体现，则该项为 0，对 `overall_score` 影响应当有限。
+  - `documentation_completeness`: 文档完整性（代码注释、README、API 文档、架构图等）。
+  - `test_coverage`: 测试覆盖率（单元/集成/端到端测试）。
+  - `ci_cd_quality`: CI/CD 自动化质量（流水线、静态检查、自动部署等）。
 - `suggestions`: 一个建议数组。每个建议对象需包含：
   - `file_path`: 文件路径 (string)。
   - `line_range`: 相关代码的行号范围，如 `[10, 15]` (array of int)。
@@ -43,7 +46,9 @@ def analyze_pr_diff(diff_text: str, additions: int = None, deletions: int = None
 --- 评分和建议指南 ---
 1.  **评分原则**: 评分必须严格且有区分度。9-10分是留给那些设计精良、堪称典范的代码。大部分良好的PR应在6-8分。有明显问题的代码则在5分或以下。
 2.  **格式/内容类限制**: 如果该 PR 仅涉及格式调整、空格、注释、文档、无用内容删除等（即无实质功能/性能/架构/逻辑优化），请将 `pr_type` 设为 'format_only'，并且 `overall_score` 最高不得超过2分。务必在 `summary` 和至少一条 `suggestion` 中说明原因。
-3.  **测试覆盖率**: 这是一个**附加分项**。如果 PR 包含了全面、有效的测试，请在此项上给予高分。如果**没有**测试，**此项得分为 0**，但这**不应**显著拉低 `overall_score`。
+3.  **附加分项（bonus_points）**:
+    - 如果 PR 在文档、测试覆盖率、CI/CD、可观测性等方面有显著改进，请在相应 bonus 维度上给予高分。
+    - 如果未体现，则对应 bonus 维度得分为 0。 bonus 维度的得分总和**不应**显著拉低主维度综合得分（可单独展示或按较低权重合成）。
 4.  **建议质量**: 建议是审查的核心。
     - **必须具体**: 指明具体的文件和行号。
     - **必须可执行**: 提供清晰的修改方案和代码示例。
@@ -70,6 +75,10 @@ def analyze_pr_diff(diff_text: str, additions: int = None, deletions: int = None
         content = completion.choices[0].message.content
         print(content)
         result = json.loads(content)
+        # 将行数变化加入返回结果
+        if additions is not None and deletions is not None:
+            result["additions"] = additions
+            result["deletions"] = deletions
         return result
     except Exception as e:
         print(f"AI 分析 PR 失败: {e}")
@@ -83,8 +92,11 @@ async def perform_pr_analysis(pr: PullRequest) -> dict:
     pr_number = pr.pr_number
 
     github_api_url = f"https://api.github.com/repos/{owner}/{repo_name}/pulls/{pr_number}/files"
+    github_pr_url = f"https://api.github.com/repos/{owner}/{repo_name}/pulls/{pr_number}"
 
     diff_content = ""
+    additions = None
+    deletions = None
     try:
         print(f"正在通过 GitHub API 获取 PR 文件列表，URL: {github_api_url}")
         headers = {
@@ -106,6 +118,12 @@ async def perform_pr_analysis(pr: PullRequest) -> dict:
             for file in files_data:
                 if 'patch' in file and file['patch']:
                     diff_content += file['patch'] + "\n"
+            # 获取 PR 详情，统计行数变化
+            pr_response = await client.get(github_pr_url, headers=headers, follow_redirects=True)
+            pr_response.raise_for_status()
+            pr_data = pr_response.json()
+            additions = pr_data.get("additions")
+            deletions = pr_data.get("deletions")
 
     except httpx.RequestError as e:
         raise ValueError(f"无法从 GitHub API 获取 PR 文件列表。请检查网络连接或 GitHub 访问权限。错误详情: {e}")
@@ -122,7 +140,7 @@ async def perform_pr_analysis(pr: PullRequest) -> dict:
         raise ValueError(f"No diff content found for Pull Request {pr.pr_number} in repository {pr.repository}.")
 
     try:
-        ai_analysis_result = analyze_pr_diff(diff_content)
+        ai_analysis_result = analyze_pr_diff(diff_content, additions, deletions)
         return ai_analysis_result
     except Exception as e:
         print(f"Error during AI analysis for PR {pr.pr_node_id}: {e}")

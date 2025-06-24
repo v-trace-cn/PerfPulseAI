@@ -11,14 +11,14 @@ export const getBackendApiUrl = (): string => {
   let url = process.env.NEXT_PUBLIC_BACKEND_API_URL;
   if (!url) {
     if (process.env.NODE_ENV === 'production') {
-      url = 'http://127.0.0.1:5000';
+      url = 'https://127.0.0.1:5000';
     } else {
-      url = 'http://127.0.0.1:5000';
+      url = 'https://127.0.0.1:5000';
     }
   }
-  // 自动补全 http:// 前缀
+  // 自动补全 https:// 前缀
   if (!/^https?:\/\//.test(url)) {
-    url = 'http://' + url;
+    url = 'https://' + url;
   }
   return url;
 };

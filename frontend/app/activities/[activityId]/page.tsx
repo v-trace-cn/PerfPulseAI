@@ -231,7 +231,13 @@ export default function ActivityDetailPage() {
                     const [, prefix, number, suffix] = match;
                     return (
                       <h1 className="text-3xl font-bold text-gray-900">
-                        {prefix} #{number}<br />
+                        <a 
+                          href={activity.diff_url.replace(".diff", "")}
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline">
+                        {prefix} #{number}</a><br />
+
                         <span className="text-xl font-medium text-gray-700">{suffix}</span>
                       </h1>
                     );
@@ -281,7 +287,11 @@ export default function ActivityDetailPage() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                       <span className="text-sm font-medium">代码总数统计变更</span>
-                      <span className="text-xs text-green-700">+156 -12</span>
+                      <span className="text-xs text-green-700">
+                        {activity.ai_analysis?.additions !== undefined && activity.ai_analysis?.deletions !== undefined
+                          ? `+${activity.ai_analysis.additions} -${activity.ai_analysis.deletions}`
+                          : 'N/A'}
+                      </span>
                     </div>
                   </div>
                 </CardContent>

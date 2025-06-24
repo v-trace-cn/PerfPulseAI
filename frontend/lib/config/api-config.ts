@@ -11,9 +11,9 @@ export const getBackendApiUrl = (): string => {
   let url = process.env.NEXT_PUBLIC_BACKEND_API_URL;
   if (!url) {
     if (process.env.NODE_ENV === 'production') {
-      url = 'http://192.168.0.29:5000';
+      url = 'http://127.0.0.1:5000';
     } else {
-      url = 'http://192.168.2.13:5000';
+      url = 'http://127.0.0.1:5000';
     }
   }
   // 自动补全 http:// 前缀
@@ -29,9 +29,9 @@ export const getFrontendOriginUrl = (): string => {
     return process.env.NEXT_PUBLIC_FRONTEND_ORIGIN;
   }
   if (process.env.NODE_ENV === 'production') {
-    return 'http://192.168.0.29:3000'; // 生产环境前端 Origin URL
+    return 'http://127.0.0.1:3000'; // 生产环境前端 Origin URL
   }
-  return 'http://192.168.2.13:3000'; // 开发环境前端 Origin URL
+  return 'http://127.0.0.1:3000'; // 开发环境前端 Origin URL
 };
 
 // Helper function to get the appropriate URL for an endpoint

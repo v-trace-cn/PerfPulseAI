@@ -15,8 +15,6 @@ export async function POST(request: Request) {
       body: JSON.stringify(body),
     });
 
-    console.log('Backend login response status:', response.status);
-    
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       console.error('Backend login error response:', errorData);

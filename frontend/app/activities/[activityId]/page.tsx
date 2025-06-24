@@ -281,7 +281,11 @@ export default function ActivityDetailPage() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                       <span className="text-sm font-medium">代码总数统计变更</span>
-                      <span className="text-xs text-green-700">+156 -12</span>
+                      <span className="text-xs text-green-700">
+                        {activity.ai_analysis?.additions !== undefined && activity.ai_analysis?.deletions !== undefined
+                          ? `+${activity.ai_analysis.additions} -${activity.ai_analysis.deletions}`
+                          : 'N/A'}
+                      </span>
                     </div>
                   </div>
                 </CardContent>

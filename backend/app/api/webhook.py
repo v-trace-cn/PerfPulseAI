@@ -26,12 +26,11 @@ router = APIRouter(prefix="/api/webhook", tags=["webhook"])
 GITHUB_WEBHOOK_SECRET = Settings.GITHUB_WEBHOOK_SECRET
 
 
-async def verify_signature(request: Request, github_signature: str):
+async def verify_signature(body: bytes, github_signature: str):
     """
     验证 GitHub Webhook 请求的签名。
     """
     try:
-        body = await request.body()
         signature_parts = github_signature.split('=', 1)
         if len(signature_parts) != 2 or signature_parts[0] != 'sha256':
             raise HTTPException(status_code=400, detail="Invalid signature format")
@@ -219,14 +218,22 @@ async def github_webhook_receiver(
     """
     接收并处理来自 GitHub 的 Webhook 请求。
     """
+    body = await request.body()
     if x_hub_signature_256:
-        await verify_signature(request, x_hub_signature_256)
+        try:
+            await verify_signature(body, x_hub_signature_256)
+        except HTTPException as e:
+            print(f"Signature verification failed (HTTPException): {e.detail}")
+            raise
+        except Exception as e:
+            print(f"An unexpected error occurred during signature verification: {e}")
+            raise HTTPException(status_code=500, detail="Internal server error during signature verification")
     else:
         print("Warning: X-Hub-Signature-256 header not found. Skipping signature verification and rejecting request.")
         raise HTTPException(status_code=403, detail="Missing X-Hub-Signature-256 header")
 
     try:
-        payload = await request.json()
+        payload = json.loads(body)
     except json.JSONDecodeError as e:
         print(f"JSON decode error: {e}")
         raise HTTPException(status_code=400, detail="Invalid JSON payload")

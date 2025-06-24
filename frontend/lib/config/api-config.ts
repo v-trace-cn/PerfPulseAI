@@ -16,8 +16,10 @@ export const getBackendApiUrl = (): string => {
       url = 'https://127.0.0.1:5000';
     }
   }
-  // 自动补全 https:// 前缀
-  if (!/^https?:\/\//.test(url)) {
+  // Ensure the URL uses https
+  if (url.startsWith('http://')) {
+    url = url.replace('http://', 'https://');
+  } else if (!url.startsWith('https://')) {
     url = 'https://' + url;
   }
   return url;
@@ -25,13 +27,23 @@ export const getBackendApiUrl = (): string => {
 
 // Function to get the frontend Origin URL based on environment
 export const getFrontendOriginUrl = (): string => {
-  if (process.env.NEXT_PUBLIC_FRONTEND_ORIGIN) {
-    return process.env.NEXT_PUBLIC_FRONTEND_ORIGIN;
+  let url = process.env.NEXT_PUBLIC_FRONTEND_ORIGIN;
+  if (!url) {
+    if (process.env.NODE_ENV === 'production') {
+      url = 'https://127.0.0.1:3000'; // 生产环境前端 Origin URL
+    } else {
+      url = 'https://127.0.0.1:3000'; // 开发环境前端 Origin URL
+    }
   }
-  if (process.env.NODE_ENV === 'production') {
-    return 'http://127.0.0.1:3000'; // 生产环境前端 Origin URL
+  
+  // Ensure the URL uses https
+  if (url.startsWith('http://')) {
+    url = url.replace('http://', 'https://');
+  } else if (!url.startsWith('https://')) {
+    url = 'https://' + url;
   }
-  return 'http://127.0.0.1:3000'; // 开发环境前端 Origin URL
+
+  return url;
 };
 
 // Helper function to get the appropriate URL for an endpoint

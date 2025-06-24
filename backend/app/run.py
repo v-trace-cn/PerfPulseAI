@@ -2,10 +2,11 @@ import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from app.core.config import settings
+from app.core.config import Settings
 import uvicorn
 
-port = int(settings.PORT)
+port = int(Settings.PORT)
+host = Settings.HOST
 
 if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=True) 
+    uvicorn.run("app.main:app", host=host, port=port, reload=True) 

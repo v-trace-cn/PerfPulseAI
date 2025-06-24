@@ -8,6 +8,7 @@ from app.core.database import get_db
 from app.models.scoring import ScoringCriteria, ScoringFactor, ScoreEntry, GovernanceMetric
 from app.models.user import User
 from app.models.activity import Activity
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/scoring", tags=["scoring"])
 
@@ -90,13 +91,18 @@ scoring_factors = [
     }
 ]
 
+# 用于在前端显示维度的中文标签
 DIMENSION_LABELS = {
     "code_quality": "代码质量",
-    "innovation": "创新性",
+    "maintainability": "可维护性",
+    "security": "安全性",
     "documentation_completeness": "文档完整性",
-    "test_coverage": "测试覆盖率",
     "performance_optimization": "性能优化",
+    "test_coverage": "测试覆盖率",
 }
+
+class ScoringResult(BaseModel):
+    overall_score: float
 
 @router.get("/dimensions")
 async def get_scoring_dimensions():

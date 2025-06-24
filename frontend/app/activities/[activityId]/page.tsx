@@ -35,11 +35,13 @@ export default function ActivityDetailPage() {
   const { execute: fetchUserProfile, data: userProfile, isLoading: profileLoading, error: profileError } = useApi(directUserApi.getProfile)
   const { execute: triggerAnalysis, isLoading: isAnalyzing, error: analysisError } = useApi(directPrApi.analyzePr)
   const { execute: triggerPointCalculation, isLoading: isCalculatingPoints, error: calculationError } = useApi(directPrApi.calculatePrPoints)
+  const { execute: resetActivityPoints, isLoading: isResettingPoints } = useApi(directActivityApi.resetActivityPoints)
   
   const { toast } = useToast();
 
   const [activity, setActivity] = useState<any | null>(null)
   const [userProfileData, setUserProfileData] = useState<any | null>(null)
+  const [dimensionLabels, setDimensionLabels] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
     if (activityId) {
@@ -60,6 +62,19 @@ export default function ActivityDetailPage() {
         .catch((err) => console.error("Error fetching user profile", err))
     }
   }, [activity, fetchUserProfile])
+
+  useEffect(() => {
+    directScoringApi.getScoringDimensions()
+      .then(labels => setDimensionLabels(labels))
+      .catch(err => {
+        console.error("获取维度标签失败", err)
+        toast({
+          title: "错误",
+          description: "无法加载评分维度标签，请稍后重试。",
+          variant: "destructive"
+        })
+      });
+  }, [toast]);
 
   const handleAnalyzeClick = async () => {
     if (!activityId) return;
@@ -252,14 +267,7 @@ export default function ActivityDetailPage() {
                     {activity.ai_analysis?.dimensions && Object.entries(activity.ai_analysis.dimensions).map(([key, value]: [string, any]) => (
                       <ScoreItem
                         key={key}
-                        label={
-                          key === 'code_quality' ? '代码质量' :
-                          key === 'innovation' ? '创新性' :
-                          key === 'documentation_completeness' ? '文档完整性' :
-                          key === 'test_coverage' ? '测试覆盖率' :
-                          key === 'performance_optimization' ? '性能优化' :
-                          key // fallback for unknown keys
-                        }
+                        label={dimensionLabels[key] || key}
                         value={(value / 10) * 100} // Convert 0-10 score to 0-100 for progress bar
                         score={value}
                         color={

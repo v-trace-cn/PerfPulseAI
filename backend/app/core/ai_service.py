@@ -12,30 +12,43 @@ DOUBAO_MODEL=Settings.DOUBAO_MODEL
 DOUBAO_API_KEY=Settings.DOUBAO_API_KEY
 DOUBAO_URLS=Settings.DOUBAO_URLS
 
-def analyze_pr_diff(diff_text: str) -> dict:
+def analyze_pr_diff(diff_text: str, additions: int = None, deletions: int = None) -> dict:
     """
     调用 AI API 对 PR diff 文本进行分析和评分，返回包含 score（评分）和 analysis（分析理由）的字典。
     """
     # 构造提示信息，让模型返回 JSON 格式结果
-    prompt = f"""你是一位资深软件工程师，以进行深入、严格且富有建设性的代码审查而闻名。你的目标是帮助团队提升代码质量，而不仅仅是评分。
-请分析以下 GitHub Pull Request 的代码 diff。你的分析需要全面，并且以 JSON 格式返回，包含以下字段：
+    # extra_info = ""
+    # if additions is not None and deletions is not None:
+    #     extra_info = f"本次 PR 新增了 {additions} 行代码，删除了 {deletions} 行代码。请结合代码行数变化，综合分析和评分。\n"
+    # prompt = f"""你是公司的技术负责人和代码架构师，以进行深入、严格且极富洞察力的代码审查而闻名。你的目标不仅仅是提升代码质量，更是通过代码审查来指导和提升团队成员的技术能力。\n{extra_info}请详细分析以下 GitHub Pull Request 的代码 diff。你的分析需要非常全面，并且以 JSON 格式返回，包含以下字段：
+    prompt = f"""你是公司的技术负责人和代码架构师，以进行深入、严格且极富洞察力的代码审查而闻名。你的目标不仅仅是提升代码质量，更是通过代码审查来指导和提升团队成员的技术能力。\n{extra_info}请详细分析以下 GitHub Pull Request 的代码 diff。你的分析需要非常全面，并且以 JSON 格式返回，包含以下字段：
+- `summary`: 一个简短的总体摘要，高亮PR的优点和主要需要改进的地方。
+- `pr_type`: PR 类型，字符串，仅能为以下之一：'substantial'（有实质内容优化）、'format_only'（仅格式/空格/注释/文档/无用内容删除等无实质内容优化）。
 - `overall_score`: 综合评分 (0-10 之间的浮点数)。
 - `dimensions`: 一个对象，包含以下维度的评分 (0-10 之间的浮点数)：
-  - `code_quality`: 代码质量（评估代码的可读性、简洁性、是否遵循最佳实践、以及错误处理的健壮性）。
-  - `innovation`: 创新性（评估解决方案的新颖性或解决问题的巧妙程度）。
-  - `documentation_completeness`: 文档完整性（检查代码注释、README 更新等是否清晰、完整）。
-  - `performance_optimization`: 性能优化（关注代码的效率、资源使用）。
+  - `code_quality`: 代码质量（可读性、简洁性、最佳实践、错误处理）。
+  - `maintainability`: 可维护性（代码的可扩展性、模块化、是否遵循现有架构）。
+  - `security`: 安全性（是否存在潜在的安全漏洞，如注入、XSS、硬编码密钥等）。
+  - `performance_optimization`: 性能优化（代码效率、资源使用）。
+  - `documentation_completeness`: 文档完整性（代码注释、README、API文档等）。
   - `test_coverage`: 测试覆盖率（**附加分项**，见下文说明）。
-  - `suggestions`: 一个数组，包含具体的、可执行的评估意见。每个意见对象包含：
-  - `type`: 意见类型 ('positive', 'neutral', 'negative', 'suggestion')。
-  - `content`: 意见的具体内容，如果适用，请提供代码示例。
-  - `pr_type`: PR 类型，字符串，仅能为以下之一：'substantial'（有实质内容优化）、'format_only'（仅格式/空格/注释/文档/无用内容删除等无实质内容优化）。
+- `suggestions`: 一个建议数组。每个建议对象需包含：
+  - `file_path`: 文件路径 (string)。
+  - `line_range`: 相关代码的行号范围，如 `[10, 15]` (array of int)。
+  - `severity`: 严重程度 ('critical', 'major', 'minor', 'suggestion')。
+  - `type`: 意见类型 ('positive', 'negative', 'question')。
+  - `title`: 对该建议的简短概括 (string)。
+  - `content`: 意见的具体内容，必须详细解释"为什么"这样修改会更好，并附上优化后的代码示例。
 
 --- 评分和建议指南 ---
-1. **评分原则**: 评分必须严格。优秀的、堪称典范的代码才能获得 9-10 分。大多数不错的 PR 应该在 6-8 分之间。有明显问题的代码应该得到 5 分或更低。你的目标是拉开分数差距，以反映真实的代码质量差异。
-2. **格式/内容类限制**: 如果该 PR 仅涉及格式调整、空格、注释、文档、无用内容删除等（即无实质功能/性能/架构/逻辑优化），请将 `pr_type` 设为 'format_only'，并且 `overall_score` 最高不得超过 4 分。务必在建议中说明原因。
-3. **测试覆盖率**: 这是一个**附加分项**。如果 PR 包含了全面、有效的测试，请在此项上给予高分（最高 10 分）。如果**没有**测试，**此项得分为 0**，但这**不应**显著拉低 `overall_score`。`overall_score` 应主要基于其他核心维度。
-4. **建议质量**: 提供的建议必须是**具体、可执行的**。不要说"代码可以更清晰"，而要指出**哪一行**、**哪个函数**可以如何重构，并尽可能给出代码示例。
+1.  **评分原则**: 评分必须严格且有区分度。9-10分是留给那些设计精良、堪称典范的代码。大部分良好的PR应在6-8分。有明显问题的代码则在5分或以下。
+2.  **格式/内容类限制**: 如果该 PR 仅涉及格式调整、空格、注释、文档、无用内容删除等（即无实质功能/性能/架构/逻辑优化），请将 `pr_type` 设为 'format_only'，并且 `overall_score` 最高不得超过2分。务必在 `summary` 和至少一条 `suggestion` 中说明原因。
+3.  **测试覆盖率**: 这是一个**附加分项**。如果 PR 包含了全面、有效的测试，请在此项上给予高分。如果**没有**测试，**此项得分为 0**，但这**不应**显著拉低 `overall_score`。
+4.  **建议质量**: 建议是审查的核心。
+    - **必须具体**: 指明具体的文件和行号。
+    - **必须可执行**: 提供清晰的修改方案和代码示例。
+    - **必须有深度**: 不仅是表面问题，更要关注潜在的bug、性能瓶颈、安全风险和架构坏味道。
+    - **正面反馈**: 当你发现优秀的设计、巧妙的实现或值得称赞的代码时，请务必在 `suggestions` 中添加 `type: 'positive'` 的反馈，这对于激励开发者同样重要。
 
 --- 开始分析 ---
 ```diff
@@ -60,7 +73,6 @@ def analyze_pr_diff(diff_text: str) -> dict:
         return result
     except Exception as e:
         print(f"AI 分析 PR 失败: {e}")
-        # 抛出异常而不是返回一个错误字典，确保上层函数能捕获到并进行错误处理
         raise ValueError(f"AI 分析 PR 失败: {e}")
 
 async def perform_pr_analysis(pr: PullRequest) -> dict:

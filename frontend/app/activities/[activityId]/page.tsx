@@ -43,6 +43,21 @@ export default function ActivityDetailPage() {
   const [userProfileData, setUserProfileData] = useState<any | null>(null)
   const [dimensionLabels, setDimensionLabels] = useState<{ [key: string]: string }>({});
 
+  const fetchScoringDimensions = async () => {
+    try {
+      const { directScoringApi } = await import("@/lib/direct-api");
+      const labels = await directScoringApi.getScoringDimensions();
+      setDimensionLabels(labels.data);
+    } catch (err) {
+      console.error("获取维度标签失败", err);
+      toast({
+        title: "错误",
+        description: "无法加载评分维度标签，请稍后重试。",
+        variant: "destructive",
+      });
+    }
+  };
+
   useEffect(() => {
     if (activityId) {
       fetchActivity(activityId).then((res: any) => {
@@ -64,20 +79,7 @@ export default function ActivityDetailPage() {
   }, [activity, fetchUserProfile])
 
   useEffect(() => {
-    (async () => {
-      try {
-        const { directScoringApi } = await import("@/lib/direct-api");
-        const labels = await directScoringApi.getScoringDimensions();
-        setDimensionLabels(labels.data);
-      } catch (err) {
-        console.error("获取维度标签失败", err);
-        toast({
-          title: "错误",
-          description: "无法加载评分维度标签，请稍后重试。",
-          variant: "destructive",
-        });
-      }
-    })();
+    fetchScoringDimensions();
   }, [toast]);
 
   const handleAnalyzeClick = async () => {

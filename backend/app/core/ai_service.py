@@ -21,7 +21,7 @@ def analyze_pr_diff(diff_text: str, additions: int = None, deletions: int = None
     # if additions is not None and deletions is not None:
     #     extra_info = f"本次 PR 新增了 {additions} 行代码，删除了 {deletions} 行代码。请结合代码行数变化，综合分析和评分。\n"
     # prompt = f"""你是公司的技术负责人和代码架构师，以进行深入、严格且极富洞察力的代码审查而闻名。你的目标不仅仅是提升代码质量，更是通过代码审查来指导和提升团队成员的技术能力。\n{extra_info}请详细分析以下 GitHub Pull Request 的代码 diff。你的分析需要非常全面，并且以 JSON 格式返回，包含以下字段：
-    prompt = f"""你是公司的技术负责人和代码架构师，以进行深入、严格且极富洞察力的代码审查而闻名。你的目标不仅仅是提升代码质量，更是通过代码审查来指导和提升团队成员的技术能力。\n{extra_info}请详细分析以下 GitHub Pull Request 的代码 diff。你的分析需要非常全面，并且以 JSON 格式返回，包含以下字段：
+    prompt = f"""你是公司的技术负责人和代码架构师，以进行深入、严格且极富洞察力的代码审查而闻名。你的目标不仅仅是提升代码质量，更是通过代码审查来指导和提升团队成员的技术能力。\n你的分析需要非常全面，并且以 JSON 格式返回，包含以下字段：
 - `summary`: 一个简短的总体摘要，高亮PR的优点和主要需要改进的地方。
 - `pr_type`: PR 类型，字符串，仅能为以下之一：'substantial'（有实质内容优化）、'format_only'（仅格式/空格/注释/文档/无用内容删除等无实质内容优化）。
 - `overall_score`: 综合评分 (0-10 之间的浮点数)。
@@ -103,7 +103,6 @@ async def perform_pr_analysis(pr: PullRequest) -> dict:
             response = await client.get(github_api_url, headers=headers, follow_redirects=True)
             response.raise_for_status()
             files_data = response.json()
-
             for file in files_data:
                 if 'patch' in file and file['patch']:
                     diff_content += file['patch'] + "\n"

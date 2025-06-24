@@ -163,3 +163,39 @@ async def delete_activity(activity_id: str, db: Session = Depends(get_db)):
         "message": "删除成功",
         "success": True,
     }
+
+@router.post("/{activity_id}/reset-points")
+async def reset_activity_points(activity_id: str, db: Session = Depends(get_db)):
+    """
+    重置活动的积分，并同步回退用户积分，允许重新计算。
+    """
+    # 查找活动
+    result = await db.execute(select(Activity).options(joinedload(Activity.user), joinedload(Activity.pull_request_result)).filter(Activity.id == activity_id))
+    act = result.scalars().first()
+    if not act:
+        raise HTTPException(status_code=404, detail="找不到活动")
+    # 查找用户
+    user = act.user
+    if not user:
+        raise HTTPException(status_code=404, detail="找不到活动关联的用户")
+    # 回退用户积分
+    if act.points and act.points > 0:
+        user.points = max((user.points or 0) - act.points, 0)
+    # 重置活动积分和状态
+    act.points = 0
+    act.status = "pending"
+    act.completed_at = None
+    # 清空AI分析结果
+    if act.pull_request_result:
+        act.pull_request_result.ai_analysis_result = None
+    await db.commit()
+    await db.refresh(act)
+    await db.refresh(user)
+    return {
+        "data": {
+            "activity": act.to_dict(),
+            "user": user.to_dict(),
+        },
+        "message": "重置成功，积分已回退，可重新计算",
+        "success": True,
+    }

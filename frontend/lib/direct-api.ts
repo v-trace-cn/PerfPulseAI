@@ -6,7 +6,7 @@ import { getApiUrl } from "./config/api-config";
 
 // Generic fetch function with error handling and detailed logging
 async function fetchDirectApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const url = endpoint.startsWith('http') ? endpoint : getApiUrl(endpoint, true);
+  const url = endpoint.startsWith('http') ? endpoint : getApiUrl(endpoint);
   
   try {
     const response = await fetch(url, {
@@ -161,6 +161,11 @@ export const directActivityApi = {
     fetchDirectApi<{ data: any; message: string; success: boolean }>(
       `/api/activities/show/${showId}`
     ),
+  resetActivityPoints: (activityId: string) =>
+    fetchDirectApi<{ data: any; message: string; success: boolean }>(
+      `/api/activities/${activityId}/reset-points`,
+      { method: 'POST' }
+    ),
 };
 
 // Pull Request API
@@ -187,6 +192,8 @@ export const directRewardApi = {
 
 // Scoring API
 export const directScoringApi = {
+  getScoringDimensions: () =>
+    fetchDirectApi<{ data: { [key: string]: string }; message: string; success: boolean }>(`/api/scoring/dimensions`),
   submitScore: (token: string, data: any) => 
     fetchDirectApi<any>('/scoring/submit', {
       method: 'POST',

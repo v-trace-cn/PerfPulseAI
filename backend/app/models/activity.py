@@ -88,6 +88,7 @@ class Activity(Base):
             "user_id": self.user_id,
             "status": self.status,
             "activity_type": self.activity_type,
+            "diff_url": self.diff_url,
             "created_at": self.created_at.isoformat() if isinstance(self.created_at, datetime) else self.created_at,
             "completed_at": self.completed_at.isoformat() if isinstance(self.completed_at, datetime) else self.completed_at,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,

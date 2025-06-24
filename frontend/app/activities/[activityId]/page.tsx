@@ -231,7 +231,13 @@ export default function ActivityDetailPage() {
                     const [, prefix, number, suffix] = match;
                     return (
                       <h1 className="text-3xl font-bold text-gray-900">
-                        {prefix} #{number}<br />
+                        <a 
+                          href={activity.diff_url.replace(".diff", "")}
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline">
+                        {prefix} #{number}</a><br />
+
                         <span className="text-xl font-medium text-gray-700">{suffix}</span>
                       </h1>
                     );

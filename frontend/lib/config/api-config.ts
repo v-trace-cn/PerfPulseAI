@@ -10,17 +10,7 @@
 export const getBackendApiUrl = (): string => {
   let url = process.env.NEXT_PUBLIC_BACKEND_API_URL;
   if (!url) {
-    if (process.env.NODE_ENV === 'production') {
-      url = 'https://127.0.0.1:5000';
-    } else {
-      url = 'https://127.0.0.1:5000';
-    }
-  }
-  // Ensure the URL uses https
-  if (url.startsWith('http://')) {
-    url = url.replace('http://', 'https://');
-  } else if (!url.startsWith('https://')) {
-    url = 'https://' + url;
+    url = 'http://127.0.0.1:5000';
   }
   return url;
 };
@@ -29,20 +19,8 @@ export const getBackendApiUrl = (): string => {
 export const getFrontendOriginUrl = (): string => {
   let url = process.env.NEXT_PUBLIC_FRONTEND_ORIGIN;
   if (!url) {
-    if (process.env.NODE_ENV === 'production') {
-      url = 'https://127.0.0.1:3000'; // 生产环境前端 Origin URL
-    } else {
-      url = 'https://127.0.0.1:3000'; // 开发环境前端 Origin URL
-    }
+    url = 'https://127.0.0.1:3000'; 
   }
-  
-  // Ensure the URL uses https
-  if (url.startsWith('http://')) {
-    url = url.replace('http://', 'https://');
-  } else if (!url.startsWith('https://')) {
-    url = 'https://' + url;
-  }
-
   return url;
 };
 

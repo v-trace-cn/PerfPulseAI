@@ -64,16 +64,20 @@ export default function ActivityDetailPage() {
   }, [activity, fetchUserProfile])
 
   useEffect(() => {
-    directScoringApi.getScoringDimensions()
-      .then(labels => setDimensionLabels(labels))
-      .catch(err => {
-        console.error("获取维度标签失败", err)
+    (async () => {
+      try {
+        const { directScoringApi } = await import("@/lib/direct-api");
+        const labels = await directScoringApi.getScoringDimensions();
+        setDimensionLabels(labels.data);
+      } catch (err) {
+        console.error("获取维度标签失败", err);
         toast({
           title: "错误",
           description: "无法加载评分维度标签，请稍后重试。",
-          variant: "destructive"
-        })
-      });
+          variant: "destructive",
+        });
+      }
+    })();
   }, [toast]);
 
   const handleAnalyzeClick = async () => {

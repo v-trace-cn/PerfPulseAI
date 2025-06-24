@@ -86,7 +86,7 @@ export function RecentActivities() {
         },
         type: activity.status || "default",
       }));
-      setActivities(mappedActivities.slice(0, 5));
+      setActivities(mappedActivities);
     } else if (fetchedData && !fetchedData.success) {
       // Handle backend success: false case
       // This is now handled by the apiError state if fetchDirectApi throws.

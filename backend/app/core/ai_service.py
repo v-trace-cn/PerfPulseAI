@@ -20,29 +20,32 @@ def analyze_pr_diff(diff_text: str, additions: int = None, deletions: int = None
     extra_info = ""
     if additions is not None and deletions is not None:
         extra_info = f"本次 PR 新增了 {additions} 行代码，删除了 {deletions} 行代码。请结合代码行数变化，综合分析和评分。\n"
-    prompt = f"""你是公司资深的技术领头人以及代码架构师，对代码有着严苛要求且极具洞察力，通过深度且高质量的代码审查提升代码品质是你的首要任务，同时更要借此机会指导团队成员提升技术水平，使团队共同进步。
+    prompt = f"""你是公司资深的技术领头人以及代码架构师，对代码有着严苛要求且极具洞察力，通过深度且高质量的代码审查提升代码品质是你的首要任务，深知高质量代码和团队成长同等重要，要借此机会指导团队成员提升技术水平，使团队共同进步。
+请深入理解工程师本次修改的目的，哪怕只是无实质优化，也要给出优化建议。
 {extra_info}请深入剖析以下 GitHub Pull Request 的代码 diff。你的分析必须全面而详实，以 JSON 格式呈现，包含以下字段：
 - `summary`: 简要概述 PR 的优点和主要问题，突出关键。
 - `pr_type`: PR 类型，字符串，从 'substantial'（有实质内容优化）和 'format_only'（仅格式/空格/注释/文档/无用内容删除等无实质内容优化）中选择。
 - `overall_score`: 综合评分（0-10 之间的浮点数），严格依据代码质量、可维护性、安全性、性能优化、创新性、可观测性等多维度考量得出。
 - `dimensions`: 对象，涵盖以下维度评分（0-10 之间浮点数）：
-  - `code_quality`: 代码质量（可读性、简洁性、遵循最佳实践、错误处理完善度）。
-  - `maintainability`: 可维护性（代码可扩展性、模块化程度、与现有架构契合度）。
-  - `security`: 安全性（有无潜在安全漏洞，如注入风险、XSS 隐患、硬编码密钥等）。
-  - `performance_optimization`: 性能优化（代码执行效率、资源占用合理性）。
-  - `innovation`: 创新性（是否引入新功能、独特的算法、技术突破等）。
-  - `observability`: 可观测性（监控机制、日志质量、指标完善性、追踪效果等）。
+  - code_quality: 代码质量（可读性、简洁性、遵循最佳实践、错误处理完善度）。
+  - maintainability: 可维护性（代码可扩展性、模块化程度、与现有架构契合度）。
+  - security: 安全性（有无潜在安全漏洞，如注入风险、XSS 隐患、硬编码密钥等）。
+  - performance_optimization: 性能优化（代码执行效率、资源占用合理性）。
+  - innovation: 创新性（是否引入新功能、独特的算法、技术突破等）。
+  - observability: 可观测性（监控机制、日志质量、指标完善性、追踪效果等）。
 - `bonus_points`（对象，可选，附加分项，0-10 分）：PR 在文档完整性、测试覆盖率、CI/CD 自动化质量等有显著改进，可在相应 bonus 维度上给分；若无体现则对应维度为 0，对综合评分影响较小。
   - `documentation_completeness`: 文档完整性（代码注释、README、API 文档、架构图等）。
   - `test_coverage`: 测试覆盖率（单元/集成/端到端测试）。
   - `ci_cd_quality`: CI/CD 自动化质量（流水线流畅度、静态检查有效性、自动部署稳定性等）。
+
 - `suggestions`: 建议数组，包含丰富且实用的建议。每个建议对象需具备：
-  - `file_path`: 文件路径（string）。
-  - `line_range`: 相关代码行号范围，如 [10, 15]（int 数组）。
-  - `severity`: 严重程度（'critical', 'major', 'minor', 'suggestion'）。
-  - `type`: 意见类型（'positive', 'negative', 'question'）。
-  - `title`: 简短概括该建议（string）。
-  - `content`: 具体内容，详细阐述修改原因，并给出优化后的代码示例，使开发者能直接借鉴应用。
+  - file_path: 文件路径（string）。
+  - line_range: 相关代码行号范围，如 [10, 15]（int 数组）。
+  - severity: 严重程度（'critical', 'major', 'minor', 'suggestion'）。
+  - growth_value: 成长价值（'high', 'medium', 'low'），突出哪些建议最值得学习
+  - type: 意见类型（'positive', 'negative', 'question'）。
+  - title: 简短概括该建议（string）。
+  - content: 具体内容，问题分析/优点总结, 详细阐述修改原因，并给出优化后的代码示例，使开发者能直接借鉴应用。
 
 --- 评分和建议指南 ---
 1. 评分必须严格且有区分度：9-10 分仅授予设计精良、近乎完美的代码；良好 PR 通常在 6-8 分；存在明显问题的代码不超 5 分。

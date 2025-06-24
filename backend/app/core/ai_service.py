@@ -20,45 +20,45 @@ def analyze_pr_diff(diff_text: str, additions: int = None, deletions: int = None
     extra_info = ""
     if additions is not None and deletions is not None:
         extra_info = f"本次 PR 新增了 {additions} 行代码，删除了 {deletions} 行代码。请结合代码行数变化，综合分析和评分。\n"
-    prompt = f"""你是公司的技术负责人和代码架构师，以进行深入、严格且极富洞察力的代码审查而闻名。你的目标不仅仅是提升代码质量，更是通过代码审查来指导和提升团队成员的技术能力。\n{extra_info}请详细分析以下 GitHub Pull Request 的代码 diff。你的分析需要非常全面，并且以 JSON 格式返回，包含以下字段：
-- `summary`: 一个简短的总体摘要，高亮PR的优点和主要需要改进的地方。
-- `pr_type`: PR 类型，字符串，仅能为以下之一：'substantial'（有实质内容优化）、'format_only'（仅格式/空格/注释/文档/无用内容删除等无实质内容优化）。
-- `overall_score`: 综合评分 (0-10 之间的浮点数)。
-- `dimensions`: 一个对象，包含以下维度的评分 (0-10 之间的浮点数)：
-  - `code_quality`: 代码质量（可读性、简洁性、最佳实践、错误处理）。
-  - `maintainability`: 可维护性（代码的可扩展性、模块化、是否遵循现有架构）。
-  - `security`: 安全性（是否存在潜在的安全漏洞，如注入、XSS、硬编码密钥等）。
-  - `performance_optimization`: 性能优化（代码效率、资源使用）。
-  - `innovation`: 创新性（新功能、独特算法、技术突破等）。
-  - `observability`: 可观测性（监控、日志、指标、追踪等）。
-- `bonus_points`（对象，可选，附加分项，0-10 分）：如果 PR 在以下方面有突出表现，可酌情给分；如未体现，则该项为 0，对 `overall_score` 影响应当有限。
+    prompt = f"""你是公司资深的技术领头人以及代码架构师，对代码有着严苛要求且极具洞察力，通过深度且高质量的代码审查提升代码品质是你的首要任务，同时更要借此机会指导团队成员提升技术水平，使团队共同进步。
+{extra_info}请深入剖析以下 GitHub Pull Request 的代码 diff。你的分析必须全面而详实，以 JSON 格式呈现，包含以下字段：
+- `summary`: 简要概述 PR 的优点和主要问题，突出关键。
+- `pr_type`: PR 类型，字符串，从 'substantial'（有实质内容优化）和 'format_only'（仅格式/空格/注释/文档/无用内容删除等无实质内容优化）中选择。
+- `overall_score`: 综合评分（0-10 之间的浮点数），严格依据代码质量、可维护性、安全性、性能优化、创新性、可观测性等多维度考量得出。
+- `dimensions`: 对象，涵盖以下维度评分（0-10 之间浮点数）：
+  - `code_quality`: 代码质量（可读性、简洁性、遵循最佳实践、错误处理完善度）。
+  - `maintainability`: 可维护性（代码可扩展性、模块化程度、与现有架构契合度）。
+  - `security`: 安全性（有无潜在安全漏洞，如注入风险、XSS 隐患、硬编码密钥等）。
+  - `performance_optimization`: 性能优化（代码执行效率、资源占用合理性）。
+  - `innovation`: 创新性（是否引入新功能、独特的算法、技术突破等）。
+  - `observability`: 可观测性（监控机制、日志质量、指标完善性、追踪效果等）。
+- `bonus_points`（对象，可选，附加分项，0-10 分）：PR 在文档完整性、测试覆盖率、CI/CD 自动化质量等有显著改进，可在相应 bonus 维度上给分；若无体现则对应维度为 0，对综合评分影响较小。
   - `documentation_completeness`: 文档完整性（代码注释、README、API 文档、架构图等）。
   - `test_coverage`: 测试覆盖率（单元/集成/端到端测试）。
-  - `ci_cd_quality`: CI/CD 自动化质量（流水线、静态检查、自动部署等）。
-- `suggestions`: 一个建议数组。每个建议对象需包含：
-  - `file_path`: 文件路径 (string)。
-  - `line_range`: 相关代码的行号范围，如 `[10, 15]` (array of int)。
-  - `severity`: 严重程度 ('critical', 'major', 'minor', 'suggestion')。
-  - `type`: 意见类型 ('positive', 'negative', 'question')。
-  - `title`: 对该建议的简短概括 (string)。
-  - `content`: 意见的具体内容，必须详细解释"为什么"这样修改会更好，并附上优化后的代码示例。
+  - `ci_cd_quality`: CI/CD 自动化质量（流水线流畅度、静态检查有效性、自动部署稳定性等）。
+- `suggestions`: 建议数组，包含丰富且实用的建议。每个建议对象需具备：
+  - `file_path`: 文件路径（string）。
+  - `line_range`: 相关代码行号范围，如 [10, 15]（int 数组）。
+  - `severity`: 严重程度（'critical', 'major', 'minor', 'suggestion'）。
+  - `type`: 意见类型（'positive', 'negative', 'question'）。
+  - `title`: 简短概括该建议（string）。
+  - `content`: 具体内容，详细阐述修改原因，并给出优化后的代码示例，使开发者能直接借鉴应用。
 
 --- 评分和建议指南 ---
-1.  **评分原则**: 评分必须严格且有区分度。9-10分是留给那些设计精良、堪称典范的代码。大部分良好的PR应在6-8分。有明显问题的代码则在5分或以下。
-2.  **格式/内容类限制**: 如果该 PR 仅涉及格式调整、空格、注释、文档、无用内容删除等（即无实质功能/性能/架构/逻辑优化），请将 `pr_type` 设为 'format_only'，并且 `overall_score` 最高不得超过2分。务必在 `summary` 和至少一条 `suggestion` 中说明原因。
-3.  **附加分项（bonus_points）**:
-    - 如果 PR 在文档、测试覆盖率、CI/CD、可观测性等方面有显著改进，请在相应 bonus 维度上给予高分。
-    - 如果未体现，则对应 bonus 维度得分为 0。 bonus 维度的得分总和**不应**显著拉低主维度综合得分（可单独展示或按较低权重合成）。
-4.  **建议质量**: 建议是审查的核心。
-    - **必须具体**: 指明具体的文件和行号。
-    - **必须可执行**: 提供清晰的修改方案和代码示例。
-    - **必须有深度**: 不仅是表面问题，更要关注潜在的bug、性能瓶颈、安全风险和架构坏味道。
-    - **正面反馈**: 当你发现优秀的设计、巧妙的实现或值得称赞的代码时，请务必在 `suggestions` 中添加 `type: 'positive'` 的反馈，这对于激励开发者同样重要。
+1. 评分必须严格且有区分度：9-10 分仅授予设计精良、近乎完美的代码；良好 PR 通常在 6-8 分；存在明显问题的代码不超 5 分。
+2. 格式/内容类限制：若 PR 仅涉及格式调整等无实质优化，`pr_type` 设为 'format_only'，`overall_score` 最高 2 分，`summary` 和 `suggestions` 必须解释清楚原因。
+3. 附加分项（bonus_points）：在文档、测试覆盖率、CI/CD、可观测性等有显著提升，对应 bonus 维度高分；未体现则为 0，不影响主维度综合得分。
+4. 建议质量：
+    - 具体：精准定位文件和行号。
+    - 可执行：提供清晰修改方案和代码示例。
+    - 有深度：挖掘潜在 bug、性能瓶颈、安全风险、架构问题等。
+    - 正面反馈：发现优秀设计、巧妙实现或值得称赞代码时，通过 `type: 'positive'` 给予肯定。
 
 --- 开始分析 ---
 ```diff
 {diff_text}
-```"""
+```
+"""
     try:
         client = OpenAI(
             api_key=DOUBAO_API_KEY, 

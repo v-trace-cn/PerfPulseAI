@@ -222,10 +222,17 @@ async def github_webhook_receiver(
     if x_hub_signature_256:
         await verify_signature(request, x_hub_signature_256)
     else:
-        print("Warning: X-Hub-Signature-256 header not found. Skipping signature verification.")
+        print("Warning: X-Hub-Signature-256 header not found. Skipping signature verification and rejecting request.")
         raise HTTPException(status_code=403, detail="Missing X-Hub-Signature-256 header")
 
-    payload = await request.json()
+    try:
+        payload = await request.json()
+    except json.JSONDecodeError as e:
+        print(f"JSON decode error: {e}")
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+    except Exception as e:
+        print(f"An unexpected error occurred during payload parsing: {e}")
+        raise HTTPException(status_code=400, detail="Could not parse request payload")
 
     print(f"Received GitHub event: {x_github_event}")
     # 为文件保存生成一个唯一的ID，确保无论事件类型如何都能生成。

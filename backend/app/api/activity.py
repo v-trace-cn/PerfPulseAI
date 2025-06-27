@@ -48,17 +48,34 @@ async def get_activities(
     }
 
 @router.get("/recent")
-async def get_recent_activities(user_id: str | None = None, db: Session = Depends(get_db)):
+async def get_recent_activities(
+    user_id: str | None = None,
+    page: int = 1,
+    per_page: int = 10,
+    db: Session = Depends(get_db)
+):
     stmt = select(Activity).options(joinedload(Activity.user), joinedload(Activity.pull_request_result))
     if user_id:
         stmt = stmt.filter(Activity.user_id == user_id)
+    
+    # 计算总数
+    total_result = await db.execute(select(func.count()).select_from(stmt.subquery()))
+    total = total_result.scalar_one()
+
+    # 应用分页
     recent_result = (
         await db.execute(stmt.order_by(Activity.created_at.desc())
-          .limit(5))
+          .offset((page - 1) * per_page)
+          .limit(per_page))
     )
     recent = recent_result.scalars().all()
     return {
-        "data": [a.to_dict() for a in recent],
+        "data": {
+            "activities": [a.to_dict() for a in recent],
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+        },
         "message": "查询成功",
         "success": True,
     }

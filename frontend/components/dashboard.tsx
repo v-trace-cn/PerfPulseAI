@@ -315,10 +315,10 @@ export default function Dashboard() {
   // Fetch recent personal activities when user changes
   useEffect(() => {
     if (user?.id) {
-      fetchRecentActivities(user.id)
+      fetchRecentActivities(user.id, 1, 5)
         .then((response: any) => {
-          if (response && response.success) {
-            const formattedActivities = response.data.map((act: any) => ({
+          if (response && response.success && response.data && response.data.activities) {
+            const formattedActivities = response.data.activities.map((act: any) => ({
               id: act.id,
               show_id: act.show_id,
               type: act.status,
@@ -328,7 +328,7 @@ export default function Dashboard() {
             }));
             setUserData((prev) => ({ ...prev, recentActivities: formattedActivities }));
           } else {
-            console.error("Fetching recent activities failed", response);
+            console.error("Fetching recent activities failed or no activities in response.data.activities", response);
           }
         })
         .catch((err) => console.error("Error fetching recent activities", err));
@@ -901,47 +901,7 @@ export default function Dashboard() {
                     </TabsContent>
 
                     <TabsContent value="activities" className="space-y-4">
-                      <div className="space-y-4">
-                        {userData.recentActivities.map((activity: any) => (
-                          <TooltipProvider key={activity.id}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Link
-                                  href={`
-                                    /activities/${activity.show_id}?tab=profile
-                                  `.trim()}
-                                >
-                                  <div className="flex items-center p-3 rounded-lg hover:bg-muted/20 transition-colors duration-300">
-                                    <div className="relative">
-                                      <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
-                                        {activity.type === "task" && <CheckCircle2 className="h-4 w-4 text-green-500" />}
-                                        {activity.type === "contribution" && (
-                                          <GitPullRequest className="h-4 w-4 text-blue-500" />
-                                        )}
-                                        {activity.type === "review" && <MessageSquare className="h-4 w-4 text-purple-500" />}
-                                      </div>
-                                    </div>
-                                    <div className="ml-4 space-y-1 flex-1 overflow-hidden min-w-0">
-                                      <p className="truncate text-sm font-medium leading-none">
-                                        {activity.title}
-                                      </p>
-                                      <p className="text-xs text-muted-foreground">{activity.date}</p>
-                                    </div>
-                                    <div className="ml-auto font-medium">
-                                      <div className="data-pill bg-primary/10 text-primary shadow-sm">
-                                        +{activity.points} 积分
-                                      </div>
-                                    </div>
-                                  </div>
-                                </Link>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>{activity.title}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        ))}
-                      </div>
+                      <RecentActivities />
                     </TabsContent>
                   </Tabs>
                 </CardContent>

@@ -14,6 +14,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 
 interface Activity {
   id: string;
@@ -52,24 +53,31 @@ export function RecentActivities() {
   const { data: fetchedData, isLoading: apiLoading, error: apiError, execute: fetchActivitiesApi } = useApi(directActivityApi.getRecentActivities);
   
   const [activities, setActivities] = useState<Activity[]>([]);
-  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage] = useState(10); // 每页显示数量
+  const [totalPages, setTotalPages] = useState(1);
+
   const { user, isLoading: userLoading } = useAuth();
 
   useEffect(() => {
+    console.log("User loading status:", userLoading);
+    console.log("User ID:", user?.id);
     const fetchActivities = async () => {
       if (userLoading || !user?.id) {
+        console.log("Skipping fetch activities: userLoading or userId is missing.");
         return;
       }
 
-      await fetchActivitiesApi(user.id);
+      await fetchActivitiesApi(user.id, currentPage, perPage);
     };
 
     fetchActivities();
-  }, [fetchActivitiesApi, user?.id, userLoading]);
+  }, [fetchActivitiesApi, user?.id, userLoading, currentPage, perPage]);
 
   useEffect(() => {
-    if (fetchedData && fetchedData.success) {
-      const mappedActivities: Activity[] = fetchedData.data.map((activity: any) => ({
+    if (fetchedData && fetchedData.success && fetchedData.data) {
+      const { activities: fetchedActivities, total, page, per_page } = fetchedData.data;
+      const mappedActivities: Activity[] = fetchedActivities.map((activity: any) => ({
         id: activity.id,
         show_id: activity.show_id,
         title: activity.title,
@@ -87,6 +95,10 @@ export function RecentActivities() {
         type: activity.status || "default",
       }));
       setActivities(mappedActivities);
+      setCurrentPage(page);
+      setTotalPages(Math.ceil(total / per_page));
+      console.log("Fetched activities data:", fetchedData.data);
+      console.log(`Total: ${total}, Per Page: ${per_page}, Total Pages: ${Math.ceil(total / per_page)}`);
     } else if (fetchedData && !fetchedData.success) {
       // Handle backend success: false case
       // This is now handled by the apiError state if fetchDirectApi throws.
@@ -106,9 +118,15 @@ export function RecentActivities() {
     return <div className="text-center text-destructive">错误: {apiError}</div>;
   }
 
-  if (!fetchedData || !fetchedData.success || !fetchedData.data || activities.length === 0) {
+  if (!fetchedData || !fetchedData.success || !fetchedData.data || fetchedData.data.activities.length === 0) {
     return <div className="text-center text-muted-foreground">暂无最新活动。</div>;
   }
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -152,6 +170,29 @@ export function RecentActivities() {
           </Tooltip>
         </TooltipProvider>
       ))}
+      {(
+        <Pagination className="mt-4">
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious href="#" onClick={() => handlePageChange(currentPage - 1)} />
+            </PaginationItem>
+            {[...Array(totalPages)].map((_, index) => (
+              <PaginationItem key={index}>
+                <PaginationLink
+                  href="#"
+                  isActive={currentPage === index + 1}
+                  onClick={() => handlePageChange(index + 1)}
+                >
+                  {index + 1}
+                </PaginationLink>
+              </PaginationItem>
+            ))}
+            <PaginationItem>
+              <PaginationNext href="#" onClick={() => handlePageChange(currentPage + 1)} />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
     </div>
   )
 }

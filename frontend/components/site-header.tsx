@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { HelpCircle, LogIn, LogOut, Settings, User, UserPlus, Search, LayoutGrid } from "lucide-react"
+import { HelpCircle, LogIn, LogOut, Settings, User, UserPlus, Search, LayoutGrid, Building2 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -33,19 +33,27 @@ export default function SiteHeader({ onHelpClick, onSettingsClick }: SiteHeaderP
   return (
     <header className="border-b backdrop-blur-sm bg-background/70 sticky top-0 z-50 transition-colors duration-300 dark:border-primary/10 border-black/5">
       <div className="container flex h-16 items-center justify-between py-4 dark:bg-background/40 dark:backdrop-blur-md dark:border-primary/5 dark:shadow-[0_4px_20px_rgba(79,70,229,0.1)] rounded-b-lg">
-        <Link href="/" className="flex items-center gap-2 cursor-pointer">
-          <Image src="/logo.ico" alt="Logo" width={24} height={24} className="animate-pulse-slow" />
-          <h1 className="text-xl font-bold tracking-tight">
-            <span className="cyber-text">PerfPulseAI</span>
-          </h1>
-        </Link>
-        <div className="relative ml-8">
-          <Input
-            type="text"
-            placeholder="Search..."
-            className="pl-8 pr-2 w-48 border-primary/20 focus-visible:ring-primary focus-visible:ring-offset-0"
-          />
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <div className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2 cursor-pointer">
+            <Image src="/logo.ico" alt="Logo" width={24} height={24} className="animate-pulse-slow" />
+            <h1 className="text-xl font-bold tracking-tight">
+              <span className="cyber-text">PerfPulseAI</span>
+            </h1>
+          </Link>
+        </div>
+        <div className="hidden md:flex items-center justify-start gap-1 ml-4">
+          <div className="relative max-w-md w-56">
+            <Input
+              type="text"
+              placeholder="Search..."
+              className="pl-8 pr-2 w-full border-primary/20 focus-visible:ring-primary focus-visible:ring-offset-0 h-9"
+            />
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          </div>
+          <Link href="/org" className="px-4 h-9 flex items-center rounded-md text-sm font-medium bg-transparent text-primary hover:bg-primary/10 transition-colors ml-1">
+            <Building2 className="mr-2 h-4 w-4" />
+            组织管理
+          </Link>
         </div>
         <div className="flex items-center gap-4 ml-auto">
           <LayoutGrid className="h-5 w-5 text-primary cursor-pointer hover:opacity-80 transition-opacity" />

@@ -155,8 +155,12 @@ export const directActivityApi = {
         Authorization: `Bearer ${token}`,
       },
     }),
-  getRecentActivities: (userId: string) => 
-    fetchDirectApi<{ data: any[]; message: string; success: boolean }>(`/api/activities/recent?user_id=${userId}`),
+  getRecentActivities: (
+    userId: string,
+    page: number = 1,
+    perPage: number = 10
+  ) =>
+    fetchDirectApi<{ data: { activities: any[]; total: number; page: number; per_page: number }; message: string; success: boolean }>(`/api/activities/recent?user_id=${userId}&page=${page}&per_page=${perPage}`),
   getActivityByShowId: (showId: string) =>
     fetchDirectApi<{ data: any; message: string; success: boolean }>(
       `/api/activities/show/${showId}`

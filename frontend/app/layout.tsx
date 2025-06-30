@@ -13,6 +13,7 @@ import { AuthDialogProvider } from "@/lib/auth-dialog-context"
 import SiteHeader from "@/components/site-header";
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+import ClientPage from './client-page';
 
 export default function RootLayout({
   children,
@@ -47,6 +48,7 @@ export default function RootLayout({
                 <main className="flex min-h-screen flex-col">
                   {children}
                 </main>
+                <ClientPage />
                 <Toaster />
               </AuthDialogProvider>
             </AuthProvider>

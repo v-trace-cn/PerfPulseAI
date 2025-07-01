@@ -6,139 +6,134 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { Member } from "@/lib/types";
-import { Eye, Calendar, ChevronsUpDown } from "lucide-react";
+import { DetailedMember } from "@/lib/types"; // 假设 DetailedMember 已包含所有需要字段
+import { 
+  Briefcase, 
+  Calendar, 
+  ChevronDown,
+  Star,
+  Zap,
+  Wrench,
+  GitCommit,
+  Plus,
+  Rocket,
+  ShieldCheck,
+  Code
+} from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import Link from "next/link";
+
+const statusStyles: { [key: string]: { icon: React.ElementType, badgeClass: string } } = {
+  "进行中": { icon: Zap, badgeClass: "bg-blue-100 text-blue-800" },
+  "已完成": { icon: ShieldCheck, badgeClass: "bg-green-100 text-green-800" },
+};
+
+const kpiConfig: { key: keyof DetailedMember['kpis'], label: string, icon: React.ElementType, color: string }[] = [
+  { key: 'leadTasks', label: '主导任务', icon: Star, color: 'text-yellow-500' },
+  { key: 'newFeatures', label: '新增功能', icon: Rocket, color: 'text-purple-500' },
+  { key: 'codeCommits', label: '代码提交', icon: GitCommit, color: 'text-blue-500' },
+  { key: 'bugsFixed', label: '修复Bug', icon: Wrench, color: 'text-red-500' },
+];
+
+const gradientList = [
+  'from-white to-[#e0e7ff]',   // 淡蓝紫
+  'from-white to-[#bbf7d0]',   // 淡青绿
+  'from-white to-[#bae6fd]',   // 淡天蓝
+  'from-white to-[#ddd6fe]',   // 淡紫
+];
 
 interface MemberCardProps {
-  member: Member;
-  departmentId: string;
-  isDetailedView?: boolean;
+  member: DetailedMember;
+  colorIndex: number;
 }
 
-const statusBadgeVariant = {
-  "已完成": "secondary",
-  "进行中": "default",
-  "待办": "outline",
-  "已取消": "destructive",
-  "已暂停": "secondary",
-} as const;
-
-export default function MemberCard({ member, departmentId, isDetailedView }: MemberCardProps) {
-  const [isOpen, setIsOpen] = useState(isDetailedView ? true : true);
+export default function MemberCard({ member, colorIndex }: MemberCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const gradient = gradientList[colorIndex % gradientList.length];
 
   return (
-    <Collapsible
-      open={isOpen}
-      onOpenChange={setIsOpen}
-      className="bg-card rounded-lg border p-6 shadow-sm transition-all duration-300 hover:shadow-md"
-    >
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-4">
-          <Avatar className="h-12 w-12 border-2 border-primary/20">
-            <AvatarImage src={member.avatar} alt={member.name} />
-            <AvatarFallback className="bg-primary/10 text-primary font-bold">
-              {member.initials}
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <h3 className="text-lg font-semibold">{member.name}</h3>
-            <p className="text-sm text-muted-foreground">{member.title}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="text-right">
-            <p className="text-sm text-muted-foreground">绩效评分</p>
-            <p className="text-2xl font-bold text-green-500">{member.performanceScore}</p>
-          </div>
-          {!isDetailedView && (
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="icon" className="flex-shrink-0">
-                <ChevronsUpDown className="h-4 w-4" />
-                <span className="sr-only">Toggle Details</span>
-              </Button>
-            </CollapsibleTrigger>
-          )}
-        </div>
-      </div>
-
-      <CollapsibleContent className="space-y-4 pt-4">
-        <div>
-          <h4 className="font-semibold text-sm mb-3">关键指标</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-            <div>
-              <p className="text-xl font-bold text-primary">{member.kpis.codeCommits}</p>
-              <p className="text-xs text-muted-foreground">代码提交</p>
+    <Card className={`w-full bg-gradient-to-br ${gradient} rounded-2xl shadow-lg border-0 overflow-hidden transition-all duration-300 hover:shadow-2xl hover:scale-[1.03]`}>
+      <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+        <CollapsibleTrigger asChild>
+          <div className="flex items-center justify-between px-8 py-6 cursor-pointer group">
+            {/* 左侧头像+信息 */}
+            <div className="flex items-center space-x-5">
+              <Avatar className="h-14 w-14 border-4 border-white shadow-md">
+                <AvatarImage src={member.avatar} alt={member.name} />
+                <AvatarFallback className="bg-gradient-to-br from-gray-100 to-gray-300 text-gray-600 font-bold">
+                  {member.initials}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <div className="text-lg font-bold text-gray-900 mb-1">{member.name}</div>
+                <div className="text-xs text-gray-400 font-medium">{member.title}</div>
+              </div>
             </div>
-            <div>
-              <p className="text-xl font-bold">{member.kpis.codeReviews}</p>
-              <p className="text-xs text-muted-foreground">代码审查</p>
+            {/* 右侧积分和箭头 */}
+            <div className="flex flex-col items-end min-w-[80px]">
+              <span className="text-3xl font-extrabold bg-gradient-to-r from-blue-500 to-cyan-400 text-transparent bg-clip-text leading-none">
+                {member.performanceScore}
+              </span>
+              <span className="text-xs text-gray-400 mt-1">积分总数</span>
             </div>
-            <div>
-              <p className="text-xl font-bold text-red-500">{member.kpis.bugsFixed}</p>
-              <p className="text-xs text-muted-foreground">修复Bug</p>
-            </div>
-            <div>
-              <p className="text-xl font-bold text-purple-500">{member.kpis.projectsLed}</p>
-              <p className="text-xs text-muted-foreground">主导项目</p>
-            </div>
+            <ChevronDown className={`ml-4 w-6 h-6 text-gray-400 transition-transform duration-300 group-hover:text-blue-500 ${isExpanded ? 'rotate-180' : ''}`} />
           </div>
-        </div>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="p-6 pt-0">
+            {/* KPIs Section */}
+            <div className="mb-6">
+              <h4 className="text-sm font-semibold text-gray-600 mb-3">关键指标</h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {kpiConfig.map(kpi => (
+                  <div key={kpi.key} className="bg-gray-50/80 p-4 rounded-lg flex items-center space-x-3 transition-colors hover:bg-gray-100">
+                    <kpi.icon className={`w-8 h-8 ${kpi.color}`} />
+                    <div>
+                      <p className="text-2xl font-bold text-gray-800">{member.kpis[kpi.key]}</p>
+                      <p className="text-xs text-gray-500">{kpi.label}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-        <Separator />
-
-        <div>
-          <h4 className="font-semibold text-sm mb-3">专业技能</h4>
-          <div className="flex flex-wrap gap-2">
-            {member.skills.map((skill) => (
-              <Badge key={skill} variant="secondary">{skill}</Badge>
-            ))}
-          </div>
-        </div>
-
-        <Separator />
-
-        <div>
-          <h4 className="font-semibold text-sm mb-3">最近工作</h4>
-          <ul className="space-y-2">
-            {member.recentWork.map((item) => (
-              <li key={item.id} className="flex justify-between items-center text-sm">
-                <span>{item.title}</span>
-                <div className="flex items-center gap-2">
-                  <Badge variant={statusBadgeVariant[item.status] || "outline"}>{item.status}</Badge>
-                  <span className="text-xs text-muted-foreground">{item.date}</span>
+            {/* Details Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+              {/* Recent Work */}
+              <div>
+                <h4 className="text-sm font-semibold text-gray-600 mb-3">最近工作</h4>
+                <ul className="space-y-3">
+                  {member.recentWork.slice(0, 3).map((work) => {
+                    const StatusIcon = statusStyles[work.status]?.icon || Zap;
+                    const badgeClass = statusStyles[work.status]?.badgeClass || "bg-gray-100 text-gray-800";
+                    return (
+                      <li key={work.id} className="flex items-center justify-between text-sm">
+                        <div className="flex items-center">
+                          <StatusIcon className="w-4 h-4 mr-3 text-gray-500" />
+                          <span>{work.title}</span>
+                        </div>
+                        <Badge variant="outline" className={`font-normal text-xs ${badgeClass}`}>{work.status}</Badge>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+              {/* Skills */}
+              <div>
+                <h4 className="text-sm font-semibold text-gray-600 mb-3">专业技能</h4>
+                <div className="flex flex-wrap gap-2">
+                  {member.skills.map((skill) => (
+                    <Badge key={skill} variant="secondary" className="bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors cursor-pointer">
+                      <Code className="w-3 h-3 mr-1.5" />
+                      {skill}
+                    </Badge>
+                  ))}
                 </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-        
-        <Separator />
-
-        <div>
-          <div className="flex justify-between items-center mb-1">
-            <h4 className="font-semibold text-sm">整体表现</h4>
-            <span className="text-sm font-bold">{member.overallPerformance}/100</span>
-          </div>
-          <Progress value={member.overallPerformance} className="h-2" />
-        </div>
-
-        <Separator />
-
-        <div className="flex gap-4">
-          {!isDetailedView && (
-            <Button asChild variant="outline" className="w-full flex items-center gap-2">
-              <Link href={`/org/${departmentId}/${member.id}`}>
-                <Eye className="h-4 w-4" /> 查看详情
-              </Link>
-            </Button>
-          )}
-          <Button className="w-full flex items-center gap-2">
-            <Calendar className="h-4 w-4" /> 安排会议
-          </Button>
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
+              </div>
+            </div>
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
   );
 } 

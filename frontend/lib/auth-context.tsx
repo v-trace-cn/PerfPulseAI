@@ -94,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (typeof window !== 'undefined') {
         localStorage.setItem('token', response.data.userId);
-        setUser({ ...response.data, id: response.data.userId });
+        await refreshUser();
       }
       return true;
     } catch (err: any) {
@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (typeof window !== 'undefined') {
         localStorage.setItem('token', response.data.userId);
-        setUser({ ...response.data, id: response.data.userId });
+        await refreshUser();
       }
       return true;
     } catch (err: any) {

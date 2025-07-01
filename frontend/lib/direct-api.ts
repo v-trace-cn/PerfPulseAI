@@ -229,4 +229,6 @@ export const directDepartmentApi = {
         method: 'DELETE',
       }
     ),
+  getDepartmentMembers: async (departmentId: string) =>
+    fetchDirectApi<{ data: any[]; message: string; success: boolean }>(`/api/departments/${departmentId}/members`),
 };

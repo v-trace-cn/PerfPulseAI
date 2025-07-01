@@ -14,6 +14,7 @@ import Link from "next/link";
 interface MemberCardProps {
   member: Member;
   departmentId: string;
+  isDetailedView?: boolean;
 }
 
 const statusBadgeVariant = {
@@ -24,8 +25,8 @@ const statusBadgeVariant = {
   "已暂停": "secondary",
 } as const;
 
-export default function MemberCard({ member, departmentId }: MemberCardProps) {
-  const [isOpen, setIsOpen] = useState(true);
+export default function MemberCard({ member, departmentId, isDetailedView }: MemberCardProps) {
+  const [isOpen, setIsOpen] = useState(isDetailedView ? true : true);
 
   return (
     <Collapsible
@@ -51,12 +52,14 @@ export default function MemberCard({ member, departmentId }: MemberCardProps) {
             <p className="text-sm text-muted-foreground">绩效评分</p>
             <p className="text-2xl font-bold text-green-500">{member.performanceScore}</p>
           </div>
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" size="icon" className="flex-shrink-0">
-              <ChevronsUpDown className="h-4 w-4" />
-              <span className="sr-only">Toggle Details</span>
-            </Button>
-          </CollapsibleTrigger>
+          {!isDetailedView && (
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="icon" className="flex-shrink-0">
+                <ChevronsUpDown className="h-4 w-4" />
+                <span className="sr-only">Toggle Details</span>
+              </Button>
+            </CollapsibleTrigger>
+          )}
         </div>
       </div>
 
@@ -124,11 +127,13 @@ export default function MemberCard({ member, departmentId }: MemberCardProps) {
         <Separator />
 
         <div className="flex gap-4">
-          <Button asChild variant="outline" className="w-full flex items-center gap-2">
-            <Link href={`/org/${departmentId}/${member.id}`}>
-              <Eye className="h-4 w-4" /> 查看详情
-            </Link>
-          </Button>
+          {!isDetailedView && (
+            <Button asChild variant="outline" className="w-full flex items-center gap-2">
+              <Link href={`/org/${departmentId}/${member.id}`}>
+                <Eye className="h-4 w-4" /> 查看详情
+              </Link>
+            </Button>
+          )}
           <Button className="w-full flex items-center gap-2">
             <Calendar className="h-4 w-4" /> 安排会议
           </Button>

@@ -8,6 +8,8 @@ import { getApiUrl } from "./config/api-config";
 async function fetchDirectApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = endpoint.startsWith('http') ? endpoint : getApiUrl(endpoint);
   
+  console.log(`Attempting to fetch from: ${url} with method: ${options.method || 'GET'}`);
+
   try {
     const response = await fetch(url, {
       ...options,
@@ -206,4 +208,25 @@ export const directScoringApi = {
         Authorization: `Bearer ${token}`,
       },
     }),
+};
+
+// Department API
+export const directDepartmentApi = {
+  createDepartment: (departmentName: string) =>
+    fetchDirectApi<{ data: { id: number; name: string; createdAt: string; updatedAt: string }; message: string; success: boolean }>(
+      `/api/departments/`, {
+        method: 'POST',
+        body: JSON.stringify({ name: departmentName }),
+      }
+    ),
+  getDepartments: () =>
+    fetchDirectApi<{ data: Array<{ id: number; name: string; createdAt: string; updatedAt: string }>; message: string; success: boolean }>(
+      `/api/departments/`
+    ),
+  deleteDepartment: (id: string) =>
+    fetchDirectApi<{ message: string; success: boolean }>(
+      `/api/departments/${id}`, {
+        method: 'DELETE',
+      }
+    ),
 };

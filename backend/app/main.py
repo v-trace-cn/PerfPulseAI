@@ -12,7 +12,6 @@ from app.core.database import async_engine, Base
 from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy import inspect, text 
-from app.api import pull_request as pr_router
 
 app = FastAPI(title="PerfPulseAI API")
 
@@ -29,7 +28,6 @@ for _, module_name, _ in pkgutil.iter_modules(api_path):
     module = importlib.import_module(f"app.api.{module_name}")
     if hasattr(module, "router"):
         app.include_router(module.router)
-app.include_router(pr_router.router)
 
 # # 添加静态文件服务
 # app.mount("/static", StaticFiles(directory="./static"), name="static")

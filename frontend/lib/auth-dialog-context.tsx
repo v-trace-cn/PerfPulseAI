@@ -4,9 +4,9 @@ import { createContext, useContext, useState, ReactNode } from 'react';
 
 type AuthDialogContextType = {
   authDialogOpen: boolean;
-  authMode: "login" | "register" | "reset";
+  authMode: "login" | "register" | "reset-password";
   setAuthDialogOpen: (open: boolean) => void;
-  setAuthMode: (mode: "login" | "register" | "reset") => void;
+  setAuthMode: (mode: "login" | "register" | "reset-password") => void;
   openLoginDialog: () => void;
   openRegisterDialog: () => void;
   openResetPasswordDialog: () => void;
@@ -16,7 +16,7 @@ const AuthDialogContext = createContext<AuthDialogContextType | undefined>(undef
 
 export function AuthDialogProvider({ children }: { children: ReactNode }) {
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<"login" | "register" | "reset">("login");
+  const [authMode, setAuthMode] = useState<"login" | "register" | "reset-password">("login");
 
   const openLoginDialog = () => {
     setAuthMode("login");
@@ -29,7 +29,7 @@ export function AuthDialogProvider({ children }: { children: ReactNode }) {
   };
 
   const openResetPasswordDialog = () => {
-    setAuthMode("reset");
+    setAuthMode("reset-password");
     setAuthDialogOpen(true);
   };
 

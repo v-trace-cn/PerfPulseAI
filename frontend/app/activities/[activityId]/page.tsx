@@ -20,7 +20,6 @@ import {
   AlertCircle,
   Loader2,
 } from "lucide-react"
-import SiteHeader from "@/components/site-header"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { useState, useEffect } from "react"
@@ -214,7 +213,6 @@ export default function ActivityDetailPage() {
 
   return (
     <>
-      <SiteHeader onHelpClick={() => {}} onSettingsClick={() => {}} />
       <div className="min-h-screen bg-gray-50 pt-6">
         <div className="max-w-7xl mx-auto px-6 py-8 bg-white rounded-lg shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
           {/* Activity Header */}

@@ -14,6 +14,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
+import MemberCard from "@/components/organization/MemberCard"
 
 // 基础模拟数据
 const baseMembers: Member[] = [
@@ -63,10 +64,10 @@ const mockMembers: Member[] = [
 ];
 
 const mockDepartmentStats: DepartmentStats = {
-  averageScore: 90,
+  averageScore: 92,
   teamSize: mockMembers.length,
-  outstandingEmployees: 3,
-  totalSkills: 12,
+  outstandingEmployees: 1,
+  totalSkills: 8,
 };
 
 // 页面组件
@@ -75,51 +76,65 @@ export default function DepartmentPage({
   searchParams,
 }: {
   params: { departmentId: string };
-  searchParams?: { page?: string };
+  searchParams?: { search?: string };
 }) {
   const departmentName = "研发部门"; // 模拟部门名称
   const stats = mockDepartmentStats;
-  
-  const currentPage = Number(searchParams?.page) || 1;
-  const ITEMS_PER_PAGE = 4;
-  const totalPages = Math.ceil(mockMembers.length / ITEMS_PER_PAGE);
+  const searchTerm = searchParams?.search || '';
 
-  const paginatedMembers = mockMembers.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
+  // Filter members based on search term (simple case-insensitive name search)
+  const filteredMembers = mockMembers.filter(member =>
+    member.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  const getPageUrl = (page: number) => {
-    if (page < 1 || page > totalPages) return "#";
-    return `/org/${params.departmentId}?page=${page}`;
-  }
 
   return (
     <div className="container mx-auto p-4 md:p-6 lg:p-8">
       <DepartmentHeader departmentName={departmentName} memberCount={mockMembers.length} />
       
-      <div className="mb-8">
-        <MembersGrid members={paginatedMembers} departmentId={params.departmentId} />
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center space-x-4">
+          <Link href="/org" className="text-muted-foreground hover:text-primary">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <h1 className="text-xl font-bold flex items-center gap-2">
+            研发部门 - 成员详情
+          </h1>
+        </div>
+        <div className="flex items-center space-x-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="搜索成员..."
+              className="pl-9"
+              value={searchTerm}
+              onChange={(e) => {
+                const newUrl = new URL(window.location.href);
+                if (e.target.value) {
+                  newUrl.searchParams.set('search', e.target.value);
+                } else {
+                  newUrl.searchParams.delete('search');
+                }
+                window.history.pushState({}, '', newUrl.toString());
+              }}
+            />
+          </div>
+          <Button variant="outline" className="flex items-center gap-1">
+            <Users className="h-4 w-4" /> <span>{filteredMembers.length} 名成员</span>
+          </Button>
+        </div>
       </div>
 
-      <div className="mb-8">
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious href={getPageUrl(currentPage - 1)} />
-            </PaginationItem>
-            {Array.from({ length: totalPages }).map((_, index) => (
-              <PaginationItem key={index}>
-                <PaginationLink href={getPageUrl(index + 1)} isActive={currentPage === index + 1}>
-                  {index + 1}
-                </PaginationLink>
-              </PaginationItem>
-            ))}
-            <PaginationItem>
-              <PaginationNext href={getPageUrl(currentPage + 1)} />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
+      <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {filteredMembers.length > 0 ? (
+          filteredMembers.map((member) => (
+            <MemberCard key={member.id} member={member} departmentId={params.departmentId} isDetailedView={true} />
+          ))
+        ) : (
+          <div className="col-span-full text-center py-12 text-muted-foreground">
+            <p>没有找到任何成员。</p>
+          </div>
+        )}
       </div>
 
       <DepartmentSummary stats={stats} departmentName={departmentName} />

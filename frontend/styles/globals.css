@@ -92,3 +92,9 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* 呼吸动画 */
+@keyframes breathe {
+  0%,100% { background-color: white; }
+  50% { background-color: #f5f7ff; }
+}

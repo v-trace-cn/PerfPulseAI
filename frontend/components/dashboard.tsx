@@ -18,7 +18,7 @@ import {
   Shield,
   Users,
   Cpu,
-  User,
+  User as UserIcon,
   Settings,
   Pencil,
   Trophy,
@@ -69,7 +69,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 
 // 添加自定义动画
 const fadeInAnimation = `@keyframes fadeIn {
@@ -213,6 +213,7 @@ export default function Dashboard() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, refreshUser } = useAuth()
+  const queryClient = useQueryClient(); // 初始化 queryClient
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [userData, setUserData] = useState({
@@ -220,13 +221,13 @@ export default function Dashboard() {
     department: user?.department || "",
     position: user?.position || "",
     email: user?.email || "",
-    phone: (user as any)?.phone || "",
-    githubUrl: (user as any)?.githubUrl || "",
-    joinDate: (user as any)?.joinDate || "",
+    phone: user?.phone || "",
+    githubUrl: user?.githubUrl || "",
+    joinDate: user?.joinDate || "",
     points: user?.points || 0,
     level: user?.level || 0,
-    avatar: (user as any)?.avatar || "/placeholder-logo.png",
-    skills: (user as any)?.skills || [],
+    avatar: user?.avatar || "/placeholder-logo.png",
+    skills: user?.skills || [],
     achievements: [
       { id: 1, title: "AI算法优化奖", date: "2023-Q2", icon: "🧠" },
       { id: 2, title: "数据安全贡献奖", date: "2023-05", icon: "🔒" },
@@ -335,6 +336,8 @@ export default function Dashboard() {
           })
           setEditProfileOpen(false)
           await refreshUser();
+          // 如果有其他地方也使用 React Query 查询用户数据，需要使其失效
+          queryClient.invalidateQueries(["user", user.id]);
         } else {
           toast({
             title: "更新失败",
@@ -363,21 +366,26 @@ export default function Dashboard() {
   // 当获取到最新 user 时，同步基本信息
   useEffect(() => {
     if (user) {
-      setUserData((prev) => ({
-        ...prev,
+      console.log("AuthContext user updated:", user);
+      console.log("user.githubUrl directly:", user.githubUrl);
+      setUserData({
         name: user.name || "",
         department: user.department || "",
         position: user.position || "",
         email: user.email || "",
-        phone: (user as any).phone || "",
-        githubUrl: (user as any).githubUrl || "",
-        joinDate: (user as any).joinDate || (user as any).join_date || "",
-        points: user.points ?? prev.points,
-        level: user.level ?? prev.level,
-        avatar: (user as any).avatar || "/placeholder-logo.png",
-      }))
+        phone: user.phone || "",
+        githubUrl: user.githubUrl || "",
+        joinDate: user.joinDate || "",
+        points: user.points ?? 0,
+        level: user.level ?? 0,
+        avatar: user.avatar || "/placeholder-logo.png",
+        skills: user.skills || [],
+        achievements: userData.achievements,
+        recentActivities: userData.recentActivities,
+      });
+      console.log("Updated userData in useEffect (after explicit set):");
     }
-  }, [user])
+  }, [user]);
 
   // Fetch recent personal activities when user changes
   useEffect(() => {
@@ -401,6 +409,16 @@ export default function Dashboard() {
         .catch((err) => console.error("Error fetching recent activities", err));
     }
   }, [user, fetchRecentActivities]);
+
+  // New useEffect to observe userData changes
+  useEffect(() => {
+    console.log("userData state changed:", userData);
+    if (userData.githubUrl) {
+      console.log("GitHub URL is now present in userData:", userData.githubUrl);
+    } else {
+      console.log("GitHub URL is still NOT present in userData.");
+    }
+  }, [userData]); // Depend on userData to log its changes
 
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
@@ -487,7 +505,7 @@ export default function Dashboard() {
               value="profile"
               className="flex items-center px-4 py-2 rounded-full data-[state=active]:bg-primary/20 data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all duration-300 hover:bg-muted/30 relative overflow-hidden after:absolute after:inset-0 after:opacity-0 after:bg-gradient-to-r after:from-primary/10 after:to-transparent after:transition-opacity after:duration-500 hover:after:opacity-100"
             >
-              <User className="mr-2 h-4 w-4" />
+              <UserIcon className="mr-2 h-4 w-4" />
               <span>个人中心</span>
             </TabsTrigger>
           </TabsList>
@@ -801,111 +819,109 @@ export default function Dashboard() {
                     </Button>
 
                     <Dialog open={editProfileOpen} onOpenChange={setEditProfileOpen}>
-                      {editProfileOpen && (
-                        <DialogContent className="sm:max-w-[425px]">
-                          <DialogHeader>
-                            <DialogTitle>编辑个人资料</DialogTitle>
-                            <DialogDescription>
-                              更新您的个人信息和偏好设置
-                            </DialogDescription>
-                          </DialogHeader>
-                          <form onSubmit={handleSaveProfile}>
-                            <div className="grid gap-4 py-4">
-                              <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="edit-name" className="text-right">
-                                  姓名
-                                </Label>
-                                <Input
-                                  id="edit-name"
-                                  name="edit-name"
-                                  value={userData.name}
-                                  onChange={(e) => setUserData({ ...userData, name: e.target.value })}
-                                  className="col-span-3"
-                                />
-                              </div>
-                              <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="edit-department" className="text-right">
-                                  部门
-                                </Label>
-                                <Select
-                                  key={`dept-select-${isLoadingDepartments}-${departments.length}`}
-                                  value={selectedDepartment}
-                                  onValueChange={setSelectedDepartment}
-                                >
-                                  <SelectTrigger className="col-span-3">
-                                    <SelectValue placeholder="选择部门" />
-                                  </SelectTrigger>
-                                  <SelectContent className="z-[10000]">
-                                    {isLoadingDepartments ? (
-                                      <SelectItem value="loading" disabled>加载中...</SelectItem>
-                                    ) : (
-                                      departments.map((dept) => (
-                                        <SelectItem key={dept.id} value={String(dept.id)}>
-                                          {dept.name}
-                                        </SelectItem>
-                                      ))
-                                    )}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="edit-position" className="text-right">
-                                  职位
-                                </Label>
-                                <Input
-                                  id="edit-position"
-                                  name="edit-position"
-                                  value={userData.position}
-                                  onChange={(e) => setUserData({ ...userData, position: e.target.value })}
-                                  className="col-span-3"
-                                />
-                              </div>
-                              <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="edit-email" className="text-right">
-                                  邮箱
-                                </Label>
-                                <Input
-                                  id="edit-email"
-                                  name="edit-email"
-                                  type="email"
-                                  value={userData.email}
-                                  onChange={(e) => setUserData({ ...userData, email: e.target.value })}
-                                  className="col-span-3"
-                                  disabled
-                                />
-                              </div>
-                              <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="edit-phone" className="text-right">
-                                  手机
-                                </Label>
-                                <Input
-                                  id="edit-phone"
-                                  name="edit-phone"
-                                  type="tel"
-                                  value={userData.phone}
-                                  onChange={(e) => setUserData({ ...userData, phone: e.target.value })}
-                                  className="col-span-3"
-                                />
-                              </div>
-                              <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="edit-github" className="text-right">
-                                  GitHub 地址
-                                </Label>
-                                <Input
-                                  id="edit-github"
-                                  name="edit-github"
-                                  value={userData.githubUrl}
-                                  onChange={(e) => setUserData({ ...userData, githubUrl: e.target.value })}
-                                  className="col-span-3"
-                                />
-                              </div>
+                      <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                          <DialogTitle>编辑个人资料</DialogTitle>
+                          <DialogDescription>
+                            更新您的个人信息和偏好设置
+                          </DialogDescription>
+                        </DialogHeader>
+                        <form onSubmit={handleSaveProfile}>
+                          <div className="grid gap-4 py-4">
+                            <div className="grid grid-cols-4 items-center gap-4">
+                              <Label htmlFor="edit-name" className="text-right">
+                                姓名
+                              </Label>
+                              <Input
+                                id="edit-name"
+                                name="edit-name"
+                                value={userData.name}
+                                onChange={(e) => setUserData({ ...userData, name: e.target.value })}
+                                className="col-span-3"
+                              />
                             </div>
-                            <DialogFooter>
-                              <Button type="submit">保存更改</Button>
-                            </DialogFooter>
-                          </form>
-                        </DialogContent>
-                      )}
+                            <div className="grid grid-cols-4 items-center gap-4">
+                              <Label htmlFor="edit-department" className="text-right">
+                                部门
+                              </Label>
+                              <Select
+                                key={`dept-select-${isLoadingDepartments}-${departments.length}`}
+                                value={selectedDepartment}
+                                onValueChange={setSelectedDepartment}
+                              >
+                                <SelectTrigger className="col-span-3">
+                                  <SelectValue placeholder="选择部门" />
+                                </SelectTrigger>
+                                <SelectContent className="z-[10000]">
+                                  {isLoadingDepartments ? (
+                                    <SelectItem value="loading" disabled>加载中...</SelectItem>
+                                  ) : (
+                                    departments.map((dept) => (
+                                      <SelectItem key={dept.id} value={String(dept.id)}>
+                                        {dept.name}
+                                      </SelectItem>
+                                    ))
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                              <Label htmlFor="edit-position" className="text-right">
+                                职位
+                              </Label>
+                              <Input
+                                id="edit-position"
+                                name="edit-position"
+                                value={userData.position}
+                                onChange={(e) => setUserData({ ...userData, position: e.target.value })}
+                                className="col-span-3"
+                              />
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                              <Label htmlFor="edit-email" className="text-right">
+                                邮箱
+                              </Label>
+                              <Input
+                                id="edit-email"
+                                name="edit-email"
+                                type="email"
+                                value={userData.email}
+                                onChange={(e) => setUserData({ ...userData, email: e.target.value })}
+                                className="col-span-3"
+                                disabled
+                              />
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                              <Label htmlFor="edit-phone" className="text-right">
+                                手机
+                              </Label>
+                              <Input
+                                id="edit-phone"
+                                name="edit-phone"
+                                type="tel"
+                                value={userData.phone}
+                                onChange={(e) => setUserData({ ...userData, phone: e.target.value })}
+                                className="col-span-3"
+                              />
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                              <Label htmlFor="edit-github" className="text-right">
+                                GitHub 地址
+                              </Label>
+                              <Input
+                                id="edit-github"
+                                name="edit-github"
+                                value={userData.githubUrl}
+                                onChange={(e) => setUserData({ ...userData, githubUrl: e.target.value })}
+                                className="col-span-3"
+                              />
+                            </div>
+                          </div>
+                          <DialogFooter>
+                            <Button type="submit">保存更改</Button>
+                          </DialogFooter>
+                        </form>
+                      </DialogContent>
                     </Dialog>
                   </div>
                 </CardContent>

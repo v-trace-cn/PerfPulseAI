@@ -47,9 +47,34 @@ export interface Department {
   id: string;
   name: string;
   manager: string;
-  members: number;
+  memberCount: number;
+  activeMembersCount: number;
   performance: number;
   projects: number;
   status: "active" | "archived";
   teams: Team[];
+}
+
+export interface DetailedMember {
+  id: string;
+  name: string;
+  avatar: string;
+  initials: string;
+  title: string;
+  joinDate?: string;
+  performanceScore: number;
+  kpis: {
+    leadTasks: number;
+    newFeatures: number;
+    codeCommits: number;
+    bugsFixed: number;
+  };
+  skills: string[];
+  recentWork: {
+    id: string;
+    title: string;
+    status: "已完成" | "进行中";
+    date: string;
+  }[];
+  overallPerformance: number;
 } 

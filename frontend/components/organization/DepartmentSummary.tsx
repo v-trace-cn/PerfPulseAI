@@ -8,7 +8,6 @@ interface DepartmentSummaryProps {
 export default function DepartmentSummary({ stats, departmentName }: DepartmentSummaryProps) {
   return (
     <div className="bg-card rounded-lg border p-6">
-      <h2 className="text-xl font-semibold mb-4">{departmentName} 整体表现</h2>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
         <div>
           <p className="text-3xl font-bold text-primary">{stats.averageScore}</p>

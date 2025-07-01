@@ -24,7 +24,7 @@ def upgrade() -> None:
     with op.batch_alter_table('users', schema=None) as batch_op:
         batch_op.add_column(sa.Column('department_id', sa.Integer(), nullable=True))
         batch_op.create_foreign_key('fk_user_department', 'departments', ['department_id'], ['id'])
-        batch_op.drop_column('department')
+        # batch_op.drop_column('department')
     # ### end Alembic commands ###
 
 

@@ -35,7 +35,6 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { DepartmentMembers } from "@/components/organization/DepartmentMembers"
 import { DepartmentSettings } from "@/components/organization/DepartmentSettings"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose, DialogDescription } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -44,6 +43,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { directDepartmentApi } from "@/lib/direct-api"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Department } from "@/lib/types" // 导入 Department 类型
+import Link from "next/link"
 
 const employees = [
   {
@@ -98,7 +98,12 @@ export default function OrganizationManagement() {
         description: error.message || "获取部门数据失败",
         variant: "destructive",
       });
-    } else if (data && !data.success) {
+    } else if (
+      data &&
+      typeof data === 'object' && // 确保 data 是一个对象
+      'success' in data &&        // 确保 'success' 属性存在
+      !data.success               // 检查 success 是否为 false
+    ) {
       toast({
         title: "错误",
         description: data.message || "获取部门数据失败",
@@ -111,7 +116,8 @@ export default function OrganizationManagement() {
     id: String(d.id),
     name: d.name,
     manager: "", // 假设后端不返回经理信息，或者根据实际情况调整
-    members: 0, // 假设后端不返回成员数，或者根据实际情况调整
+    memberCount: d.memberCount || 0, // 使用后端返回的 memberCount
+    activeMembersCount: d.activeMembersCount || 0, // 使用后端返回的 activeMembersCount
     performance: 0, // 假设后端不返回绩效分，或者根据实际情况调整
     projects: 0, // 假设后端不返回项目数，或者根据实际情况调整
     status: "active", // 假设新创建的部门默认为活跃状态
@@ -230,7 +236,7 @@ export default function OrganizationManagement() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {departments.reduce((sum, d) => sum + d.members, 0)}
+                {departments.reduce((sum, d) => sum + d.memberCount, 0)}
               </div>
               <p className="text-xs text-muted-foreground">+180.1% from last month</p>
             </CardContent>
@@ -311,156 +317,130 @@ export default function OrganizationManagement() {
                       <TableHead className="w-[80px]"></TableHead>
                       <TableHead>部门名称</TableHead>
                       <TableHead>经理</TableHead>
-                      <TableHead className="text-center">成员数</TableHead>
-                      <TableHead className="text-center">绩效分</TableHead>
-                      <TableHead className="text-center">状态</TableHead>
+                      <TableHead>成员数</TableHead>
+                      <TableHead>活跃员工</TableHead>
+                      <TableHead>绩效分</TableHead>
+                      <TableHead>状态</TableHead>
                       <TableHead className="text-right">操作</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {departments.length === 0 && !isLoading && !error && (
+                    {isLoading ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="h-24 text-center">
-                          暂无部门数据。
+                        <TableCell colSpan={8} className="h-24 text-center">
+                          加载部门数据...
                         </TableCell>
                       </TableRow>
-                    )}
-                    {isLoading && (
+                    ) : error ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="h-24 text-center">
-                          加载中...
+                        <TableCell colSpan={8} className="h-24 text-center text-red-500">
+                          加载部门数据失败: {error.message}
                         </TableCell>
                       </TableRow>
-                    )}
-                    {error && (
+                    ) : departments.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="h-24 text-center text-red-500">
-                          加载失败: {error.message}
+                        <TableCell colSpan={8} className="h-24 text-center text-gray-500">
+                          没有找到部门。
                         </TableCell>
                       </TableRow>
-                    )}
-                    {departments.map((department) => (
-                      <React.Fragment key={department.id}>
-                        <TableRow key={department.id}>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => toggleExpand(department.id)}
-                            >
-                              {expanded[department.id] ? (
-                                <ChevronUp className="h-4 w-4" />
-                              ) : (
-                                <ChevronDown className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            {department.name}
-                          </TableCell>
-                          <TableCell>{department.manager}</TableCell>
-                          <TableCell className="text-center">
-                            {department.members}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Badge
-                              className={
-                                department.performance > 90
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-yellow-100 text-yellow-800"
-                              }
-                            >
-                              {department.performance}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Badge
-                              variant={
-                                department.status === "active"
-                                  ? "secondary"
-                                  : "outline"
-                              }
-                            >
-                              {department.status === "active" ? "活跃" : "归档"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button variant="ghost" size="sm" className="mr-2">
-                                  <Users className="h-4 w-4"/>
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent className="max-w-4xl">
-                                <DialogHeader>
-                                  <DialogTitle>部门成员列表</DialogTitle>
-                                  <DialogDescription>
-                                    查看和管理 {department.name} 的成员。
-                                  </DialogDescription>
-                                </DialogHeader>
-                                <DepartmentMembers departmentName={department.name} />
-                              </DialogContent>
-                            </Dialog>
-
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button variant="ghost" size="sm" className="mr-2">
-                                  <Settings className="h-4 w-4"/>
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent className="max-w-4xl">
-                                  <DepartmentSettings department={department} />
-                              </DialogContent>
-                            </Dialog>
-
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                  <MoreVertical className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem>
-                                  <BarChart2 className="mr-2 h-4 w-4" />
-                                  查看分析
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleDeleteDepartment(department.id)} disabled={deleteDepartmentMutation.isPending}>
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  删除部门 {deleteDepartmentMutation.isPending ? "(删除中...)" : ""}
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                        {expanded[department.id] && (
+                    ) : (
+                      departments.map((department) => (
+                        <React.Fragment key={department.id}>
                           <TableRow>
-                            <TableCell colSpan={7} className="p-0">
-                              <div className="p-4 bg-gray-50">
-                                <h4 className="font-semibold text-md mb-3 ml-2">团队列表</h4>
-                                <Table>
-                                  <TableHeader>
-                                      <TableRow>
-                                          <TableHead>团队名称</TableHead>
-                                          <TableHead>负责人</TableHead>
-                                          <TableHead className="text-right">成员数</TableHead>
-                                      </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {department.teams.map((team) => (
-                                      <TableRow key={team.name}>
-                                        <TableCell>{team.name}</TableCell>
-                                        <TableCell>{team.lead}</TableCell>
-                                        <TableCell className="text-right">{team.members}</TableCell>
-                                      </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
-                              </div>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleExpand(department.id)}
+                                className="h-8 w-8 p-0"
+                              >
+                                {expanded[department.id] ? (
+                                  <ChevronUp className="h-4 w-4" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              <Link
+                                href={`/org/details`}
+                                onClick={() => localStorage.setItem('currentDepartmentId', department.id)}
+                                className="hover:underline"
+                              >
+                                {department.name}
+                              </Link>
+                            </TableCell>
+                            <TableCell>{department.manager || "N/A"}</TableCell>
+                            <TableCell>{department.memberCount}</TableCell>
+                            <TableCell>{department.activeMembersCount}</TableCell>
+                            <TableCell>{department.performance}</TableCell>
+                            <TableCell>
+                              <Badge variant={department.status === "active" ? "default" : "secondary"}>
+                                {department.status === "active" ? "活跃" : "归档"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Link href={`/org/details`}>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="mr-2"
+                                  onClick={() => localStorage.setItem('currentDepartmentId', department.id)}
+                                >
+                                  <Users className="h-4 w-4" />
+                                </Button>
+                              </Link>
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="mr-2">
+                                    <Settings className="h-4 w-4" />
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-4xl">
+                                  <DepartmentSettings department={department} />
+                                </DialogContent>
+                              </Dialog>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" className="h-8 w-8 p-0">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteDepartment(department.id)}>
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    删除
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </TableCell>
                           </TableRow>
-                        )}
-                      </React.Fragment>
-                    ))}
+                          {expanded[department.id] && (
+                            <TableRow>
+                              <TableCell colSpan={8} className="p-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                  {department.teams.length > 0 ? (
+                                    department.teams.map((team, index) => (
+                                      <Card key={index}>
+                                        <CardHeader>
+                                          <CardTitle>{team.name}</CardTitle>
+                                          <CardDescription>负责人: {team.lead}</CardDescription>
+                                        </CardHeader>
+                                        <CardContent>
+                                          <p>成员: {team.members}</p>
+                                        </CardContent>
+                                      </Card>
+                                    ))
+                                  ) : (
+                                    <p className="text-gray-500">暂无团队信息。</p>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </React.Fragment>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </CardContent>

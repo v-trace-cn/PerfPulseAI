@@ -177,24 +177,35 @@ export default function ClientPage() {
             )}
           </div>
           <DialogFooter className="flex justify-between items-center">
-            {authMode === "login" && (
-              <Button
-                variant="link"
-                className="text-sm text-primary p-0 h-auto"
-                onClick={() => setAuthMode("register")}
-              >
-                还没有账号，立即去注册
-              </Button>
-            )}
-            {authMode === "register" && (
-              <Button
-                variant="link"
-                className="text-sm text-primary p-0 h-auto"
-                onClick={() => setAuthMode("login")}
-              >
-                已经有账号，现在就去登录
-              </Button>
-            )}
+            <div>
+              {authMode === "login" && (
+                <Button
+                  variant="link"
+                  className="text-sm text-primary p-0 h-auto"
+                  onClick={() => setAuthMode("register")}
+                >
+                  还没有账号，立即去注册
+                </Button>
+              )}
+              {authMode === "register" && (
+                <Button
+                  variant="link"
+                  className="text-sm text-primary p-0 h-auto"
+                  onClick={() => setAuthMode("login")}
+                >
+                  已经有账号，现在就去登录
+                </Button>
+              )}
+              {authMode === "reset-password" && (
+                <Button
+                  variant="link"
+                  className="text-sm text-primary p-0 h-auto"
+                  onClick={() => setAuthMode("login")}
+                >
+                  记起密码，去登录
+                </Button>
+              )}
+            </div>
             <Button type="submit" onClick={handleSubmit} disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {authMode === "login" ? "登录" : authMode === "register" ? "注册" : "重置密码"}

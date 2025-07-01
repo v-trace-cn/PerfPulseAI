@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import {
   Building,
   Users,
@@ -37,61 +37,13 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { DepartmentMembers } from "@/components/organization/DepartmentMembers"
 import { DepartmentSettings } from "@/components/organization/DepartmentSettings"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-
-const departments = [
-  {
-    id: "d1",
-    name: "研发部",
-    manager: "张三",
-    members: 25,
-    performance: 92,
-    projects: 8,
-    status: "active",
-    teams: [
-      { name: "核心后端组", lead: "李四", members: 8 },
-      { name: "创新前端组", lead: "王五", members: 6 },
-      { name: "数据科学组", lead: "赵六", members: 5 },
-      { name: "质量保障组", lead: "孙七", members: 6 },
-    ],
-  },
-  {
-    id: "d2",
-    name: "产品部",
-    manager: "周八",
-    members: 15,
-    performance: 88,
-    projects: 5,
-    status: "active",
-    teams: [
-      { name: "用户体验组", lead: "吴九", members: 7 },
-      { name: "商业化组", lead: "郑十", members: 8 },
-    ],
-  },
-  {
-    id: "d3",
-    name: "市场部",
-    manager: "冯十一",
-    members: 18,
-    performance: 95,
-    projects: 12,
-    status: "active",
-    teams: [
-      { name: "内容营销组", lead: "陈十二", members: 10 },
-      { name: "渠道合作组", lead: "楚十三", members: 8 },
-    ],
-  },
-  {
-    id: "d4",
-    name: "行政部",
-    manager: "魏十四",
-    members: 10,
-    performance: 85,
-    projects: 2,
-    status: "archived",
-    teams: [{ name: "综合支持组", lead: "蒋十五", members: 10 }],
-  },
-]
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose, DialogDescription } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { useToast } from "@/components/ui/use-toast"
+import { directDepartmentApi } from "@/lib/direct-api"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { Department } from "@/lib/types" // 导入 Department 类型
 
 const employees = [
   {
@@ -121,11 +73,130 @@ const employees = [
 ]
 
 export default function OrganizationManagement() {
+  console.log("OrganizationManagement component rendered."); // 新增：组件渲染日志
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [isAddDeptDialogOpen, setAddDeptDialogOpen] = useState(false)
+  const [newDeptName, setNewDeptName] = useState("")
+  const { toast } = useToast()
+  const queryClient = useQueryClient();
+
+  // 使用 useQuery 获取部门数据
+  const { data, isLoading, error } = useQuery<{ data: Department[]; message: string; success: boolean }>({
+    queryKey: ['departments'],
+    queryFn: directDepartmentApi.getDepartments,
+  });
+
+  // 新增：打印 useQuery 的状态和数据
+  useEffect(() => {
+    console.log("useQuery data:", data);
+    console.log("useQuery isLoading:", isLoading);
+    console.log("useQuery error:", error);
+
+    if (error) {
+      toast({
+        title: "错误",
+        description: error.message || "获取部门数据失败",
+        variant: "destructive",
+      });
+    } else if (data && !data.success) {
+      toast({
+        title: "错误",
+        description: data.message || "获取部门数据失败",
+        variant: "destructive",
+      });
+    }
+  }, [data, isLoading, error, toast]); // 确保所有依赖项都包含在内
+
+  const departments = data?.data?.map(d => ({
+    id: String(d.id),
+    name: d.name,
+    manager: "", // 假设后端不返回经理信息，或者根据实际情况调整
+    members: 0, // 假设后端不返回成员数，或者根据实际情况调整
+    performance: 0, // 假设后端不返回绩效分，或者根据实际情况调整
+    projects: 0, // 假设后端不返回项目数，或者根据实际情况调整
+    status: "active", // 假设新创建的部门默认为活跃状态
+    teams: [], // 假设后端不返回团队信息，或者根据实际情况调整
+  })) || [];
 
   const toggleExpand = (id: string) => {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }))
   }
+
+  // 新增部门的 mutation
+  const createDepartmentMutation = useMutation({
+    mutationFn: directDepartmentApi.createDepartment,
+    onSuccess: (res) => {
+      if (res.success) {
+        toast({
+          title: "成功",
+          description: res.message,
+          variant: "default",
+        });
+        setNewDeptName("");
+        setAddDeptDialogOpen(false);
+        queryClient.invalidateQueries({ queryKey: ['departments'] }); // 触发部门列表重新获取
+      } else {
+        toast({
+          title: "错误",
+          description: res.message || "创建部门失败",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      console.error("创建部门失败:", error);
+      toast({
+        title: "错误",
+        description: error.message || "连接服务器失败，请稍后重试。",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleAddNewDepartment = () => {
+    if (!newDeptName.trim()) {
+      toast({
+        title: "错误",
+        description: "部门名称不能为空！",
+        variant: "destructive",
+      });
+      return;
+    }
+    createDepartmentMutation.mutate(newDeptName);
+  };
+
+  // 删除部门的 mutation
+  const deleteDepartmentMutation = useMutation({
+    mutationFn: directDepartmentApi.deleteDepartment,
+    onSuccess: (res) => {
+      if (res.success) {
+        toast({
+          title: "成功",
+          description: res.message,
+          variant: "default",
+        });
+        queryClient.invalidateQueries({ queryKey: ['departments'] }); // 触发部门列表重新获取
+      } else {
+        toast({
+          title: "错误",
+          description: res.message || "删除部门失败",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      console.error("删除部门失败:", error);
+      toast({
+        title: "错误",
+        description: error.message || "连接服务器失败，请稍后重试。",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeleteDepartment = (departmentId: string) => {
+    deleteDepartmentMutation.mutate(departmentId);
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50/90">
@@ -173,7 +244,7 @@ export default function OrganizationManagement() {
               <div className="text-2xl font-bold">
                 {(
                   departments.reduce((sum, d) => sum + d.performance, 0) /
-                  departments.length
+                  (departments.length || 1) // 避免除以零
                 ).toFixed(1)}
               </div>
               <p className="text-xs text-muted-foreground">+19% from last month</p>
@@ -196,13 +267,43 @@ export default function OrganizationManagement() {
         <div className="grid gap-8 lg:grid-cols-3 xl:grid-cols-4">
           <div className="lg:col-span-2 xl:col-span-3">
             <Card>
-              <CardHeader>
-                <CardTitle>部门列表</CardTitle>
-                {/* <Button className="text-sm px-2 py-1">
-                  <Plus className="mr-1 h-3 w-3" />
-                  添加新部门
-                </Button> */}
-                </CardHeader>
+              <div className="flex flex-row items-center justify-start p-6 space-x-4">
+                <CardTitle className="text-2xl font-bold">部门列表</CardTitle>
+                <Dialog open={isAddDeptDialogOpen} onOpenChange={setAddDeptDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="h-7 px-2" onClick={() => console.log("新增部门按钮被点击")} >
+                      <Plus className="mr-1 h-3 w-3" />
+                      新增部门
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>新增部门</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="name" className="text-right">
+                          部门名称
+                        </Label>
+                        <Input
+                          id="name"
+                          value={newDeptName}
+                          onChange={(e) => setNewDeptName(e.target.value)}
+                          className="col-span-3"
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <DialogClose asChild>
+                        <Button variant="outline">取消</Button>
+                      </DialogClose>
+                      <Button onClick={handleAddNewDepartment} disabled={createDepartmentMutation.isPending}>
+                        {createDepartmentMutation.isPending ? "创建中..." : "创建"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
               <CardContent>
                 <Table>
                   <TableHeader>
@@ -217,6 +318,27 @@ export default function OrganizationManagement() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
+                    {departments.length === 0 && !isLoading && !error && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="h-24 text-center">
+                          暂无部门数据。
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {isLoading && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="h-24 text-center">
+                          加载中...
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {error && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="h-24 text-center text-red-500">
+                          加载失败: {error.message}
+                        </TableCell>
+                      </TableRow>
+                    )}
                     {departments.map((department) => (
                       <React.Fragment key={department.id}>
                         <TableRow key={department.id}>
@@ -270,6 +392,12 @@ export default function OrganizationManagement() {
                                 </Button>
                               </DialogTrigger>
                               <DialogContent className="max-w-4xl">
+                                <DialogHeader>
+                                  <DialogTitle>部门成员列表</DialogTitle>
+                                  <DialogDescription>
+                                    查看和管理 {department.name} 的成员。
+                                  </DialogDescription>
+                                </DialogHeader>
                                 <DepartmentMembers departmentName={department.name} />
                               </DialogContent>
                             </Dialog>
@@ -296,9 +424,9 @@ export default function OrganizationManagement() {
                                   <BarChart2 className="mr-2 h-4 w-4" />
                                   查看分析
                                 </DropdownMenuItem>
-                                <DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleDeleteDepartment(department.id)} disabled={deleteDepartmentMutation.isPending}>
                                   <Trash2 className="mr-2 h-4 w-4" />
-                                  删除部门
+                                  删除部门 {deleteDepartmentMutation.isPending ? "(删除中...)" : ""}
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>

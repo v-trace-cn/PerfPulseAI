@@ -33,4 +33,23 @@ export interface DepartmentStats {
   teamSize: number;
   outstandingEmployees: number;
   totalSkills: number;
+}
+
+// 团队数据结构
+export interface Team {
+  name: string;
+  lead: string;
+  members: number;
+}
+
+// 部门数据结构
+export interface Department {
+  id: string;
+  name: string;
+  manager: string;
+  members: number;
+  performance: number;
+  projects: number;
+  status: "active" | "archived";
+  teams: Team[];
 } 

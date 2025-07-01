@@ -25,8 +25,8 @@ def analyze_pr_diff(diff_text: str, additions: int = None, deletions: int = None
 {extra_info}请深入剖析以下 GitHub Pull Request 的代码 diff。你的分析必须全面而详实，以 JSON 格式呈现，包含以下字段：
 - summary: 简要概述 PR 的优点和主要问题，突出关键。
 - pr_type: PR 类型，字符串，从 'substantial'（有实质内容优化）和 'format_only'（仅格式/空格/注释/文档/无用内容删除等无实质内容优化）中选择。
-- overall_score: 综合评分（0-10 之间的浮点数），严格依据代码质量、可维护性、安全性、性能优化、创新性、可观测性等多维度考量得出。
-- dimensions: 对象，涵盖以下维度评分（0-10 之间浮点数）：
+- overall_score: 综合评分（0-100 之间的浮点数），严格依据代码质量、可维护性、安全性、性能优化、创新性、可观测性等多维度考量得出。
+- dimensions: 对象，涵盖以下维度评分（0-100 之间浮点数）：
   - code_quality: 代码质量（可读性、简洁性、遵循最佳实践、错误处理完善度）。
   - maintainability: 可维护性（代码可扩展性、模块化程度、与现有架构契合度）。
   - security: 安全性（有无潜在安全漏洞，如注入风险、XSS 隐患、硬编码密钥等）。

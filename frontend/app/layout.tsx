@@ -14,6 +14,10 @@ import SiteHeader from "@/components/site-header";
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import ClientPage from './client-page';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+
+const queryClient = new QueryClient();
 
 export default function RootLayout({
   children,
@@ -46,7 +50,10 @@ export default function RootLayout({
               <AuthDialogProvider>
                 <SiteHeader onHelpClick={handleHelpClick} onSettingsClick={handleSettingsClick} />
                 <main className="flex min-h-screen flex-col">
-                  {children}
+                  <QueryClientProvider client={queryClient}>
+                    {children}
+                    <ReactQueryDevtools initialIsOpen={false} />
+                  </QueryClientProvider>
                 </main>
                 <ClientPage />
                 <Toaster />

@@ -17,7 +17,8 @@ class User(Base):
     name = Column(String(100), nullable=False)
     email = Column(String(100), unique=True, nullable=False)
     password_hash = Column(String(200))
-    department = Column(String(100))
+    department_id = Column(Integer, ForeignKey('departments.id'), nullable=True)
+    department_rel = relationship('Department', backref='users', lazy=True)
     position = Column(String(100))
     phone = Column(String(20))
     github_url = Column(String(200), unique=True, nullable=True)
@@ -34,7 +35,7 @@ class User(Base):
     activities = relationship('Activity', back_populates='user', lazy=True)
     
     def __init__(self, name, email, password=None, department=None, position=None, 
-                 phone=None, join_date=None, points=0, level=1, github_url=None, avatar_url=None):
+                 phone=None, join_date=None, points=0, level=1, github_url=None, avatar_url=None, department_id=None):
         """
         Initialize a new User.
         """
@@ -42,7 +43,7 @@ class User(Base):
         self.email = email
         if password:
             self.set_password(password)
-        self.department = department
+        self.department_id = department_id
         self.position = position
         self.phone = phone
         self.join_date = join_date if join_date else datetime.utcnow()
@@ -74,7 +75,8 @@ class User(Base):
             "email": self.email,
             "githubUrl": self.github_url,
             "avatar": self.avatar_url,
-            "department": self.department,
+            "department": self.department_rel.name if self.department_rel else None,
+            "departmentId": self.department_id,
             "position": self.position,
             "phone": self.phone,
             "joinDate": self.join_date.isoformat() if isinstance(self.join_date, datetime) else self.join_date,

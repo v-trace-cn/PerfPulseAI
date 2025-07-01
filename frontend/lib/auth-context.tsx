@@ -8,10 +8,17 @@ export interface User {
   id: string;
   name?: string;
   email: string;
-  department?: string;
+  department?: string; // This will become department name
+  departmentId?: number; // 添加 departmentId
   position?: string;
+  phone?: string; // 添加 phone
+  githubUrl?: string; // 添加 githubUrl
+  avatar?: string; // 添加 avatar
+  joinDate?: string; // 添加 joinDate
   points?: number;
   level?: number;
+  completedTasks?: number; // 添加 completedTasks
+  pendingTasks?: number; // 添加 pendingTasks
   createdAt?: string;
   updatedAt?: string;
   // Add other user properties as needed
@@ -25,6 +32,7 @@ type AuthContextType = {
   login: (email: string, password: string) => Promise<boolean>;
   register: (email: string, password: string, name?: string) => Promise<boolean>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -59,6 +67,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     checkAuth();
   }, []);
+
+  const refreshUser = async () => {
+    setIsLoading(true);
+    try {
+      const userData = await userApi.getProfile();
+      setUser(userData.data);
+    } catch (err) {
+      console.error('Refresh user error:', err);
+      setError((err as any).message || '刷新用户数据失败');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
@@ -127,6 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         logout,
+        refreshUser,
       }}
     >
       {children}

@@ -57,7 +57,7 @@ import {
 } from "@/components/ui/dialog"
 import { useAuth } from "@/lib/auth-context"
 import { cn, getRelativeDate } from "@/lib/utils"
-import { directUserApi, directActivityApi } from "@/lib/direct-api"
+import { directUserApi, directActivityApi, directDepartmentApi } from "@/lib/direct-api"
 import { useToast } from "@/hooks/use-toast"
 import { useTheme } from "next-themes"
 import { useApi } from "@/hooks/useApi"
@@ -68,6 +68,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
+import { useQuery } from "@tanstack/react-query"
 
 // 添加自定义动画
 const fadeInAnimation = `@keyframes fadeIn {
@@ -210,7 +212,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("overview")
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user } = useAuth()
+  const { user, refreshUser } = useAuth()
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [userData, setUserData] = useState({
@@ -241,6 +243,18 @@ export default function Dashboard() {
   const [editProfileOpen, setEditProfileOpen] = useState(false)
   const [viewColleagueOpen, setViewColleagueOpen] = useState(false)
   const [selectedColleague, setSelectedColleague] = useState<any>(null)
+  const [selectedDepartment, setSelectedDepartment] = useState<string | undefined>(undefined)
+
+  // 使用 useQuery 获取部门列表
+  const { data: departmentsData, isLoading: isLoadingDepartments } = useQuery({
+    queryKey: ["departments"],
+    queryFn: async () => {
+      const res = await directDepartmentApi.getDepartments();
+      if (!res.success) throw new Error(res.message);
+      return res.data;
+    },
+  });
+  const departments = departmentsData || [];
 
   const [teamMembers] = useState([
     {
@@ -271,18 +285,71 @@ export default function Dashboard() {
     },
   ])
 
-  const [teamMemberSearch, setTeamMemberSearch] = useState("")
+  const [teamMemberSearch] = useState("")
 
   // Activity API for fetching recent personal activities
   const { execute: fetchRecentActivities } = useApi(directActivityApi.getRecentActivities);
 
-  const handleSaveProfile = (e: React.FormEvent) => {
-    e.preventDefault()
-    // 这里可以添加保存逻辑，例如API调用
-    setEditProfileOpen(false)
+  const handleEditProfile = () => {
+    // 在打开编辑对话框时，设置当前用户的部门
+    const currentDepartment = departments.find(d => d.name === userData.department);
+    setSelectedDepartment(currentDepartment?.id.toString());
+    setEditProfileOpen(true)
+  }
 
-    // 显示一个简单的成功消息
-    alert("个人资料已更新")
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault()
+    console.log("handleSaveProfile called.");
+    console.log("userData.phone:", userData.phone, "isValidPhone:", isValidPhone(userData.phone));
+
+    // 只有当手机号不为空时才进行验证
+    if (userData.phone && !isValidPhone(userData.phone)) {
+      toast({
+        title: "错误",
+        description: "请输入有效的11位手机号码。",
+        variant: "destructive",
+      })
+      return
+    }
+    
+    try {
+      const updatedInfo = {
+        name: userData.name,
+        phone: userData.phone,
+        githubUrl: userData.githubUrl,
+        departmentId: selectedDepartment, // 使用状态中的部门ID
+      };
+
+      console.log("Updated info to send:", updatedInfo);
+      console.log("User object:", user, "User ID:", user?.id);
+
+      if (user && user.id) {
+        const result = await directUserApi.updateUserInfo(user.id, updatedInfo);
+        console.log("API update result:", result);
+
+        if (result.success) {
+          toast({
+            title: "成功",
+            description: "个人资料已更新。",
+            variant: "default",
+          })
+          setEditProfileOpen(false)
+          await refreshUser();
+        } else {
+          toast({
+            title: "更新失败",
+            description: result.message || "更新个人资料时出错。",
+            variant: "destructive",
+          })
+        }
+      }
+    } catch (error: any) {
+      toast({
+        title: "错误",
+        description: error.message || "连接服务器失败，请稍后再试。",
+        variant: "destructive",
+      })
+    }
   }
 
   useEffect(() => {
@@ -341,6 +408,7 @@ export default function Dashboard() {
   // 手机号验证函数
   const isValidPhone = (phone: string) => {
     // 简单的中国手机号验证（11位数字，1开头）
+    // return true; // 暂时跳过手机号验证，用于调试
     return /^1[3-9]\d{9}$/.test(phone)
   }
 
@@ -727,134 +795,117 @@ export default function Dashboard() {
 
                     <Button
                       className="w-full mt-4 bg-gradient-to-r from-primary to-accent border-0"
-                      onClick={() => setEditProfileOpen(true)}
+                      onClick={handleEditProfile}
                     >
                       编辑个人资料
                     </Button>
 
                     <Dialog open={editProfileOpen} onOpenChange={setEditProfileOpen}>
-                      <DialogContent className="sm:max-w-[425px]">
-                        <DialogHeader>
-                          <DialogTitle>编辑个人资料</DialogTitle>
-                          <DialogDescription>更新您的个人信息和偏好设置</DialogDescription>
-                        </DialogHeader>
-                        <form
-                          onSubmit={async (e) => {
-                            e.preventDefault()
-                            
-                            // 获取表单数据
-                            const formData = new FormData(e.currentTarget)
-                            const name = formData.get('edit-name') as string
-                            const department = formData.get('edit-department') as string
-                            const position = formData.get('edit-position') as string
-                            const email = formData.get('edit-email') as string
-                            const phone = formData.get('edit-phone') as string
-                            const github = formData.get('edit-github') as string
-                            
-                            // 验证手机号
-                            if (phone && !isValidPhone(phone)) {
-                              toast({
-                                title: "手机号格式错误",
-                                description: "请输入有效的11位手机号码。",
-                                variant: "destructive",
-                              })
-                              return // 阻止表单提交
-                            }
-
-                            try {
-                              // 调用Next.js API路由更新用户信息
-                              if (user?.id) {
-                                const result = await directUserApi.updateUserInfo(String(user.id), {
-                                  name,
-                                  department,
-                                  position,
-                                  email,
-                                  phone,
-                                  github_url: github,
-                                })
-
-                                if (result.success) {
-                                  const updatedUserData = {
-                                    ...userData,
-                                    name,
-                                    department,
-                                    position,
-                                    email,
-                                    phone,
-                                    githubUrl: github,
-                                  }
-                                  setUserData(updatedUserData)
-                                  toast({
-                                    title: "个人资料已成功更新",
-                                    description: "您的个人信息已更新。",
-                                    variant: "default",
-                                  })
-                                } else {
-                                  toast({
-                                    title: "更新失败",
-                                    description: result.message || "请检查您的输入并重试。",
-                                    variant: "destructive",
-                                  })
-                                }
-                              }
-                            } catch (error) {
-                              console.error('更新用户信息时出错:', error);
-                              toast({
-                                title: "更新错误",
-                                description: "更新用户信息时出错，请重试。",
-                                variant: "destructive",
-                              })
-                            }
-                            
-                            setEditProfileOpen(false)
-                          }}
-                        >
-                          <div className="grid gap-4 py-4">
-                            <div className="grid grid-cols-4 items-center gap-4">
-                              <Label htmlFor="edit-name" className="text-right">
-                                姓名
-                              </Label>
-                              <Input id="edit-name" name="edit-name" defaultValue={userData.name} className="col-span-3" />
+                      {editProfileOpen && (
+                        <DialogContent className="sm:max-w-[425px]">
+                          <DialogHeader>
+                            <DialogTitle>编辑个人资料</DialogTitle>
+                            <DialogDescription>
+                              更新您的个人信息和偏好设置
+                            </DialogDescription>
+                          </DialogHeader>
+                          <form onSubmit={handleSaveProfile}>
+                            <div className="grid gap-4 py-4">
+                              <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="edit-name" className="text-right">
+                                  姓名
+                                </Label>
+                                <Input
+                                  id="edit-name"
+                                  name="edit-name"
+                                  value={userData.name}
+                                  onChange={(e) => setUserData({ ...userData, name: e.target.value })}
+                                  className="col-span-3"
+                                />
+                              </div>
+                              <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="edit-department" className="text-right">
+                                  部门
+                                </Label>
+                                <Select
+                                  key={`dept-select-${isLoadingDepartments}-${departments.length}`}
+                                  value={selectedDepartment}
+                                  onValueChange={setSelectedDepartment}
+                                >
+                                  <SelectTrigger className="col-span-3">
+                                    <SelectValue placeholder="选择部门" />
+                                  </SelectTrigger>
+                                  <SelectContent className="z-[10000]">
+                                    {isLoadingDepartments ? (
+                                      <SelectItem value="loading" disabled>加载中...</SelectItem>
+                                    ) : (
+                                      departments.map((dept) => (
+                                        <SelectItem key={dept.id} value={String(dept.id)}>
+                                          {dept.name}
+                                        </SelectItem>
+                                      ))
+                                    )}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="edit-position" className="text-right">
+                                  职位
+                                </Label>
+                                <Input
+                                  id="edit-position"
+                                  name="edit-position"
+                                  value={userData.position}
+                                  onChange={(e) => setUserData({ ...userData, position: e.target.value })}
+                                  className="col-span-3"
+                                />
+                              </div>
+                              <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="edit-email" className="text-right">
+                                  邮箱
+                                </Label>
+                                <Input
+                                  id="edit-email"
+                                  name="edit-email"
+                                  type="email"
+                                  value={userData.email}
+                                  onChange={(e) => setUserData({ ...userData, email: e.target.value })}
+                                  className="col-span-3"
+                                  disabled
+                                />
+                              </div>
+                              <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="edit-phone" className="text-right">
+                                  手机
+                                </Label>
+                                <Input
+                                  id="edit-phone"
+                                  name="edit-phone"
+                                  type="tel"
+                                  value={userData.phone}
+                                  onChange={(e) => setUserData({ ...userData, phone: e.target.value })}
+                                  className="col-span-3"
+                                />
+                              </div>
+                              <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="edit-github" className="text-right">
+                                  GitHub 地址
+                                </Label>
+                                <Input
+                                  id="edit-github"
+                                  name="edit-github"
+                                  value={userData.githubUrl}
+                                  onChange={(e) => setUserData({ ...userData, githubUrl: e.target.value })}
+                                  className="col-span-3"
+                                />
+                              </div>
                             </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                              <Label htmlFor="edit-department" className="text-right">
-                                部门
-                              </Label>
-                              <Input id="edit-department" name="edit-department" defaultValue={userData.department} className="col-span-3" />
-                            </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                              <Label htmlFor="edit-position" className="text-right">
-                                职位
-                              </Label>
-                              <Input id="edit-position" name="edit-position" defaultValue={userData.position} className="col-span-3" />
-                            </div>
-
-                            <div className="grid grid-cols-4 items-center gap-4">
-                              <Label htmlFor="edit-email" className="text-right">
-                                邮箱
-                              </Label>
-                              <Input id="edit-email" name="edit-email" defaultValue={userData.email} className="col-span-3" />
-                            </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                              <Label htmlFor="edit-phone" className="text-right">
-                                手机
-                              </Label>
-                              <Input id="edit-phone" name="edit-phone" defaultValue={userData.phone} className="col-span-3" />
-                            </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                              <Label htmlFor="edit-github" className="text-right">
-                                GitHub 地址
-                              </Label>
-                              <Input id="edit-github" name="edit-github" defaultValue={userData.githubUrl} className="col-span-3" />
-                            </div>
-                          </div>
-                          <DialogFooter>
-                            <Button type="submit" className="bg-gradient-to-r from-primary to-accent border-0">
-                              保存更改
-                            </Button>
-                          </DialogFooter>
-                        </form>
-                      </DialogContent>
+                            <DialogFooter>
+                              <Button type="submit">保存更改</Button>
+                            </DialogFooter>
+                          </form>
+                        </DialogContent>
+                      )}
                     </Dialog>
                   </div>
                 </CardContent>

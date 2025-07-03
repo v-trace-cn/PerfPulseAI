@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, Integer, Text, DateTime
 from sqlalchemy.orm import relationship
 from app.core.database import Base
@@ -16,9 +16,9 @@ class PullRequest(Base):
     author = Column(String(100), nullable=False)
     commit_sha = Column(String(100), nullable=False)
     commit_message = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    merged_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    merged_at = Column(DateTime(timezone=True), nullable=True)
     
     # 新增 diff_url 字段
     diff_url = Column(String(500), nullable=True)
@@ -40,9 +40,9 @@ class PullRequest(Base):
             "author": self.author,
             "commit_sha": self.commit_sha,
             "commit_message": self.commit_message,
-            "created_at": self.created_at.isoformat() if isinstance(self.created_at, datetime) else self.created_at,
-            "updated_at": self.updated_at.isoformat() if isinstance(self.updated_at, datetime) else self.updated_at,
-            "merged_at": self.merged_at.isoformat() if isinstance(self.merged_at, datetime) else self.merged_at,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "merged_at": self.merged_at.isoformat() if self.merged_at else None,
             "diff_url": self.diff_url,
             "score": self.score,
             "analysis": self.analysis,

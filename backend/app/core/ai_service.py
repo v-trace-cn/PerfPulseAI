@@ -1,9 +1,11 @@
-import os
-import openai
+import re
+import time
 import json
+import asyncio
 import httpx
-import certifi
-from openai import OpenAI
+import logging
+from functools import wraps
+
 from app.core.config import Settings
 from app.models.pull_request import PullRequest
 
@@ -12,85 +14,351 @@ DOUBAO_MODEL=Settings.DOUBAO_MODEL
 DOUBAO_API_KEY=Settings.DOUBAO_API_KEY
 DOUBAO_URLS=Settings.DOUBAO_URLS
 
-def analyze_pr_diff(diff_text: str, additions: int = None, deletions: int = None) -> dict:
+logger = logging.getLogger(__name__)
+
+_httpx_client = None
+_openai_client = None
+
+async def get_httpx_client():
+    """获取或创建全局 httpx AsyncClient 实例"""
+    global _httpx_client
+    if _httpx_client is None:
+        _httpx_client = httpx.AsyncClient(verify=False)
+    return _httpx_client
+
+def get_openai_client():
+    """获取或创建全局 AsyncOpenAI 客户端实例"""
+    global _openai_client
+    if _openai_client is None:
+        from openai import AsyncOpenAI
+        _openai_client = AsyncOpenAI(api_key=DOUBAO_API_KEY, base_url=DOUBAO_URLS)
+    return _openai_client
+
+def timeit(func):
+    if asyncio.iscoroutinefunction(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            start = time.time()
+            result = await func(*args, **kwargs)
+            elapsed = time.time() - start
+            logger.info(f"{func.__name__} executed in {elapsed:.2f}s")
+            return result
+        return wrapper
+    else:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            start = time.time()
+            result = func(*args, **kwargs)
+            elapsed = time.time() - start
+            logger.info(f"{func.__name__} executed in {elapsed:.2f}s")
+            return result
+        return wrapper
+
+def parse_unified_diff(patch_text: str):
     """
-    调用 AI API 对 PR diff 文本进行分析和评分，返回包含 score（评分）和 analysis（分析理由）的字典。
+    将 unified diff 文本解析为结构化数据。
+    返回: List[dict]，每个 dict 包含:
+      - file_path: 文件相对路径
+      - added_lines: List[List[int]]   每个 hunk 的新增行号列表
+      - added_code: List[str]          每个 hunk 的新增代码（多行字符串）
+      - deleted_lines: List[List[int]] 每个 hunk 的删除行号列表
+      - deleted_code: List[str]        每个 hunk 的删除代码（多行字符串）
     """
-    # 构造提示信息，让模型返回 JSON 格式结果
-    extra_info = ""
-    if additions is not None and deletions is not None:
-        extra_info = f"本次 PR 新增了 {additions} 行代码，删除了 {deletions} 行代码。请结合代码行数变化，综合分析和评分。\n"
-    prompt = f"""你是公司资深的技术领头人以及代码架构师，对代码有着严苛要求且极具洞察力，通过深度且高质量的代码审查提升代码品质是你的首要任务，深知高质量代码和团队成长同等重要，要借此机会指导团队成员提升技术水平，使团队共同进步。
-请深入理解工程师本次修改的目的，哪怕只是无实质优化，也要给出优化建议,多多提出建议。
-{extra_info}请深入剖析以下 GitHub Pull Request 的代码 diff。你的分析必须全面而详实，以 JSON 格式呈现，包含以下字段：
-- summary: 简要概述 PR 的优点和主要问题，突出关键。
-- pr_type: PR 类型，字符串，从 'substantial'（有实质内容优化）和 'format_only'（仅格式/空格/注释/文档/无用内容删除等无实质内容优化）中选择。
-- overall_score: 综合评分（0-100 之间的浮点数），严格依据代码质量、可维护性、安全性、性能优化、创新性、可观测性等多维度考量得出。
-- dimensions: 对象，涵盖以下维度评分（0-100 之间浮点数）：
-  - code_quality: 代码质量（可读性、简洁性、遵循最佳实践、错误处理完善度）。
-  - maintainability: 可维护性（代码可扩展性、模块化程度、与现有架构契合度）。
-  - security: 安全性（有无潜在安全漏洞，如注入风险、XSS 隐患、硬编码密钥等）。
-  - performance_optimization: 性能优化（代码执行效率、资源占用合理性）。
-  - innovation: 创新性（是否引入新功能、独特的算法、技术突破等）。
-  - observability: 可观测性（监控机制、日志质量、指标完善性、追踪效果等）。
-- bonus_points（对象，可选，附加分项，0-10 分）：PR 在文档完整性、测试覆盖率、CI/CD 自动化质量等有显著改进，可在相应 bonus 维度上给分；若无体现则对应维度为 0，对综合评分影响较小。
-  - `documentation_completeness`: 文档完整性（代码注释、README、API 文档、架构图等）。
-  - `test_coverage`: 测试覆盖率（单元/集成/端到端测试）。
-  - `ci_cd_quality`: CI/CD 自动化质量（流水线流畅度、静态检查有效性、自动部署稳定性等）。
+    result = []
+    current_file_entry = None
+    added_lines: list[int] = []
+    added_code: list[str] = []
+    deleted_lines: list[int] = []
+    deleted_code: list[str] = []
 
-- suggestions: 建议数组，包含丰富且实用的建议。每个建议对象需具备：
-  - file_path: 文件路径（string）。
-  - line_range: 相关代码行号范围，如 [10, 15]（int 数组）。
-  - severity: 严重程度（'critical', 'major', 'minor', 'suggestion'）。
-  - growth_value: 成长价值（'high', 'medium', 'low'），突出哪些建议最值得学习
-  - type: 意见类型（'positive', 'negative', 'question'）。
-  - title: 简短概括该建议（string）。
-  - content: 具体内容，问题分析/优点总结, 详细阐述修改原因，并给出优化后的代码示例，使开发者能直接借鉴应用。
+    # 更宽松的文件路径正则，兼容 `+++ b/path`、`+++ /dev/null` 等
+    file_path_re = re.compile(r'^\+\+\+\s*(?:b/)?(.+)$')
+    hunk_header_re = re.compile(r'^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@')
 
---- 评分和建议指南 ---
-1. 评分必须严格且有区分度：9-10 分仅授予设计精良、近乎完美的代码；良好 PR 通常在 6-8 分；存在明显问题的代码不超 5 分。
-2. 格式/内容类限制：若 PR 仅涉及格式调整等无实质优化，`pr_type` 设为 'format_only'，`overall_score` 最高 2 分，`summary` 和 `suggestions` 必须解释清楚原因。
-3. 附加分项（bonus_points）：在文档、测试覆盖率、CI/CD、可观测性等有显著提升，对应 bonus 维度高分；未体现则为 0，不影响主维度综合得分。
-4. 建议质量：
-    - 具体：精准定位文件和行号。
-    - 可执行：提供清晰修改方案和代码示例。
-    - 有深度：挖掘潜在 bug、性能瓶颈、安全风险、架构问题等。
-    - 正面反馈：发现优秀设计、巧妙实现或值得称赞代码时，通过 `type: 'positive'` 给予肯定。
+    old_line_no = new_line_no = 0
 
---- 开始分析 ---
-```diff
-{diff_text}
+    def flush_hunk():
+        nonlocal added_lines, added_code, deleted_lines, deleted_code
+        if current_file_entry and (added_code or deleted_code):
+            current_file_entry["added_lines"].append(added_lines)
+            current_file_entry["added_code"].append("\n".join(added_code))
+            current_file_entry["deleted_lines"].append(deleted_lines)
+            current_file_entry["deleted_code"].append("\n".join(deleted_code))
+        # 重置
+        added_lines, added_code, deleted_lines, deleted_code = [], [], [], []
+
+    lines = patch_text.splitlines()
+    for line in lines:
+        if line.startswith("diff --git"):
+            # 保存前一个文件
+            flush_hunk()
+            if current_file_entry:
+                result.append(current_file_entry)
+            current_file_entry = None
+            continue
+        if line.startswith("+++ "):
+            m = file_path_re.match(line)
+            if m:
+                flush_hunk()
+                if current_file_entry:
+                    result.append(current_file_entry)
+                current_file_entry = {
+                    "file_path": m.group(1),
+                    "added_lines": [],
+                    "added_code": [],
+                    "deleted_lines": [],
+                    "deleted_code": [],
+                }
+            continue
+        if line.startswith("@@"):
+            flush_hunk()
+            m = hunk_header_re.match(line)
+            if m:
+                old_line_no = int(m.group(1))
+                new_line_no = int(m.group(2))
+            continue
+        if line.startswith("+"):
+            if current_file_entry is not None:
+                added_lines.append(new_line_no)
+                added_code.append(line[1:])
+                new_line_no += 1
+            continue
+        if line.startswith("-"):
+            if current_file_entry is not None:
+                deleted_lines.append(old_line_no)
+                deleted_code.append(line[1:])
+                old_line_no += 1
+            continue
+        # 上下文行
+        if current_file_entry is not None:
+            old_line_no += 1
+            new_line_no += 1
+
+    # 处理最后一个文件/ hunk
+    flush_hunk()
+    if current_file_entry:
+        result.append(current_file_entry)
+
+    return result
+
+def compress_diff(structured_diff, max_lines: int = 50):
+    """对结构化 diff 进行摘要，限制每个 hunk 的代码行数"""
+    compressed = []
+    for entry in structured_diff:
+        new_entry = entry.copy()
+        new_entry['added_code'] = []
+        new_entry['deleted_code'] = []
+        for code in entry.get('added_code', []):
+            lines = code.split('\n')
+            if len(lines) > max_lines:
+                half = max_lines // 2
+                lines = lines[:half] + ['...省略...'] + lines[-half:]
+            new_entry['added_code'].append('\n'.join(lines))
+        for code in entry.get('deleted_code', []):
+            lines = code.split('\n')
+            if len(lines) > max_lines:
+                half = max_lines // 2
+                lines = lines[:half] + ['...省略...'] + lines[-half:]
+            new_entry['deleted_code'].append('\n'.join(lines))
+        compressed.append(new_entry)
+    return compressed
+
+@timeit
+async def pr_score_agent(structured_diff, pr_info) -> dict:
+    """
+    评分agent：全方面分析结构化diff和PR信息，输出各维度评分和理由。
+    """
+    prompt = f"""
+你是经验丰富、专业、严谨的代码评审评分专家， 能够给出最公正，诚实，客观的评分。
+请根据以下结构化diff和PR信息，从代码质量、可维护性、安全性、性能优化、创新性、可观测性六个维度，给出0-10之间的整数分数，并输出JSON：
+{{
+  "dimensions": {{
+    "code_quality": 0-10,
+    "maintainability": 0-10,
+    "security": 0-10,
+    "performance_optimization": 0-10,
+    "innovation": 0-10,
+    "observability": 0-10,
+  }},
+  "overall_score": 0-100,
+  "summary": "(在此填写一句不超过300字的清晰总结， 包含但不局限于合仓建议， 不推荐合仓要给出理由)"
+}}
+注意，
+1. 对创新性维度请充分评估功能的新颖性、独特性或交互体验，新颖性不足时也请给出1-2分的合理低分，而非直接0分。
+2. 对于无实效的修改（例如仅改变代码格式、代码文件更名、添加无意义的注释、修改非关键的变量名等），总分小于 20 分。
+
+结构化 diff:
+{json.dumps(structured_diff, ensure_ascii=False)}
+
+PR 信息:
+{json.dumps(pr_info, ensure_ascii=False)}
+"""
+    client = get_openai_client()
+    completion = await client.chat.completions.create(
+        model=DOUBAO_MODEL,
+        messages=[
+            {"role": "system", "content": "你是一个专业的代码评分助手。"},
+            {"role": "user", "content": prompt}
+        ],
+    )
+    content = completion.choices[0].message.content
+    
+    # 尝试提取完整的JSON对象
+    json_match = re.search(r'(?s)\{.*\}', content)
+    if json_match:
+        json_string = json_match.group(0)
+    else:
+        json_string = content # Fallback, though likely to fail
+
+    try:
+        result = json.loads(json_string)
+    except json.JSONDecodeError as e:
+        print(f"[pr_score_agent] Error decoding JSON from AI: {e}. Content: {content[:500]}...")
+        # 返回一个包含错误信息的默认结构
+        return {
+            "overall_score": 0,
+            "dimensions": {},
+            "summary": f"AI response format error: {e}",
+            "recommendation": "decline"
+        }
+
+    # 分数使用整数和综合评价
+    overall_score_value = 0
+    overall_summary = result.get("summary", "")
+
+    if "overall_score" in result:
+        raw_overall_score = result["overall_score"]
+        if isinstance(raw_overall_score, dict):
+            try:
+                overall_score_value = int(raw_overall_score.get("score", 0))
+                if not overall_summary:
+                    overall_summary = raw_overall_score.get("reason", "") or overall_summary
+            except (ValueError, TypeError):
+                print("[pr_score_agent] Warning: overall_score dict contains invalid score: {}. Setting to 0.".format(raw_overall_score))
+                overall_score_value = 0
+        else:
+            try:
+                overall_score_value = int(raw_overall_score)
+            except (ValueError, TypeError):
+                print("[pr_score_agent] Warning: overall_score '{}' is not an integer. Setting to 0.".format(raw_overall_score))
+                overall_score_value = 0
+    
+    result["overall_score"] = overall_score_value
+    result["summary"] = overall_summary
+
+    innovation_score_value = 0
+    if "dimensions" in result and isinstance(result["dimensions"], dict):
+        processed_dimensions = {}
+        for dim_key, dim_val in result["dimensions"].items():
+            score_to_set = 0
+            if isinstance(dim_val, dict):
+                if "score" in dim_val:
+                    try:
+                        score_to_set = int(dim_val["score"])
+                    except (ValueError, TypeError):
+                        print("[pr_score_agent] Warning: dimension '{}' score dict contains invalid score: {}. Setting to 0.".format(dim_key, dim_val))
+            elif isinstance(dim_val, (int, float)):
+                try:
+                    score_to_set = int(dim_val)
+                except (ValueError, TypeError):
+                    print("[pr_score_agent] Warning: dimension '{}' value '{}' is not an integer. Setting to 0.".format(dim_key, dim_val))
+            else:
+                print("[pr_score_agent] Warning: dimension '{}' has unexpected type: {}. Setting to 0.".format(dim_key, type(dim_val)))
+
+            # 存储所有维度分数，包括 innovation
+            processed_dimensions[dim_key] = {"score": score_to_set}
+            # 单独记录创新性分数
+            if dim_key == 'innovation':
+                innovation_score_value = score_to_set
+
+        result["dimensions"] = processed_dimensions
+    
+    result["innovation_score"] = innovation_score_value
+    return result
+
+@timeit
+async def pr_suggestion_agent(structured_diff, pr_info) -> list:
+    """
+    建议agent：针对所有结构化diff片段，进行单次AI调用，给出综合建议列表。
+    """
+    combined_diff_content = ""
+    for idx, diff_item in enumerate(structured_diff):
+        combined_diff_content += f"""
+--- 代码片段 {idx + 1} ---
+文件: {diff_item['file_path']}
+新增代码:
+```
+{diff_item['added_code']}
+```
+删除代码:
+```
+{diff_item['deleted_code']}
 ```
 """
+
+    # 使用统一的提示词进行单次 AI 调用
+    prompt = f"""
+你是专业的代码优化建议专家。这些建议要像是一位经验丰富、善于分享的超级优秀的老程序员给出的，通俗易懂且能切实帮助我提升个人能力。
+请针对以下所有代码变更片段，从代码质量、可维护性、安全性、性能优化、创新性、可观测性六个维度，全面分析，指出优点和不足，给出具体可执行的重要建议。
+每条建议必须是一个JSON对象，包含以下字段：
+- "主要维度": 建议所属的主要维度（例如 "代码质量"）。
+- "类型": 建议的类型（"positive", "negative", "question"）。
+- "简要标题": 建议的简要标题。
+- "详细内容": 建议的详细内容。
+- "file_path": 该建议所针对的代码片段的文件路径。
+
+将所有建议合并为一个JSON数组返回。
+
+PR信息:
+{json.dumps(pr_info, ensure_ascii=False)}
+
+以下是所有代码变更片段：
+{combined_diff_content}
+"""
+
+    client = get_openai_client()
+    completion = await client.chat.completions.create(
+        model=DOUBAO_MODEL,
+        messages=[
+            {"role": "system", "content": "你是一个专业的代码优化建议专家。请严格按照要求返回JSON数组，确保每条建议包含指定字段，尤其是'file_path'。"},
+            {"role": "user", "content": prompt}
+        ],
+    )
+    content = completion.choices[0].message.content
+    
+    # 尝试提取完整的JSON数组
+    json_match = re.search(r'(?s)\[.*\]', content)
+    if json_match:
+        json_string = json_match.group(0)
+    else:
+        json_string = content # Fallback, though likely to fail
+
     try:
-        client = OpenAI(
-            api_key=DOUBAO_API_KEY, 
-            base_url=DOUBAO_URLS,
-        )
-
-        completion = client.chat.completions.create(
-            model=DOUBAO_MODEL,
-            messages=[
-                {"role": "system", "content": "你是一个专业的代码审查助手。"},
-                {"role": "user", "content": prompt}
-            ],
-        )
-        content = completion.choices[0].message.content
-        print(content)
-        result = json.loads(content)
-        # 将行数变化加入返回结果
-        if additions is not None and deletions is not None:
-            result["additions"] = additions
-            result["deletions"] = deletions
-        return result
+        suggestions = json.loads(json_string)
+        if not isinstance(suggestions, list):
+            suggestions = [suggestions] # Wrap single object in a list if necessary
+    except json.JSONDecodeError as e:
+        print(f"[pr_suggestion_agent] Error decoding JSON from AI: {e}. Content: {content[:500]}...")
+        suggestions = []
     except Exception as e:
-        print(f"AI 分析 PR 失败: {e}")
-        raise ValueError(f"AI 分析 PR 失败: {e}")
+        print(f"[pr_suggestion_agent] Unexpected error during suggestion parsing: {e}. Content: {content[:500]}...")
+        suggestions = []
 
+    final_suggestions = []
+    for s in suggestions:
+        if isinstance(s, dict) and 'file_path' in s:
+            final_suggestions.append(s)
+        else:
+            print(f"[pr_suggestion_agent] Warning: Malformed suggestion received: {s}. Skipping.")
+
+    return final_suggestions
+
+@timeit
 async def perform_pr_analysis(pr: PullRequest) -> dict:
     """
     执行指定 PR 的 AI 分析，不触及数据库。
     """
+    logger.info(f"[perform_pr_analysis] 开始执行 PR 分析 for PR {pr.pr_node_id}")
     owner, repo_name = pr.repository.split('/')
     pr_number = pr.pr_number
 
@@ -101,95 +369,203 @@ async def perform_pr_analysis(pr: PullRequest) -> dict:
     additions = None
     deletions = None
     try:
-        print(f"正在通过 GitHub API 获取 PR 文件列表，URL: {github_api_url}")
         headers = {
             "User-Agent": "PerfPulseAI-Bot/1.0 (https://github.com/v-trace-cn/PerfPulseAI)",
             "Accept": "application/vnd.github.v3+json"
         }
-
         github_pat = Settings.GITHUB_PAT
         if github_pat:
-            print(f"Debug: Loaded GITHUB_PAT (first 5 and last 5 chars): {github_pat[:5]}...{github_pat[-5:]}")
             headers["Authorization"] = f"token {github_pat}"
+        logger.debug(f"[perform_pr_analysis] 尝试并行获取 GitHub diff 和 PR 信息。API URLs: {github_api_url}, {github_pr_url}")
+        client = await get_httpx_client()
+        files_task = client.get(github_api_url, headers=headers, follow_redirects=True)
+        pr_task = client.get(github_pr_url, headers=headers, follow_redirects=True)
+        files_response, pr_response = await asyncio.gather(files_task, pr_task)
 
-        print(f"Debug: Sending HTTP request to GitHub API with headers: {headers}")
+        files_response.raise_for_status()
+        pr_response.raise_for_status()
 
-        async with httpx.AsyncClient(verify=False) as client:
-            response = await client.get(github_api_url, headers=headers, follow_redirects=True)
-            response.raise_for_status()
-            files_data = response.json()
-            for file in files_data:
-                if 'patch' in file and file['patch']:
-                    diff_content += file['patch'] + "\n"
-            # 获取 PR 详情，统计行数变化
-            pr_response = await client.get(github_pr_url, headers=headers, follow_redirects=True)
-            pr_response.raise_for_status()
-            pr_data = pr_response.json()
-            additions = pr_data.get("additions")
-            deletions = pr_data.get("deletions")
+        files_data = json.loads(files_response.text)
+        if not isinstance(files_data, list):
+            raise ValueError("GitHub API did not return a list of files.")
+        logger.debug(f"[perform_pr_analysis] 从 GitHub 获取到 {len(files_data)} 个文件数据。")
+        for file in files_data:
+            if isinstance(file, dict) and 'patch' in file and file['patch']:
+                filename = file.get('filename') or file.get('previous_filename') or 'unknown_file'
+                diff_content += f"+++ b/{filename}\n"
+                diff_content += file['patch'] + "\n"
+        logger.debug(f"[perform_pr_analysis] diff_content 构造完成，长度: {len(diff_content)}。")
 
-    except httpx.RequestError as e:
-        raise ValueError(f"无法从 GitHub API 获取 PR 文件列表。请检查网络连接或 GitHub 访问权限。错误详情: {e}")
-    except httpx.HTTPStatusError as e:
-        print(f"Debug: Received HTTP status error {e.response.status_code} for URL {e.request.url}")
-        print(f"Debug: Response headers: {e.response.headers}")
-        print(f"Debug: Response body: {e.response.text}")
-        raise ValueError(f"无法从 GitHub API 获取 PR 文件列表。请检查网络连接或 GitHub 访问权限。错误详情: {e}")
+        pr_data = json.loads(pr_response.text)
+        additions = pr_data.get("additions")
+        deletions = pr_data.get("deletions")
+        logger.debug(f"[perform_pr_analysis] PR 信息获取完成。Additions: {additions}, Deletions: {deletions}")
+
     except Exception as e:
+        print(f"[perform_pr_analysis] 从 GitHub API 获取 diff 或 PR 信息时发生错误: {e}")
+        import traceback
+        traceback.print_exc()
         raise ValueError(f"An unexpected error occurred while fetching diff from GitHub API: {e}")
-
+    
     if not diff_content:
-        print(f"Warning: No diff content found for PR {pr_number} in repository {pr.repository}.")
-        raise ValueError(f"No diff content found for Pull Request {pr.pr_number} in repository {pr.repository}.")
+        logger.warning(f"[perform_pr_analysis] No diff content for PR {pr.pr_node_id}, skipping analysis.")
+        return {
+            "overall_score": 0,
+            "dimensions": {},
+            "suggestions": [],
+            "points": {"total_points": 0, "detailed_points": {}},
+            "additions": 0,
+            "deletions": 0,
+            "summary": "No diff content found for this Pull Request."
+        }
 
+    # 结构化diff
+    structured_diff = parse_unified_diff(diff_content)
+    logger.debug(f"[perform_pr_analysis] 结构化 diff 完成。文件数量: {len(structured_diff)}。")
+    
+    # 智能摘要 diff
+    compressed_diff = compress_diff(structured_diff)
+    logger.debug(f"[perform_pr_analysis] diff 已压缩，文件数: {len(compressed_diff)}")
+    
+    pr_info = {
+        "title": pr.title,
+        "description": pr.commit_message,
+        "repository": pr.repository,
+        "pr_number": pr.pr_number,
+        "diff_url": pr.diff_url,
+        "additions": additions,
+        "deletions": deletions,
+    }
+
+    # 并行调用两个 Agent
     try:
-        ai_analysis_result = analyze_pr_diff(diff_content, additions, deletions)
-        return ai_analysis_result
+        ai_start = time.time()
+        score_task = pr_score_agent(compressed_diff, pr_info)
+        suggestion_task = pr_suggestion_agent(compressed_diff, pr_info)
+        score_result, suggestions = await asyncio.gather(score_task, suggestion_task)
+        ai_elapsed = time.time() - ai_start
+        logger.info(f"[perform_pr_analysis] AI agent calls completed in {ai_elapsed:.2f}s")
+
+        
+        overall_score = score_result.get("overall_score", 0)
+        dimensions = score_result.get("dimensions", {})
+        summary = score_result.get("summary", "No summary provided.")
+        innovation_score = score_result.get("innovation_score", 0)
+
+        # 只保留最重要的建议
+        top_suggestions = _select_top_suggestions(suggestions, max_count=15)
+
+        # 根据整体评分给出是否推荐合并
+        merge_recommendation = "approve" if overall_score >= 60 else "decline"
+
+        analysis_result = {
+            "overall_score": overall_score,
+            "dimensions": dimensions,
+            "suggestions": top_suggestions,
+            "additions": additions,
+            "deletions": deletions,
+            "summary": summary,
+            "recommendation": merge_recommendation,
+            "innovation_score": innovation_score,
+        }
+        
+        # 调用积分计算 Agent，并将结果加入 analysis_result
+        points_data = await calculate_points_from_analysis(analysis_result)
+        analysis_result["points"] = {
+            "total_points": points_data.get("total_points", 0),
+            "detailed_points": points_data.get("detailed_points", {})
+        }
+        analysis_result["innovation_bonus"] = points_data.get("innovation_bonus", 0)
+
+        logger.info(f"[perform_pr_analysis] AI 评价结果已生成")
+        return analysis_result
+    
     except Exception as e:
-        print(f"Error during AI analysis for PR {pr.pr_node_id}: {e}")
-        raise
+        print(f"[perform_pr_analysis] AI 分析过程中发生错误: {e}")
+        import traceback
+        traceback.print_exc()
+        # 如果 AI 分析失败，返回一个默认的空结果
+        return {
+            "overall_score": 0,
+            "dimensions": {},
+            "suggestions": [],
+            "points": {"total_points": 0, "detailed_points": {}}, # 保持与无 diff 时一致
+            "additions": additions or 0,
+            "deletions": deletions or 0,
+            "summary": f"AI analysis failed: {e}"
+        }
 
-def calculate_points_from_analysis(analysis_result: dict) -> dict:
+@timeit
+async def calculate_points_from_analysis(analysis_score_result: dict) -> dict:
     """
-    根据 AI 分析结果，调用 AI 模型判断应授予的积分。
+    根据 AI 评分结果，调用 AI 模型判断应授予的积分。
     """
-
-    # 构造一个新的 Prompt，专注于根据分析结果计算积分
     prompt = (
-        "你是一位专业的绩效评估顾问。你的任务是根据为你提供的绩效分析报告，公正地为员工的工作成果评定积分。"
-        "请仔细阅读以下分析结果，它包含了对某项工作成果的总体评分以及多个维度的详细评分。"
-        "根据这份分析，请决定应授予的总积分（0-10分），并为分析报告中提到的每一个维度都评定相应的详细积分。"
-        "最终返回一个 JSON 对象，包含以下字段："
-        "- `total_points`: 基于整体表现计算出的总积分（整数）。"
-        "- `detailed_points`: 一个对象，其中包含分析报告中每个维度的详细积分。对象的键（key）应该与分析报告中的维度名称完全一致，值（value）为该维度对应的积分（整数）。"
-        "请确保所有积分都是整数，并且详细积分的总和应与总积分大致相符。"
-        f"\n\n分析结果:\n```json\n{json.dumps(analysis_result, indent=2, ensure_ascii=False)}\n```"
+        "你是一位专业的绩效评估顾问。你的任务是根据为你提供的绩效分析评分报告，公正地为员工的工作成果评定积分。"\
+        "请仔细阅读以下分析结果，它包含了对某项工作成果的总体评分以及多个维度的详细评分。"\
+        "根据这份分析，请决定应授予的总积分（0-10分）"\
+        "最终返回一个 JSON 对象，包含以下字段："\
+        "- `bonus`: 基于整体表现计算出的总积分（整数）。"\
+        f"以下是分析结果：\n\n总体评分: {analysis_score_result.get('overall_score', 0)}\n\n维度评分: {json.dumps(analysis_score_result.get('dimensions', {}), ensure_ascii=False)}\\n创新性分数: {analysis_score_result.get('innovation_score', 0)}\\n"
     )
 
+    client = get_openai_client()
+    cp_start = time.time()
+    completion = await client.chat.completions.create(
+        model=DOUBAO_MODEL,
+        messages=[
+            {"role": "system", "content": "你是一个专业的积分计算助手。请严格按照要求返回包含detailed_points的JSON对象。"},
+            {"role": "user", "content": prompt}
+        ],
+    )
+    cp_elapsed = time.time() - cp_start
+    logger.info(f"[calculate_points_from_analysis] AI call completed in {cp_elapsed:.2f}s")
+    content = completion.choices[0].message.content
     try:
-        client = OpenAI(
-            api_key=DOUBAO_API_KEY, 
-            base_url=DOUBAO_URLS,
-        )
+        points_result = json.loads(content)
+        print(f"[calculate_points_from_analysis] Parsed points_result: {points_result}")
+        # 计算基础积分和创新加分
+        bonus = points_result.get("bonus", 0)
+        innovation_bonus = analysis_score_result.get("innovation_score", 0)
+        # 计算总积分
+        total_points = bonus + innovation_bonus
+        detailed_points = [
+            {"bonus": bonus, "text": "基础积分"},
+            {"innovation_bonus": innovation_bonus, "text": "创新加分"},
+        ]
+    except json.JSONDecodeError as e:
+        logger.error(f"[calculate_points_from_analysis] Error decoding JSON from AI: {e}. Content: {content[:500]}...")
+        total_points = 0
+        detailed_points = detailed_points = [
+            {"bonus": 0, "text": "基础积分"},
+            {"innovation_bonus": 0, "text": "创新加分"},
+        ]
 
-        completion = client.chat.completions.create(
-            model=DOUBAO_MODEL,
-            messages=[
-                {"role": "system", "content": "你是一个专业的积分评估助手，请根据提供的分析结果给出一个合理的积分。"},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.2,
-        )
-        content = completion.choices[0].message.content
-        points_data = json.loads(content)
-        
-        total_points = int(points_data.get("total_points", 0))
-        detailed_points = points_data.get("detailed_points", {})
-        
-        for key, value in detailed_points.items():
-            detailed_points[key] = int(value)
+    return {
+        "total_points": total_points,
+        "detailed_points": detailed_points,
+    }
 
-        return {"total_points": total_points, "detailed_points": detailed_points}
-    except Exception as e:
-        print(f"根据分析结果计算积分失败: {e}")
-        return {"total_points": 0, "detailed_points": {}} 
+# ------------------------ 建议过滤辅助 ------------------------
+def _select_top_suggestions(suggestions: list[dict], max_count: int = 15) -> list[dict]:
+    """根据类型优先级挑选最重要的前 max_count 条建议。"""
+    def priority(s: dict):
+        t = (s.get("type") or s.get("类型") or "positive").lower()
+        if t in {"negative", "建议"}:  # 最高优先
+            return 0
+        if t == "question":
+            return 1
+        return 2  # positive
+
+    sorted_sugs = sorted(suggestions, key=priority)
+    # 保持维度多样性：按优先级后，去重 (维度+文件) 以避免重复
+    seen_keys = set()
+    filtered = []
+    for s in sorted_sugs:
+        key = f"{s.get('dimension') or s.get('主要维度') or s.get('维度')}_{s.get('file_path')}"
+        if key not in seen_keys:
+            seen_keys.add(key)
+            filtered.append(s)
+        if len(filtered) >= max_count:
+            break
+    return filtered 

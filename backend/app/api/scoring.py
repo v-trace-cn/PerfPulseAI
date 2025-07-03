@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Body
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from app.core.database import get_db
@@ -117,19 +117,19 @@ async def get_scoring_dimensions():
     return {"data": DIMENSION_LABELS, "success": True}
 
 @router.get("/criteria")
-async def get_scoring_criteria(db: Session = Depends(get_db)):
+async def get_scoring_criteria(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(ScoringCriteria))
     items = result.scalars().all()
     return {"data": [c.to_dict() for c in items], "message": "查询成功", "success": True}
 
 @router.get("/factors")
-async def get_scoring_factors(db: Session = Depends(get_db)):
+async def get_scoring_factors(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(ScoringFactor))
     items = result.scalars().all()
     return {"data": [f.to_dict() for f in items], "message": "查询成功", "success": True}
 
 @router.post("/calculate")
-async def calculate_score(data: dict = Body(...), db: Session = Depends(get_db)):
+async def calculate_score(data: dict = Body(...), db: AsyncSession = Depends(get_db)):
     user_id = data.get("user_id")
     activity_id = data.get("activity_id")
     notes = data.get("notes", "")
@@ -173,7 +173,7 @@ async def calculate_score(data: dict = Body(...), db: Session = Depends(get_db))
     return {"data": {"score": rounded_score, "breakdown": breakdown}, "message": "计算成功", "success": True}
 
 @router.get("/entries")
-async def get_score_entries(db: Session = Depends(get_db)):
+async def get_score_entries(db: AsyncSession = Depends(get_db)):
     user_id_result = await db.execute(select(ScoreEntry.user_id))
     first_user_id = user_id_result.scalars().first()
     user_from_db_result = await db.execute(select(User).filter(User.id == first_user_id))
@@ -193,7 +193,7 @@ async def get_score_entries(db: Session = Depends(get_db)):
     return {"data": [entry.to_dict() for entry in entries], "message": "查询成功", "success": True}
 
 @router.get("/governance-metrics")
-async def get_governance_metrics(db: Session = Depends(get_db)):
+async def get_governance_metrics(db: AsyncSession = Depends(get_db)):
     dimension_result = await db.execute(select(GovernanceMetric.dimension))
     dimension = dimension_result.scalars().first()
     
@@ -226,7 +226,7 @@ async def get_governance_metrics(db: Session = Depends(get_db)):
     return {"data": metric_dict, "message": "查询成功", "success": True}
 
 @router.post("/governance-metrics")
-async def create_governance_metric(data: dict = Body(...), db: Session = Depends(get_db)):
+async def create_governance_metric(data: dict = Body(...), db: AsyncSession = Depends(get_db)):
     dimension = data.get("dimension")
     metric_name = data.get("metric_name")
     value = data.get("value")

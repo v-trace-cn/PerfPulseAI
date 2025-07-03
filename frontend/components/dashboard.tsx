@@ -255,7 +255,7 @@ export default function Dashboard() {
       return res.data;
     },
   });
-  const departments = departmentsData || [];
+  const departments = Array.isArray(departmentsData) ? departmentsData : [];
 
   const [teamMembers] = useState([
     {

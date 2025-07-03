@@ -34,9 +34,9 @@ async def get_user(user_id: int, db: AsyncSession = Depends(get_db)):
         "position": user.position,
         "phone": user.phone,
         "joinDate": user.join_date.isoformat() if isinstance(user.join_date, datetime) else user.join_date,
-        "points": user.points,
+        "total_points": user.points,
         "level": user.level,
-        "completedTasks": user.completed_tasks,
+        "completed_activities_count": user.completed_tasks,
         "pendingTasks": user.pending_tasks,
         "createdAt": user.created_at.isoformat() if user.created_at else None,
         "updatedAt": user.updated_at.isoformat() if user.updated_at else None

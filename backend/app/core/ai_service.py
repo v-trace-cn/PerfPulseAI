@@ -3,18 +3,16 @@ import time
 import json
 import asyncio
 import httpx
-import logging
 from functools import wraps
 
 from app.core.config import Settings
 from app.models.pull_request import PullRequest
+from app.core.logging_config import logger
 
 
 DOUBAO_MODEL=Settings.DOUBAO_MODEL
 DOUBAO_API_KEY=Settings.DOUBAO_API_KEY
 DOUBAO_URLS=Settings.DOUBAO_URLS
-
-logger = logging.getLogger(__name__)
 
 _httpx_client = None
 _openai_client = None
@@ -213,7 +211,7 @@ PR 信息:
     try:
         result = json.loads(json_string)
     except json.JSONDecodeError as e:
-        print(f"[pr_score_agent] Error decoding JSON from AI: {e}. Content: {content[:500]}...")
+        logger.error(f"[pr_score_agent] Error decoding JSON from AI: {e}. Content: {content[:500]}...")
         # 返回一个包含错误信息的默认结构
         return {
             "overall_score": 0,
@@ -234,13 +232,13 @@ PR 信息:
                 if not overall_summary:
                     overall_summary = raw_overall_score.get("reason", "") or overall_summary
             except (ValueError, TypeError):
-                print("[pr_score_agent] Warning: overall_score dict contains invalid score: {}. Setting to 0.".format(raw_overall_score))
+                logger.warning("[pr_score_agent] Warning: overall_score dict contains invalid score: {}. Setting to 0.".format(raw_overall_score))
                 overall_score_value = 0
         else:
             try:
                 overall_score_value = int(raw_overall_score)
             except (ValueError, TypeError):
-                print("[pr_score_agent] Warning: overall_score '{}' is not an integer. Setting to 0.".format(raw_overall_score))
+                logger.warning("[pr_score_agent] Warning: overall_score '{}' is not an integer. Setting to 0.".format(raw_overall_score))
                 overall_score_value = 0
     
     result["overall_score"] = overall_score_value
@@ -256,14 +254,14 @@ PR 信息:
                     try:
                         score_to_set = int(dim_val["score"])
                     except (ValueError, TypeError):
-                        print("[pr_score_agent] Warning: dimension '{}' score dict contains invalid score: {}. Setting to 0.".format(dim_key, dim_val))
+                        logger.warning("[pr_score_agent] Warning: dimension '{}' score dict contains invalid score: {}. Setting to 0.".format(dim_key, dim_val))
             elif isinstance(dim_val, (int, float)):
                 try:
                     score_to_set = int(dim_val)
                 except (ValueError, TypeError):
-                    print("[pr_score_agent] Warning: dimension '{}' value '{}' is not an integer. Setting to 0.".format(dim_key, dim_val))
+                    logger.warning("[pr_score_agent] Warning: dimension '{}' value '{}' is not an integer. Setting to 0.".format(dim_key, dim_val))
             else:
-                print("[pr_score_agent] Warning: dimension '{}' has unexpected type: {}. Setting to 0.".format(dim_key, type(dim_val)))
+                logger.warning("[pr_score_agent] Warning: dimension '{}' has unexpected type: {}. Setting to 0.".format(dim_key, type(dim_val)))
 
             # 存储所有维度分数，包括 innovation
             processed_dimensions[dim_key] = {"score": score_to_set}
@@ -338,10 +336,10 @@ PR信息:
         if not isinstance(suggestions, list):
             suggestions = [suggestions] # Wrap single object in a list if necessary
     except json.JSONDecodeError as e:
-        print(f"[pr_suggestion_agent] Error decoding JSON from AI: {e}. Content: {content[:500]}...")
+        logger.error(f"[pr_suggestion_agent] Error decoding JSON from AI: {e}. Content: {content[:500]}...")
         suggestions = []
     except Exception as e:
-        print(f"[pr_suggestion_agent] Unexpected error during suggestion parsing: {e}. Content: {content[:500]}...")
+        logger.error(f"[pr_suggestion_agent] Unexpected error during suggestion parsing: {e}. Content: {content[:500]}...")
         suggestions = []
 
     final_suggestions = []
@@ -349,7 +347,7 @@ PR信息:
         if isinstance(s, dict) and 'file_path' in s:
             final_suggestions.append(s)
         else:
-            print(f"[pr_suggestion_agent] Warning: Malformed suggestion received: {s}. Skipping.")
+            logger.warning(f"[pr_suggestion_agent] Warning: Malformed suggestion received: {s}. Skipping.")
 
     return final_suggestions
 
@@ -402,7 +400,7 @@ async def perform_pr_analysis(pr: PullRequest) -> dict:
         logger.debug(f"[perform_pr_analysis] PR 信息获取完成。Additions: {additions}, Deletions: {deletions}")
 
     except Exception as e:
-        print(f"[perform_pr_analysis] 从 GitHub API 获取 diff 或 PR 信息时发生错误: {e}")
+        logger.error(f"[perform_pr_analysis] 从 GitHub API 获取 diff 或 PR 信息时发生错误: {e}")
         import traceback
         traceback.print_exc()
         raise ValueError(f"An unexpected error occurred while fetching diff from GitHub API: {e}")
@@ -481,7 +479,7 @@ async def perform_pr_analysis(pr: PullRequest) -> dict:
         return analysis_result
     
     except Exception as e:
-        print(f"[perform_pr_analysis] AI 分析过程中发生错误: {e}")
+        logger.error(f"[perform_pr_analysis] AI 分析过程中发生错误: {e}")
         import traceback
         traceback.print_exc()
         # 如果 AI 分析失败，返回一个默认的空结果
@@ -523,7 +521,7 @@ async def calculate_points_from_analysis(analysis_score_result: dict) -> dict:
     content = completion.choices[0].message.content
     try:
         points_result = json.loads(content)
-        print(f"[calculate_points_from_analysis] Parsed points_result: {points_result}")
+        logger.info(f"[calculate_points_from_analysis] Parsed points_result: {points_result}")
         # 计算基础积分和创新加分
         bonus = points_result.get("bonus", 0)
         innovation_bonus = analysis_score_result.get("innovation_score", 0)

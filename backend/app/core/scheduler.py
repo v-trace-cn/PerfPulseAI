@@ -10,6 +10,7 @@ from app.core.ai_service import perform_pr_analysis
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.pull_request_result import PullRequestResult
+from app.core.logging_config import logger
 
 async def process_pending_tasks():
     """
@@ -29,7 +30,7 @@ async def process_pending_tasks():
                     pr_obj = pr_obj_result.scalars().first()
 
                     if not pr_obj:
-                        print(f"Warning: PullRequest object not found for activity ID {act.id}. Skipping analysis.")
+                        logger.warning(f"PullRequest object not found for activity ID {act.id}. Skipping analysis.")
                         continue
 
                     # 现在将 PullRequest 对象传递给 perform_pr_analysis
@@ -76,7 +77,7 @@ async def process_pending_tasks():
                             pr_analysis_entry.created_at = datetime.utcnow()
                             db.add(pr_analysis_entry)
                     else:
-                        print(f"Warning: PullRequest with node_id {act.id} not found when processing pending task.")
+                        logger.warning(f"PullRequest with node_id {act.id} not found when processing pending task.")
 
                     # 创建时间线事件
                     event = PullRequestEvent(
@@ -94,13 +95,13 @@ async def process_pending_tasks():
                     )
                     db.add(entry)
                     await db.commit()
-                    print(f"[任务执行] PR {act.id} 评分完成，得分：{total_points_from_ai}")
+                    logger.info(f"[任务执行] PR {act.id} 评分完成，得分：{total_points_from_ai}")
                 except ValueError as e: # 捕获来自 perform_pr_analysis 的 ValueError
                     await db.rollback()
                     # 提供更友好的提示
-                    print(f"[任务执行] PR {act.id} 分析失败：无法联调 GitHub。错误详情：{e}")
+                    logger.error(f"[任务执行] PR {act.id} 分析失败：无法联调 GitHub。错误详情：{e}")
                 except Exception as e:
                     await db.rollback()
-                    print(f"[任务执行] PR {act.id} 分析失败：{e}")
+                    logger.error(f"[任务执行] PR {act.id} 分析失败：{e}")
         except Exception as e:
-            print(f"[任务调度器] 处理待处理任务时发生异步操作错误，请检查数据库连接和事件循环配置: {e}") 
+            logger.error(f"[任务调度器] 处理待处理任务时发生异步操作错误，请检查数据库连接和事件循环配置: {e}") 

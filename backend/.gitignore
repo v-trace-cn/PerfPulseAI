@@ -74,3 +74,6 @@ app/**/*/__pycache__/
 # database
 db/
 *.db
+
+# logs
+logs/

@@ -21,6 +21,7 @@ from app.models.user import User
 from app.models.pull_request import PullRequest
 from app.models.pull_request_event import PullRequestEvent
 from app.core.scheduler import process_pending_tasks
+from app.core.logging_config import logger
 
 router = APIRouter(prefix="/api/webhook", tags=["webhook"])
 GITHUB_WEBHOOK_SECRET = Settings.GITHUB_WEBHOOK_SECRET
@@ -46,7 +47,7 @@ async def verify_signature(body: bytes, github_signature: str):
 
     except Exception as e:
         # 生产环境中，这里应该有更详细的日志记录
-        print(f"Signature verification failed: {e}")
+        logger.error(f"Signature verification failed: {e}")
         raise HTTPException(status_code=403, detail="Signature verification failed")
 
 
@@ -80,6 +81,7 @@ async def process_pull_request_event(
             user_github_url = user_login.get("html_url")
             title = f"{repo_name}-#{pr_number}-{pr_title}"
 
+            logger.info(f"  Repo: {repo_name}")
             print(f"  Repo: {repo_name}")
             print(f"  PR #{pr_number}: '{pr_title}' - Action: {action}")
             print(f"  user: {user_github_url}")
@@ -142,6 +144,7 @@ async def process_pull_request_event(
                         activity.diff_url = pr.diff_url
                         db.add(activity)
                     else:
+                        # 只更新非user_id字段，user_id一旦绑定不可更改
                         existing_activity.status = "pending"
                         existing_activity.diff_url = pr.diff_url
                         existing_activity.created_at = pr.created_at

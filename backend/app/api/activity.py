@@ -15,6 +15,7 @@ from app.models.pull_request_result import PullRequestResult
 from app.models.pull_request import PullRequest
 from app.core.ai_service import perform_pr_analysis, calculate_points_from_analysis
 from app.models.user import User
+from app.core.logging_config import logger
 
 router = APIRouter(prefix="/api/activities", tags=["activity"])
 
@@ -208,7 +209,7 @@ async def reset_activity_points(activity_id: str, db: AsyncSession = Depends(get
         user = act.user
         if not user:
             # 如果活动没有关联用户，记录警告并继续，不抛出404
-            print(f"Warning: Activity {activity_id} has no associated user. Points cannot be reset for user.")
+            logger.warning(f"Activity {activity_id} has no associated user. Points cannot be reset for user.")
             # 即使没有用户，也重置活动状态，以便重新计算
             act.points = 0
             act.status = "pending"
@@ -253,5 +254,5 @@ async def reset_activity_points(activity_id: str, db: AsyncSession = Depends(get
     except Exception as e:
         # 捕获其他所有异常，打印日志并返回通用错误信息
         await db.rollback() # 在发生错误时回滚数据库会话
-        print(f"Error resetting activity points for {activity_id}: {e}")
+        logger.error(f"Error resetting activity points for {activity_id}: {e}")
         raise HTTPException(status_code=500, detail=f"重置积分时发生内部错误: {e}")

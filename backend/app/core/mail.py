@@ -1,5 +1,6 @@
 from fastapi_mail import FastMail, ConnectionConfig, MessageSchema
 from app.core.config import Settings
+from app.core.logging_config import logger
 
 conf = ConnectionConfig(
     MAIL_USERNAME=Settings.MAIL_USERNAME,
@@ -26,5 +27,5 @@ async def send_email(subject: str, recipients: list, body: str):
         await fastmail.send_message(message)
         return {"status": "success", "message": "Email sent successfully"}
     except Exception as e:
-        print(f"邮件发送失败: {e}")
+        logger.error(f"邮件发送失败: {e}")
         return {"status": "error", "message": f"Failed to send email: {e}"} 

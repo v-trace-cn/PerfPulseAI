@@ -3,6 +3,7 @@ from sqlalchemy import select
 from app.core.database import AsyncSessionLocal
 from app.models.user import User
 from app.models.department import Department # 导入 Department 模型
+from app.core.logging_config import logger
 # … 导入其它模型
 
 async def seed_data():
@@ -55,7 +56,7 @@ async def seed_data():
                 db.add(lisi)
 
             await db.commit()
-            print("Database seeded successfully with initial data!")
+            logger.info("Database seeded successfully with initial data!")
         except Exception as e:
             await db.rollback()
-            print(f"Error seeding data: {e}")
+            logger.error(f"Error seeding data: {e}")

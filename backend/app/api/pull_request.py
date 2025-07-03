@@ -13,6 +13,7 @@ from typing import List
 from fastapi.responses import StreamingResponse
 import asyncio
 import json
+from app.core.logging_config import logger
 
 router = APIRouter(prefix="/api/pr", tags=["Pull Requests"])
 
@@ -255,7 +256,7 @@ async def calculate_pr_points(
         if user:
             # 先扣除旧积分，再增加新积分
             user.points = (user.points or 0) - old_points + points_to_award
-            print(f"Awarded {points_to_award} points to user {user.id}. Old points: {old_points}, New total: {user.points}")
+            print(f"[积分发放] user_id={user.id}, activity_id={activity.id}, old_points={old_points}, new_points={user.points}, awarded={points_to_award}")
         else:
             print(f"Could not find user with id {activity.user_id} to award points.")
         

@@ -49,14 +49,3 @@ async def favicon():
 async def create_tables():
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    # The following migration logic is synchronous and complex to convert to async directly.
-    # It might be better to handle this with a dedicated migration tool like Alembic.
-    # For now, I will comment it out to allow the application to start.
-    # If this logic is still needed, it should be rewritten using async-compatible methods.
-    # try:
-    #     inspector = inspect(engine) # This is synchronous
-    #     columns = [col['name'] for col in inspector.get_columns('users')]
-    #     # ... rest of the migration logic ...
-    # except Exception as e:
-    #     print(f"Database migration failed: {e}")
-    #     pass

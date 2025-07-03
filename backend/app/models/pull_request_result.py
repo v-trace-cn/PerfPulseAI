@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, Integer, Text, DateTime, JSON, ForeignKey
 from app.core.database import Base
 
@@ -11,9 +11,12 @@ class PullRequestResult(Base):
     pr_node_id = Column(String(100), ForeignKey('activities.id'), unique=True, nullable=False)
     pr_number = Column(Integer, nullable=False)
     repository = Column(String(100), nullable=False)
-    action = Column(String(30), nullable=False)
+    action = Column(String(50), nullable=False)
+    notification_message = Column(Text, nullable=True)
+    ai_analysis_started_at = Column(DateTime(timezone=True), nullable=True)
     ai_analysis_result = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     def to_dict(self):
         return {
@@ -22,6 +25,9 @@ class PullRequestResult(Base):
             "pr_number": self.pr_number,
             "repository": self.repository,
             "action": self.action,
+            "notification_message": self.notification_message,
+            "ai_analysis_started_at": self.ai_analysis_started_at.isoformat() if self.ai_analysis_started_at else None,
             "ai_analysis_result": self.ai_analysis_result,
-            "created_at": self.created_at.isoformat() if isinstance(self.created_at, datetime) else self.created_at
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         } 

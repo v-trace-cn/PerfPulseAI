@@ -10,18 +10,19 @@ class Settings:
     APP_NAME: str = "PerfPulseAI API"
     HOST: str      = os.getenv("HOST", "0.0.0.0")
     PORT: int      = int(os.getenv("PORT", 5000))
+
     # GitHub App  
     GITHUB_APP_ID: str          = os.getenv("GITHUB_APP_ID")
     GITHUB_WEBHOOK_SECRET: str  = os.getenv("GITHUB_WEBHOOK_SECRET")
     GITHUB_PRIVATE_KEY_PATH: str= os.getenv("GITHUB_PRIVATE_KEY_PATH")
     GITHUB_PAT: str             = os.getenv("GITHUB_PAT", "")
     
-    DATABASE_URL = f"sqlite:///{BACKEND_DIR / 'db' / 'perf.db'}"
+    DATABASE_URL = f"sqlite+aiosqlite:///{str(BACKEND_DIR / 'db' / 'perf.db')}"
 
     # 豆包 AI API 配置
     DOUBAO_URLS: str = os.getenv("DOUBAO_URLS", "")
     DOUBAO_MODEL: str = os.getenv("DOUBAO_MODEL", "")
-    DOUBAO_API_KEY: str = os.getenv("DOUBAO_API_KEY", "") # 如果豆包需要单独的API Key
+    DOUBAO_API_KEY: str = os.getenv("DOUBAO_API_KEY", "")
 
 
     # Email settings

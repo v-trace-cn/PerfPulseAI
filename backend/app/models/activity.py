@@ -2,7 +2,7 @@
 Activity model for the PerfPulseAI application.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 from sqlalchemy import Column, String, Text, Integer, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
@@ -28,9 +28,9 @@ class Activity(Base):
     activity_type = Column(String(50), default='individual')
     # 存储 PR diff 链接，用于后续定时任务拉取和分析
     diff_url = Column(String(500), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    completed_at = Column(DateTime, nullable=True)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     def __init__(self, title=None, description=None, points=0, user_id=None, 
                  status="pending", created_at=None, completed_at=None, activity_type='individual'):
@@ -48,21 +48,33 @@ class Activity(Base):
         # 处理日期字段
         if isinstance(created_at, str):
             try:
-                self.created_at = datetime.fromisoformat(created_at)
+                # parse_datetime for consistent timezone handling from input
+                self.created_at = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                if self.created_at.tzinfo is None: # Ensure timezone aware if input was naive
+                    self.created_at = self.created_at.replace(tzinfo=timezone.utc)
             except ValueError:
-                self.created_at = datetime.utcnow()
+                self.created_at = datetime.now(timezone.utc)
         elif created_at is None:
-            self.created_at = datetime.utcnow()
+            self.created_at = datetime.now(timezone.utc)
         else:
-            self.created_at = created_at
+            # Ensure incoming datetime objects are timezone-aware UTC
+            if created_at.tzinfo is None:
+                self.created_at = created_at.replace(tzinfo=timezone.utc)
+            else:
+                self.created_at = created_at.astimezone(timezone.utc)
             
         if isinstance(completed_at, str):
             try:
-                self.completed_at = datetime.fromisoformat(completed_at)
+                self.completed_at = datetime.fromisoformat(completed_at.replace('Z', '+00:00'))
+                if self.completed_at.tzinfo is None:
+                    self.completed_at = self.completed_at.replace(tzinfo=timezone.utc)
             except ValueError:
                 self.completed_at = None
         else:
-            self.completed_at = completed_at
+            if completed_at and completed_at.tzinfo is None:
+                self.completed_at = completed_at.replace(tzinfo=timezone.utc)
+            elif completed_at:
+                self.completed_at = completed_at.astimezone(timezone.utc)
         
     def to_dict(self):
         """
@@ -89,11 +101,14 @@ class Activity(Base):
             "status": self.status,
             "activity_type": self.activity_type,
             "diff_url": self.diff_url,
-            "created_at": self.created_at.isoformat() if isinstance(self.created_at, datetime) else self.created_at,
-            "completed_at": self.completed_at.isoformat() if isinstance(self.completed_at, datetime) else self.completed_at,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "user": user_data,
-            "ai_analysis": self.pull_request_result.ai_analysis_result if self.pull_request_result else None
+            "ai_analysis": self.pull_request_result.ai_analysis_result if self.pull_request_result else None,
+            "ai_analysis_started_at": self.pull_request_result.ai_analysis_started_at.isoformat() if self.pull_request_result and self.pull_request_result.ai_analysis_started_at else None,
+            "ai_analysis_completed_at": self.pull_request_result.updated_at.isoformat() if self.pull_request_result and self.pull_request_result.updated_at else None,
+            "points_calculated_at": self.completed_at.isoformat() if self.completed_at else None,
         }
     
     @classmethod

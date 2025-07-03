@@ -2,15 +2,19 @@
 
 import uuid
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, Body, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Body, BackgroundTasks, File, UploadFile
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 import asyncio
 
-from app.core.database import get_db
+from app.core.database import get_db, AsyncSessionLocal
 from app.models.activity import Activity
 from app.core.scheduler import process_pending_tasks
 from app.models.pull_request_result import PullRequestResult
+from app.models.pull_request import PullRequest
+from app.core.ai_service import perform_pr_analysis, calculate_points_from_analysis
+from app.models.user import User
 
 router = APIRouter(prefix="/api/activities", tags=["activity"])
 
@@ -19,7 +23,7 @@ async def get_activities(
     page: int = 1,
     per_page: int = 10,
     search: str = "",
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     stmt = select(Activity).options(joinedload(Activity.pull_request_result), joinedload(Activity.user))
     if search:
@@ -52,7 +56,7 @@ async def get_recent_activities(
     user_id: str | None = None,
     page: int = 1,
     per_page: int = 10,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     stmt = select(Activity).options(joinedload(Activity.user), joinedload(Activity.pull_request_result))
     if user_id:
@@ -83,7 +87,7 @@ async def get_recent_activities(
 @router.post("/")
 async def create_activity(
     data: dict = Body(...),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     activity_uuid = str(uuid.uuid4())
     new_act = Activity(
@@ -114,7 +118,7 @@ async def create_activity(
     }
 
 @router.get("/{activity_id}")
-async def get_activity(activity_id: str, db: Session = Depends(get_db)):
+async def get_activity(activity_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Activity).options(joinedload(Activity.pull_request_result), joinedload(Activity.user)).filter(Activity.id == activity_id))
     act = result.scalars().first()
     if not act:
@@ -126,7 +130,7 @@ async def get_activity(activity_id: str, db: Session = Depends(get_db)):
     }
 
 @router.get("/show/{show_id}")
-async def get_activity_by_show_id(show_id: str, db: Session = Depends(get_db)):
+async def get_activity_by_show_id(show_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Activity).options(joinedload(Activity.pull_request_result), joinedload(Activity.user)).filter(Activity.show_id == show_id))
     act = result.scalars().first()
     if not act:
@@ -142,7 +146,7 @@ async def update_activity(
     activity_id: str,
     background_tasks: BackgroundTasks,
     data: dict = Body(...),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Activity).options(joinedload(Activity.pull_request_result), joinedload(Activity.user)).filter(Activity.id == activity_id))
     act = result.scalars().first()
@@ -169,7 +173,7 @@ async def update_activity(
     }
 
 @router.delete("/{activity_id}")
-async def delete_activity(activity_id: str, db: Session = Depends(get_db)):
+async def delete_activity(activity_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Activity).options(joinedload(Activity.pull_request_result), joinedload(Activity.user)).filter(Activity.id == activity_id))
     act = result.scalars().first()
     if not act:
@@ -182,37 +186,72 @@ async def delete_activity(activity_id: str, db: Session = Depends(get_db)):
     }
 
 @router.post("/{activity_id}/reset-points")
-async def reset_activity_points(activity_id: str, db: Session = Depends(get_db)):
+async def reset_activity_points(activity_id: str, db: AsyncSession = Depends(get_db)):
     """
     重置活动的积分，并同步回退用户积分，允许重新计算。
     """
-    # 查找活动
-    result = await db.execute(select(Activity).options(joinedload(Activity.user), joinedload(Activity.pull_request_result)).filter(Activity.id == activity_id))
-    act = result.scalars().first()
-    if not act:
-        raise HTTPException(status_code=404, detail="找不到活动")
-    # 查找用户
-    user = act.user
-    if not user:
-        raise HTTPException(status_code=404, detail="找不到活动关联的用户")
-    # 回退用户积分
-    if act.points and act.points > 0:
-        user.points = max((user.points or 0) - act.points, 0)
-    # 重置活动积分和状态
-    act.points = 0
-    act.status = "pending"
-    act.completed_at = None
-    # 清空AI分析结果
-    if act.pull_request_result:
-        act.pull_request_result.ai_analysis_result = None
-    await db.commit()
-    await db.refresh(act)
-    await db.refresh(user)
-    return {
-        "data": {
-            "activity": act.to_dict(),
-            "user": user.to_dict(),
-        },
-        "message": "重置成功，积分已回退，可重新计算",
-        "success": True,
-    }
+    try:
+        # 查找活动并预加载关联的用户和PR结果
+        result = await db.execute(
+            select(Activity)
+            .options(
+                joinedload(Activity.user).joinedload(User.department_rel),
+                joinedload(Activity.pull_request_result)
+            )
+            .filter(Activity.show_id == activity_id)
+        )
+        act = result.scalars().first()
+        if not act:
+            raise HTTPException(status_code=404, detail="找不到活动")
+        
+        # 查找用户（此时已预加载）
+        user = act.user
+        if not user:
+            # 如果活动没有关联用户，记录警告并继续，不抛出404
+            print(f"Warning: Activity {activity_id} has no associated user. Points cannot be reset for user.")
+            # 即使没有用户，也重置活动状态，以便重新计算
+            act.points = 0
+            act.status = "pending"
+            act.completed_at = None
+            if act.pull_request_result:
+                act.pull_request_result.ai_analysis_result = None
+            await db.commit()
+            # No need for db.refresh(act) here, as we're immediately returning
+            return {
+                "data": {"activity": act.to_dict()},
+                "message": "活动已重置，但由于未找到关联用户，用户积分未回退。",
+                "success": True,
+            }
+
+        # 回退用户积分
+        if act.points and act.points > 0:
+            user.points = max((user.points or 0) - act.points, 0)
+        
+        # 重置活动积分和状态
+        act.points = 0
+        act.status = "pending"
+        act.completed_at = None
+        
+        # 清空AI分析结果
+        if act.pull_request_result:
+            act.pull_request_result.ai_analysis_result = None
+        
+        await db.commit()
+        # No need for db.refresh(act) or db.refresh(user) here, as frontend re-fetches
+        
+        return {
+            "data": {
+                "activity": act.to_dict(),
+                "user": user.to_dict(),
+            },
+            "message": "重置成功，积分已回退，可重新计算",
+            "success": True,
+        }
+    except HTTPException as e:
+        # 捕获 FastAPI 的 HTTPException，直接重新抛出
+        raise e
+    except Exception as e:
+        # 捕获其他所有异常，打印日志并返回通用错误信息
+        await db.rollback() # 在发生错误时回滚数据库会话
+        print(f"Error resetting activity points for {activity_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"重置积分时发生内部错误: {e}")

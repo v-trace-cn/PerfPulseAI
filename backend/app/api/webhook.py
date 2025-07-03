@@ -5,7 +5,7 @@ import requests
 import os
 import json
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 
 from uuid import uuid4
 from typing import Optional
@@ -53,7 +53,10 @@ async def verify_signature(body: bytes, github_signature: str):
 def parse_datetime(datetime_str: Optional[str]) -> Optional[datetime]:
     if not datetime_str:
         return None
-    return datetime.fromisoformat(datetime_str.replace('Z', '+00:00'))
+    dt = datetime.fromisoformat(datetime_str.replace('Z', '+00:00'))
+    if dt.tzinfo is None: # 如果是朴素时间，假设它是 UTC 并加上时区信息
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc) # 确保转换为 UTC 时区
 
 
 async def process_pull_request_event(

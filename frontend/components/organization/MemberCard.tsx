@@ -37,7 +37,6 @@ const kpiConfig: { key: keyof DetailedMember['kpis'], label: string, icon: React
 
 const gradientList = [
   'from-white to-[#e0e7ff]',   // 淡蓝紫
-  'from-white to-[#bbf7d0]',   // 淡青绿
   'from-white to-[#bae6fd]',   // 淡天蓝
   'from-white to-[#ddd6fe]',   // 淡紫
 ];

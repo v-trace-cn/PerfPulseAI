@@ -158,7 +158,18 @@ export default function ClientPage() {
             {(authMode === "login" || authMode === "register" || authMode === "reset-password") && (
               <div className="grid gap-2">
                 <Label htmlFor="password">密码</Label>
-                <Input id="password" type="password" value={formData.password} onChange={handleInputChange} required />
+                <Input
+                  id="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSubmit();
+                    }
+                  }}
+                  required
+                />
                 {errors.password && <p className="text-red-500 text-sm">{errors.password}</p>}
               </div>
             )}

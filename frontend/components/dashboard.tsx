@@ -208,6 +208,25 @@ const globalStyles = `
   }
 `
 
+interface Member {
+  id: string;
+  name: string;
+  email: string;
+  githubUrl: string | null;
+  avatar: string;
+  department: string | null;
+  position: string | null;
+  joinDate: string;
+  points: number;
+  level: number;
+  phone: string | null;
+  // Removed the other score fields as they are not directly from backend user data
+  // complianceScore: number;
+  // transparencyScore: number;
+  // accountabilityScore: number;
+  // totalScore: number;
+}
+
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("overview")
   const router = useRouter()
@@ -216,34 +235,23 @@ export default function Dashboard() {
   const queryClient = useQueryClient(); // 初始化 queryClient
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [userData, setUserData] = useState({
-    name: user?.name || "",
-    department: user?.department || "",
-    position: user?.position || "",
-    email: user?.email || "",
-    phone: user?.phone || "",
-    githubUrl: user?.githubUrl || "",
-    joinDate: user?.joinDate || "",
-    points: user?.points || 0,
-    level: user?.level || 0,
-    avatar: user?.avatar || "/placeholder-logo.png",
-    skills: user?.skills || [],
-    achievements: [
-      { id: 1, title: "AI算法优化奖", date: "2023-Q2", icon: "🧠" },
-      { id: 2, title: "数据安全贡献奖", date: "2023-05", icon: "🔒" },
-      { id: 3, title: "最佳团队协作奖", date: "2023-07", icon: "🤝" },
-    ],
-    recentActivities: [
-      { id: 1, type: "task", title: "完成算法偏见检测", date: "2023-08-15", points: 15 },
-      { id: 2, type: "contribution", title: "提交代码优化方案", date: "2023-08-10", points: 20 },
-      { id: 3, type: "review", title: "参与伦理审查会议", date: "2023-08-05", points: 10 },
-    ],
+  const [userData, setUserData] = useState<any>({
+    name: "",
+    email: "",
+    position: "",
+    phone: "",
+    githubUrl: "",
+    departmentId: null,
+    avatar: "/placeholder-user.jpg",
+    total_points: 0, // 初始化总积分
+    level: 1,
+    achievements: [],
   })
 
   const [showPhone, setShowPhone] = useState(false)
   const [editProfileOpen, setEditProfileOpen] = useState(false)
   const [viewColleagueOpen, setViewColleagueOpen] = useState(false)
-  const [selectedColleague, setSelectedColleague] = useState<any>(null)
+  const [selectedColleague, setSelectedColleague] = useState<Member | null>(null)
   const [selectedDepartment, setSelectedDepartment] = useState<string | undefined>(undefined)
 
   // 使用 useQuery 获取部门列表
@@ -256,37 +264,6 @@ export default function Dashboard() {
     },
   });
   const departments = Array.isArray(departmentsData) ? departmentsData : [];
-
-  const [teamMembers] = useState([
-    {
-      id: 1,
-      name: "李华",
-      department: "数据部",
-      position: "数据科学家",
-      email: "lihua@example.com",
-      phone: "139****4567",
-      joinDate: "2022-01-10",
-      points: 1320,
-      level: 3,
-      avatar: "/placeholder.svg?height=128&width=128",
-      skills: ["数据挖掘", "机器学习", "Python", "数据可视化", "统计分析"],
-    },
-    {
-      id: 2,
-      name: "王芳",
-      department: "伦理部",
-      position: "伦理专家",
-      email: "wangfang@example.com",
-      phone: "135****7890",
-      joinDate: "2021-08-15",
-      points: 1580,
-      level: 4,
-      avatar: "/placeholder.svg?height=128&width=128",
-      skills: ["AI伦理", "政策分析", "风险评估", "合规审查", "伦理框架"],
-    },
-  ])
-
-  const [teamMemberSearch] = useState("")
 
   // Activity API for fetching recent personal activities
   const { execute: fetchRecentActivities } = useApi(directActivityApi.getRecentActivities);
@@ -463,6 +440,10 @@ export default function Dashboard() {
         })
       }
     }
+  }
+
+  if (isLoadingDepartments) {
+    return <div className="flex justify-center items-center h-screen">加载中...</div>;
   }
 
   // 组件渲染
@@ -974,59 +955,6 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             </div>
-            {/* 团队成员卡片单独一行横向铺满 */}
-            <Card className="tech-card shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp w-full mb-16">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>团队成员</CardTitle>
-                <div className="relative w-64">
-                  <Input
-                    type="text"
-                    placeholder="搜索成员..."
-                    value={teamMemberSearch}
-                    onChange={(e) => setTeamMemberSearch(e.target.value)}
-                    className="pr-8"
-                  />
-                  <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                </div>
-              </CardHeader>
-              <Separator className="my-2" />
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {teamMembers
-                    .filter(
-                      (member: any) =>
-                        teamMemberSearch === "" ||
-                        member.name.toLowerCase().includes(teamMemberSearch.toLowerCase()) ||
-                        member.department.toLowerCase().includes(teamMemberSearch.toLowerCase()) ||
-                        member.position.toLowerCase().includes(teamMemberSearch.toLowerCase()),
-                    )
-                    .map((member: any, i: number) => (
-                      <div
-                        key={member.id}
-                        className="flex flex-col items-center p-4 rounded-lg border border-primary/10 bg-primary/5 hover:bg-primary/10 transition-colors cursor-pointer"
-                        onClick={() => {
-                          setSelectedColleague(member)
-                          setViewColleagueOpen(true)
-                        }}
-                      >
-                        <Avatar className="h-16 w-16 mb-2 border-2 border-primary/20">
-                          <AvatarImage src={member.avatar} alt={member.name} />
-                          <AvatarFallback className="bg-primary/10 text-primary">
-                            {member.name.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <h3 className="font-medium text-center">{member.name}</h3>
-                        <p className="text-xs text-muted-foreground text-center">
-                          {member.department} · {member.position}
-                        </p>
-                        <Badge className="mt-2 bg-primary/10 text-primary border-none">
-                          Lv.{member.level} · {member.points}分
-                        </Badge>
-                      </div>
-                    ))}
-                </div>
-              </CardContent>
-            </Card>
           </div>
         )}
       </main>

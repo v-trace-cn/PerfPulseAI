@@ -54,7 +54,7 @@ import {
 import { useAuth } from "@/lib/auth-context"
 import { cn, getRelativeDate } from "@/lib/utils"
 import { unifiedApi } from "@/lib/unified-api"
-import { User, Activity as ActivityType, RecentActivity, Department, Member as MemberType, ProfileUpdateData } from "@/lib/types"
+import { User } from "@/lib/types"
 import { GovernanceCard, WeeklyGoalsCard, PointsCard, ComplianceCard } from "@/components/ui/metric-card"
 import { useToast } from "@/components/ui/use-toast"
 import { useApi } from "@/hooks/useApi"
@@ -198,24 +198,7 @@ const globalStyles = `
   }
 `
 
-interface Member {
-  id: string;
-  name: string;
-  email: string;
-  githubUrl: string | null;
-  avatar: string;
-  department: string | null;
-  position: string | null;
-  joinDate: string;
-  points: number;
-  level: number;
-  phone: string | null;
-  // Removed the other score fields as they are not directly from backend user data
-  // complianceScore: number;
-  // transparencyScore: number;
-  // accountabilityScore: number;
-  // totalScore: number;
-}
+
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("overview")
@@ -241,7 +224,7 @@ export default function Dashboard() {
   const [showPhone, setShowPhone] = useState(false)
   const [editProfileOpen, setEditProfileOpen] = useState(false)
   const [viewColleagueOpen, setViewColleagueOpen] = useState(false)
-  const [selectedColleague, setSelectedColleague] = useState<Member | null>(null)
+  const [selectedColleague, setSelectedColleague] = useState<User | null>(null)
   const [selectedDepartment, setSelectedDepartment] = useState<string | undefined>(undefined)
 
   // 使用 useQuery 获取部门列表

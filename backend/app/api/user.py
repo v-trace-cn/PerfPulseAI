@@ -34,7 +34,8 @@ async def get_user(user_id: int, db: AsyncSession = Depends(get_db)):
         "position": user.position,
         "phone": user.phone,
         "joinDate": user.join_date.isoformat() if isinstance(user.join_date, datetime) else user.join_date,
-        "total_points": user.points,
+        "points": user.points,
+        "total_points": user.points,  # 添加 total_points 字段以保持一致性
         "level": user.level,
         "completed_activities_count": user.completed_tasks,
         "pendingTasks": user.pending_tasks,

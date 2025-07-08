@@ -7,7 +7,7 @@ import { useEffect, useState } from "react"
 import { useApi } from "@/hooks/useApi"
 import { useAuth } from "@/lib/auth-context"
 import { getRelativeDate, cn } from "@/lib/utils"
-import { directActivityApi } from "@/lib/direct-api"
+import { unifiedApi } from "@/lib/unified-api"
 import {
   Tooltip,
   TooltipContent,
@@ -50,7 +50,7 @@ const getActivityIcon = (type: string) => {
 }
 
 export function RecentActivities() {
-  const { data: fetchedData, isLoading: apiLoading, error: apiError, execute: fetchActivitiesApi } = useApi(directActivityApi.getRecentActivities);
+  const { data: fetchedData, isLoading: apiLoading, error: apiError, execute: fetchActivitiesApi } = useApi(unifiedApi.activity.getRecentActivities);
   
   const [activities, setActivities] = useState<Activity[]>([]);
   const [currentPage, setCurrentPage] = useState(1);

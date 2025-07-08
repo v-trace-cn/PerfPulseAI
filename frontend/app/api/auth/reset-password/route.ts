@@ -1,19 +1,25 @@
 import { NextResponse } from 'next/server';
-import { backendUrl } from '../../../../lib/config/api-config';
+import { getBackendApiUrl } from '../../../../lib/config/api-config';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     
-    const response = await fetch(`${backendUrl}/api/auth/reset-password`, {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(`${getBackendApiUrl()}/api/auth/reset-password`, {
       method: 'POST',
+      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'Origin': backendUrl
+        'Origin': getBackendApiUrl()
       },
       body: JSON.stringify(body),
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -29,7 +35,11 @@ export async function POST(request: Request) {
 
     const data = await response.json();
     return NextResponse.json(data);
-  } catch (error) {
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      console.error('Reset password timeout:', error);
+      return NextResponse.json({ success: false, message: '请求超时，请稍后重试' }, { status: 504 });
+    }
     console.error('Reset password error:', error);
     return NextResponse.json(
       { 

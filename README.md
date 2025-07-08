@@ -11,7 +11,7 @@ PerfPulseAI 旨在通过 AI 技术自动化梳理员工绩效，提供透明的�
 1. **后端部署**
    - 安装Python和依赖: `pip install -r backend/requirements.txt`
    - 配置环境变量: 复制 `backend/.env.example` 到 `backend/.env` 并修改
-   - 启动API服务器: `uvicorn app.main:app --reload --host 0.0.0.0 --port 5000`
+   - 启动API服务器: `python backend/app/run.py`
 
 2. **前端部署**
    - 安装Node.js和依赖: `cd frontend && npm install` 或者 `npm install --legacy-peer-deps`
@@ -44,17 +44,21 @@ perfPulseAI/
 │   ├── requirements.txt       # Python依赖
 │   ├── .env.example           # 环境变量示例
 │
-└── frontend/                  # React前端 (基于ai-governance)
-    ├── package.json           # NPM配置文件
-    ├── README.md              # 前端说明文档
-    ├── public/                # 静态资源
-    ├── src/                   # 源代码
-    │   ├── components/        # 组件
-    │   ├── app/               # 页面
-    │   ├── hooks/             # 自定义钩子
-    │   ├── api/               # API调用函数
-    │   └── styles/            # 样式文件
-    └── .env.example           # 环境变量示例
+└── frontend/
+   ├── hooks/
+   │   ├── use-mobile.tsx          # 统一的移动端检测
+   │   └── useApi.ts              # API 调用 hook
+   ├── lib/
+   │   ├── toast-context.tsx      # Toast Context 提供者
+   │   ├── toast-utils.ts         # Toast 工具函数
+   │   ├── api.ts                 # Next.js API 路由调用
+   │   └── direct-api.ts          # 直接后端 API 调用
+   ├── components/ui/
+   │   ├── use-toast.ts           # Toast hook 接口
+   │   └── toaster.tsx            # Toast 渲染组件
+   └── app/
+      ├── globals.css            # 主要全局样式
+      └── theme-vars.css         # 主题变量
 ```
 
 ## 项目特点

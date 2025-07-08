@@ -40,7 +40,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
-import { directDepartmentApi } from "@/lib/direct-api"
+import { unifiedApi } from "@/lib/unified-api"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Department } from "@/lib/types" // 导入 Department 类型
 import Link from "next/link"
@@ -83,7 +83,7 @@ export default function OrganizationManagement() {
   // 使用 useQuery 获取部门数据
   const { data, isLoading, error } = useQuery<{ data: Department[]; message: string; success: boolean }>({
     queryKey: ['departments'],
-    queryFn: directDepartmentApi.getDepartments,
+    queryFn: unifiedApi.department.getAll,
   });
 
   // 新增：打印 useQuery 的状态和数据
@@ -130,7 +130,7 @@ export default function OrganizationManagement() {
 
   // 新增部门的 mutation
   const createDepartmentMutation = useMutation({
-    mutationFn: directDepartmentApi.createDepartment,
+    mutationFn: unifiedApi.department.create,
     onSuccess: (res) => {
       if (res.success) {
         toast({
@@ -173,7 +173,7 @@ export default function OrganizationManagement() {
 
   // 删除部门的 mutation
   const deleteDepartmentMutation = useMutation({
-    mutationFn: directDepartmentApi.deleteDepartment,
+    mutationFn: unifiedApi.department.delete,
     onSuccess: (res) => {
       if (res.success) {
         toast({

@@ -222,27 +222,22 @@ async def calculate_pr_points(
 
         analysis_result = activity.pull_request_result.ai_analysis_result # 直接使用已存在的分析结果
 
-        # 如果活动已完成且已存在 points 字段，则不重复授予
-        # if activity.status == "completed" and activity.points and activity.points > 0:
-        #     return {"message": "Points already awarded for this activity.", "points_awarded": activity.points}
+        # 如果活动已完成且已存在 points 字段，则不重复授予，直接返回现有积分
+        if activity.status == "completed" and activity.points is not None and activity.points > 0:
+            print(f"[积分发放] 活动 {activity_show_id} 已完成且已发放积分 {activity.points}，不再重复授予。")
+            return {"message": "Points already awarded for this activity.", "points_awarded": activity.points}
 
         score_result = analysis_result.get("score") or {
             "overall_score": analysis_result.get("overall_score"),
             "dimensions": analysis_result.get("dimensions")
         }
 
-        # 若 analysis_result 已包含 points 并且活动已完成但 points 为 0，则直接使用
-        points_calculation_result = analysis_result.get("points")
-        if not points_calculation_result:
-            points_calculation_result = await calculate_points_from_analysis(score_result)
-            # 将计算出的 points 写回 analysis_result 以便后续直接使用
-            analysis_result["points"] = points_calculation_result
-
+        # 始终重新计算积分，确保精确性
+        points_calculation_result = await calculate_points_from_analysis(score_result)
         points_to_award = points_calculation_result["total_points"]
         detailed_points = points_calculation_result["detailed_points"]
 
-        old_points = activity.points or 0 # 获取旧积分，如果不存在则为0
-
+        # 记录本次发放的积分，用于后续的活动积分显示
         activity.points = points_to_award
         activity.status = "completed"
         activity.completed_at = datetime.utcnow()
@@ -254,9 +249,9 @@ async def calculate_pr_points(
         user_result = await db.execute(select(User).filter(User.id == activity.user_id))
         user = user_result.scalars().first()
         if user:
-            # 先扣除旧积分，再增加新积分
-            user.points = (user.points or 0) - old_points + points_to_award
-            print(f"[积分发放] user_id={user.id}, activity_id={activity.id}, old_points={old_points}, new_points={user.points}, awarded={points_to_award}")
+            # 累加积分，而不是复杂的加减
+            user.points = (user.points or 0) + points_to_award
+            print(f"[积分发放] user_id={user.id}, activity_id={activity.id}, awarded={points_to_award}, new_total_points={user.points}")
         else:
             print(f"Could not find user with id {activity.user_id} to award points.")
         

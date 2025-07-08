@@ -24,11 +24,11 @@ import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { useApi } from "@/hooks/useApi"
-import { directActivityApi, directUserApi, directPrApi } from "@/lib/direct-api"
+import { unifiedApi } from "@/lib/unified-api"
 import { useToast } from "@/components/ui/use-toast"
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion"
-import { format } from "date-fns"
+import { format, addHours } from "date-fns"
 
 const labelMap: Record<string, string> = {
   bonus: "基础积分",
@@ -47,7 +47,7 @@ export default function ActivityDetailPage() {
   const queryClient = useQueryClient();
   const { data: activityQueryResult, isLoading, error } = useQuery({
     queryKey: ['activity', activityId],
-    queryFn: () => directActivityApi.getActivityByShowId(activityId as string),
+    queryFn: () => unifiedApi.activity.getActivityByShowId(activityId as string),
     enabled: !!activityId,
     refetchOnWindowFocus: false,
     staleTime: 5 * 60 * 1000,
@@ -59,7 +59,7 @@ export default function ActivityDetailPage() {
 
   const { data: userProfileData, isLoading: profileLoading, error: profileError } = useQuery({
     queryKey: ['userProfile', activity?.user_id],
-    queryFn: () => directUserApi.getProfile(String(activity?.user_id)),
+    queryFn: () => unifiedApi.user.getProfile(String(activity?.user_id)),
     enabled: !!activity?.user_id,
     staleTime: 5 * 60 * 1000,
   });
@@ -67,9 +67,9 @@ export default function ActivityDetailPage() {
   console.log("userProfileData in ActivityDetailPage:", userProfileData);
   console.log("activity in ActivityDetailPage:", activity);
 
-  const { execute: triggerAnalysis, isLoading: isAnalyzing, error: analysisError } = useApi(directPrApi.analyzePr)
-  const { execute: resetActivityPoints, isLoading: isResettingPoints } = useApi(directActivityApi.resetActivityPoints)
-  const { execute: calculatePoints, isLoading: isCalculatingPoints, error: calculateError } = useApi(directPrApi.calculatePrPoints)
+  const { execute: triggerAnalysis, isLoading: isAnalyzing, error: analysisError } = useApi(unifiedApi.pr.analyzePr)
+  const { execute: resetActivityPoints, isLoading: isResettingPoints } = useApi(unifiedApi.activity.resetActivityPoints)
+  const { execute: calculatePoints, isLoading: isCalculatingPoints, error: calculateError } = useApi(unifiedApi.pr.calculatePrPoints)
   
   const { toast } = useToast();
 
@@ -82,8 +82,7 @@ export default function ActivityDetailPage() {
 
   const fetchScoringDimensions = async () => {
     try {
-      const { directScoringApi } = await import("@/lib/direct-api");
-      const labels = await directScoringApi.getScoringDimensions();
+      const labels = await unifiedApi.scoring.getDimensions();
       setDimensionLabels(labels.data);
     } catch (err) {
       console.error("获取维度标签失败", err);
@@ -145,9 +144,11 @@ export default function ActivityDetailPage() {
 
   const [dimensionLabels, setDimensionLabels] = useState<{ [key: string]: string }>({});
 
-  const handleCalculatePointsClick = async () => {
-    if (!activityId) return;
+  const [isCalculatingPointsManual, setIsCalculatingPointsManual] = useState(false);
 
+  const handleCalculatePointsClick = async () => {
+    if (!activityId || isCalculatingPointsManual) return;
+    setIsCalculatingPointsManual(true);
     toast({
       title: "正在计算积分",
       description: "正在根据AI分析结果计算积分...",
@@ -174,8 +175,30 @@ export default function ActivityDetailPage() {
         variant: "destructive",
       });
       console.error("Calculate points error:", err);
+    } finally {
+      setIsCalculatingPointsManual(false);
     }
   };
+
+  // 添加 SSE 监听，AI 分析完成后自动计算积分
+  useEffect(() => {
+    if (!activityId) return;
+    const eventSource = new EventSource(`/api/pr/stream-analysis-updates/${activityId}`);
+    eventSource.onmessage = async (e: MessageEvent) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.status === 'analyzed') {
+          // 触发积分计算
+          await calculatePoints(activityId);
+          // 刷新活动数据以显示积分明细
+          queryClient.invalidateQueries(['activity', activityId]);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    return () => eventSource.close();
+  }, [activityId, calculatePoints, queryClient]);
 
   if (isLoading || profileLoading) {
     return <div className="text-center p-4">加载中...</div>
@@ -280,11 +303,11 @@ export default function ActivityDetailPage() {
                   </CardTitle>
                   <Button 
                     onClick={handleAnalyzeClick} 
-                    disabled={isAnalyzing}
+                    disabled={isAnalyzing || activity?.status === 'analyzing'}
                     size="sm"
                   >
-                    {isAnalyzing ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {(isAnalyzing || activity?.status === 'analyzing') ? (
+                      "分析中"
                     ) : (
                       <>
                         <Star className="mr-2 h-4 w-4" />
@@ -502,46 +525,31 @@ export default function ActivityDetailPage() {
                     items.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
 
                     return items.map((it, idx) => (
-                      <TimelineItem key={idx} label={it.label} time={format(new Date(it.time), 'yyyy-MM-dd HH:mm')} color={it.color} />
+                      <TimelineItem
+                        key={idx}
+                        label={it.label}
+                        time={format(addHours(new Date(it.time), 8), 'yyyy-MM-dd HH:mm:ss')}
+                        color={it.color}
+                      />
                     ));
                   })()}
                 </CardContent>
               </Card>
 
-              {/* Points Breakdown */}
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              {/* 积分明细 */}
+              <Card className="mt-6">
+                <CardHeader>
                   <CardTitle className="text-lg">积分明细</CardTitle>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={handleCalculatePointsClick}
-                      className="flex-1 text-base py-2 mr-2"
-                      disabled={isCalculatingPoints || isAnalyzing}
-                    >
-                      {isCalculatingPoints ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <>
-                          <Star className="mr-2 h-4 w-4" />
-                          {activity.ai_analysis?.points?.total_points && activity.ai_analysis.points.total_points > 0 ? "重新计算积分" : "计算积分"}
-                        </>
-                      )}
-                    </Button>
-                  </div>
                 </CardHeader>
                 <CardContent>
-                  {/* 详细积分明细，根据后端返回格式（数组或对象）渲染 */}
                   {activity.ai_analysis?.points?.detailed_points ? (
                     Array.isArray(activity.ai_analysis.points.detailed_points) ? (
-                      // 数组格式，格式为 [{ bonus, text }, { innovation_bonus, text }, ...]
                       activity.ai_analysis.points.detailed_points.map((item: any, idx: number) => {
                         const pts = item.bonus ?? item.innovation_bonus ?? 0;
-                        // 优先使用 text 字段，否则根据 key 映射
-                        const label = item.text || (item.bonus !== undefined ? labelMap.bonus : labelMap.innovation_bonus);
+                        const label = item.text ?? (item.bonus !== undefined ? labelMap.bonus : labelMap.innovation_bonus);
                         return <PointItem key={idx} label={label} points={pts} color="blue" />;
                       })
                     ) : (
-                      // 旧对象格式
                       Object.entries(activity.ai_analysis.points.detailed_points)
                         .filter(([dim]) => dim !== 'innovation')
                         .map(([dim, pts]) => (
@@ -551,7 +559,6 @@ export default function ActivityDetailPage() {
                   ) : (
                     <p className="text-gray-500">暂无积分明细</p>
                   )}
-                  {/* 分隔线与总计 */}
                   {activity.ai_analysis?.points?.total_points > 0 && (
                     <>
                       <Separator className="my-4" />

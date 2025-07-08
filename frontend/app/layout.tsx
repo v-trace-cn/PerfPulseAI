@@ -12,18 +12,15 @@ import { ToastProvider } from "@/lib/toast-context"
 import { AuthDialogProvider } from "@/lib/auth-dialog-context"
 import SiteHeader from "@/components/site-header";
 import { useRouter } from 'next/navigation';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 import ClientPage from './client-page';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
 const queryClient = new QueryClient();
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+// 创建一个内部组件来处理 toast 逻辑
+function LayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { toast } = useToast();
 
@@ -42,23 +39,35 @@ export default function RootLayout({
   };
 
   return (
+    <>
+      <AuthProvider>
+        <AuthDialogProvider>
+          <SiteHeader onHelpClick={handleHelpClick} onSettingsClick={handleSettingsClick} />
+          <main className="flex min-h-screen flex-col">
+            <QueryClientProvider client={queryClient}>
+              {children}
+              <ReactQueryDevtools initialIsOpen={false} />
+            </QueryClientProvider>
+          </main>
+          <ClientPage />
+          <Toaster />
+        </AuthDialogProvider>
+      </AuthProvider>
+    </>
+  );
+}
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
     <html lang="en" suppressHydrationWarning>
       <body className="font-sans antialiased">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <ToastProvider>
-            <AuthProvider>
-              <AuthDialogProvider>
-                <SiteHeader onHelpClick={handleHelpClick} onSettingsClick={handleSettingsClick} />
-                <main className="flex min-h-screen flex-col">
-                  <QueryClientProvider client={queryClient}>
-                    {children}
-                    <ReactQueryDevtools initialIsOpen={false} />
-                  </QueryClientProvider>
-                </main>
-                <ClientPage />
-                <Toaster />
-              </AuthDialogProvider>
-            </AuthProvider>
+            <LayoutContent>{children}</LayoutContent>
           </ToastProvider>
         </ThemeProvider>
       </body>

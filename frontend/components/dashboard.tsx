@@ -11,23 +11,11 @@ import { RecentActivities } from "@/components/recent-activities"
 import RewardSystem from "@/components/reward-system"
 import { ScoringSystem } from "@/components/scoring-system"
 import {
-  Brain,
-  BarChartIcon as ChartBar,
   Award,
   Gauge,
   Shield,
-  Users,
-  Cpu,
-  User as UserIcon,
-  Settings,
   Pencil,
   Trophy,
-  Code,
-  Layers,
-  Paintbrush,
-  BarChart,
-  DollarSign,
-  Scale,
   Mail,
   Phone,
   CheckCircle2,
@@ -38,6 +26,14 @@ import {
   EyeOff,
   Plus,
   Search,
+  Github,
+  Building2,
+  Calendar,
+  Camera,
+  BarChart3 as ChartBar,
+  User as UserIcon,
+  Cpu,
+  Code,
 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -57,17 +53,11 @@ import {
 } from "@/components/ui/dialog"
 import { useAuth } from "@/lib/auth-context"
 import { cn, getRelativeDate } from "@/lib/utils"
-import { directUserApi, directActivityApi, directDepartmentApi } from "@/lib/direct-api"
-import { useToast } from "@/hooks/use-toast"
-import { useTheme } from "next-themes"
+import { unifiedApi } from "@/lib/unified-api"
+import { User } from "@/lib/types"
+import { GovernanceCard, WeeklyGoalsCard, PointsCard, ComplianceCard } from "@/components/ui/metric-card"
+import { useToast } from "@/components/ui/use-toast"
 import { useApi } from "@/hooks/useApi"
-import Link from "next/link"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 
@@ -208,6 +198,8 @@ const globalStyles = `
   }
 `
 
+
+
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("overview")
   const router = useRouter()
@@ -216,80 +208,38 @@ export default function Dashboard() {
   const queryClient = useQueryClient(); // 初始化 queryClient
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [userData, setUserData] = useState({
-    name: user?.name || "",
-    department: user?.department || "",
-    position: user?.position || "",
-    email: user?.email || "",
-    phone: user?.phone || "",
-    githubUrl: user?.githubUrl || "",
-    joinDate: user?.joinDate || "",
-    points: user?.points || 0,
-    level: user?.level || 0,
-    avatar: user?.avatar || "/placeholder-logo.png",
-    skills: user?.skills || [],
-    achievements: [
-      { id: 1, title: "AI算法优化奖", date: "2023-Q2", icon: "🧠" },
-      { id: 2, title: "数据安全贡献奖", date: "2023-05", icon: "🔒" },
-      { id: 3, title: "最佳团队协作奖", date: "2023-07", icon: "🤝" },
-    ],
-    recentActivities: [
-      { id: 1, type: "task", title: "完成算法偏见检测", date: "2023-08-15", points: 15 },
-      { id: 2, type: "contribution", title: "提交代码优化方案", date: "2023-08-10", points: 20 },
-      { id: 3, type: "review", title: "参与伦理审查会议", date: "2023-08-05", points: 10 },
-    ],
+  const [userData, setUserData] = useState<any>({
+    name: "",
+    email: "",
+    position: "",
+    phone: "",
+    githubUrl: "",
+    departmentId: null,
+    avatar: "/placeholder-user.jpg",
+    total_points: 0, // 初始化总积分
+    level: 1,
+    achievements: [],
   })
 
   const [showPhone, setShowPhone] = useState(false)
   const [editProfileOpen, setEditProfileOpen] = useState(false)
   const [viewColleagueOpen, setViewColleagueOpen] = useState(false)
-  const [selectedColleague, setSelectedColleague] = useState<any>(null)
+  const [selectedColleague, setSelectedColleague] = useState<User | null>(null)
   const [selectedDepartment, setSelectedDepartment] = useState<string | undefined>(undefined)
 
   // 使用 useQuery 获取部门列表
   const { data: departmentsData, isLoading: isLoadingDepartments } = useQuery({
     queryKey: ["departments"],
     queryFn: async () => {
-      const res = await directDepartmentApi.getDepartments();
+      const res = await unifiedApi.department.getAll();
       if (!res.success) throw new Error(res.message);
       return res.data;
     },
   });
   const departments = Array.isArray(departmentsData) ? departmentsData : [];
 
-  const [teamMembers] = useState([
-    {
-      id: 1,
-      name: "李华",
-      department: "数据部",
-      position: "数据科学家",
-      email: "lihua@example.com",
-      phone: "139****4567",
-      joinDate: "2022-01-10",
-      points: 1320,
-      level: 3,
-      avatar: "/placeholder.svg?height=128&width=128",
-      skills: ["数据挖掘", "机器学习", "Python", "数据可视化", "统计分析"],
-    },
-    {
-      id: 2,
-      name: "王芳",
-      department: "伦理部",
-      position: "伦理专家",
-      email: "wangfang@example.com",
-      phone: "135****7890",
-      joinDate: "2021-08-15",
-      points: 1580,
-      level: 4,
-      avatar: "/placeholder.svg?height=128&width=128",
-      skills: ["AI伦理", "政策分析", "风险评估", "合规审查", "伦理框架"],
-    },
-  ])
-
-  const [teamMemberSearch] = useState("")
-
   // Activity API for fetching recent personal activities
-  const { execute: fetchRecentActivities } = useApi(directActivityApi.getRecentActivities);
+  const { execute: fetchRecentActivities } = useApi(unifiedApi.activity.getRecentActivities);
 
   const handleEditProfile = () => {
     // 在打开编辑对话框时，设置当前用户的部门
@@ -318,14 +268,14 @@ export default function Dashboard() {
         name: userData.name,
         phone: userData.phone,
         githubUrl: userData.githubUrl,
-        departmentId: selectedDepartment, // 使用状态中的部门ID
+        departmentId: selectedDepartment ? parseInt(selectedDepartment) : undefined, // 使用状态中的部门ID
       };
 
       console.log("Updated info to send:", updatedInfo);
       console.log("User object:", user, "User ID:", user?.id);
 
       if (user && user.id) {
-        const result = await directUserApi.updateUserInfo(user.id, updatedInfo);
+        const result = await unifiedApi.user.updateUserInfo(user.id, updatedInfo);
         console.log("API update result:", result);
 
         if (result.success) {
@@ -337,7 +287,7 @@ export default function Dashboard() {
           setEditProfileOpen(false)
           await refreshUser();
           // 如果有其他地方也使用 React Query 查询用户数据，需要使其失效
-          queryClient.invalidateQueries(["user", user.id]);
+          queryClient.invalidateQueries({ queryKey: ["user", user.id] });
         } else {
           toast({
             title: "更新失败",
@@ -367,6 +317,8 @@ export default function Dashboard() {
   useEffect(() => {
     if (user) {
       console.log("AuthContext user updated:", user);
+      console.log("user.points:", user.points);
+      console.log("user.total_points:", user.total_points);
       console.log("user.githubUrl directly:", user.githubUrl);
       setUserData({
         name: user.name || "",
@@ -376,7 +328,7 @@ export default function Dashboard() {
         phone: user.phone || "",
         githubUrl: user.githubUrl || "",
         joinDate: user.joinDate || "",
-        points: user.points ?? 0,
+        points: user.total_points ?? user.points ?? 0,
         level: user.level ?? 0,
         avatar: user.avatar || "/placeholder-logo.png",
         skills: user.skills || [],
@@ -401,7 +353,7 @@ export default function Dashboard() {
               date: getRelativeDate(act.created_at),
               points: act.points,
             }));
-            setUserData((prev) => ({ ...prev, recentActivities: formattedActivities }));
+            setUserData((prev: any) => ({ ...prev, recentActivities: formattedActivities }));
           } else {
             console.error("Fetching recent activities failed or no activities in response.data.activities", response);
           }
@@ -439,9 +391,9 @@ export default function Dashboard() {
     if (files && files.length > 0 && user?.id) {
       const file = files[0]
       try {
-        const result = await directUserApi.uploadAvatar(String(user.id), file)
+        const result = await unifiedApi.user.uploadAvatar(String(user.id), file)
         if (result.success && result.data.avatar) {
-          setUserData((prev) => ({ ...prev, avatar: result.data.avatar }))
+          setUserData((prev: any) => ({ ...prev, avatar: result.data.avatar }))
           toast({
             title: "头像上传成功",
             description: "您的头像已更新。",
@@ -463,6 +415,10 @@ export default function Dashboard() {
         })
       }
     }
+  }
+
+  if (isLoadingDepartments) {
+    return <div className="flex justify-center items-center h-screen">加载中...</div>;
   }
 
   // 组件渲染
@@ -517,94 +473,10 @@ export default function Dashboard() {
         {activeTab === "overview" && (
           <section className="space-y-8 pt-4 animate-fadeIn transition-opacity duration-300">
             <div className="grid gap-6 md:gap-8 md:grid-cols-2 lg:grid-cols-4 max-w-7xl mx-auto px-2">
-              <Card className="tech-card overflow-hidden shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp card-transition-delay-1">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-primary/10 to-transparent">
-                  <CardTitle className="text-sm font-medium">治理指数</CardTitle>
-                  <div className="p-2 rounded-full bg-primary/10">
-                    <Shield className="h-5 w-5 text-primary" />
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  <div className="text-2xl font-bold">89.5</div>
-                  <div className="flex items-center mt-1">
-                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                      <div className="h-full progress-indicator" style={{ width: "89.5%" }}></div>
-                    </div>
-                    <span className="ml-2 text-xs text-green-400">+2.5%</span>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="tech-card overflow-hidden shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp card-transition-delay-2">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-secondary/10 to-transparent">
-                  <CardTitle className="text-sm font-medium">智能任务</CardTitle>
-                  <div className="p-2 rounded-full bg-secondary/10">
-                    <Brain className="h-5 w-5 text-secondary" />
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  <div className="text-2xl font-bold">145</div>
-                  <div className="flex items-center mt-1">
-                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                      <div className="h-full progress-indicator" style={{ width: "72.5%" }}></div>
-                    </div>
-                    <span className="ml-2 text-xs text-green-400">+24</span>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="tech-card overflow-hidden shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp card-transition-delay-3">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-accent/10 to-transparent">
-                  <CardTitle className="text-sm font-medium">积分总数</CardTitle>
-                  <div className="p-2 rounded-full bg-accent/10">
-                    <Award className="h-5 w-5 text-accent" />
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  <div className="text-2xl font-bold">{userData?.points || 0}</div>
-                  <div className="flex items-center mt-1">
-                    <Progress
-                      value={(userData.points / 2000) * 100}
-                      className="h-1.5 w-full bg-muted/50"
-                      indicatorClassName="progress-indicator"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between mt-2 text-xs">
-                    <span className="flex items-center">
-                      <Users className="h-3.5 w-3.5 text-purple-500 mr-1" />
-                      团队加分: <span className="text-purple-500 font-medium ml-1"></span>
-                    </span>
-                    <span className="text-muted-foreground">本周新增</span>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="tech-card overflow-hidden shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp card-transition-delay-4">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-red-500/10 to-transparent">
-                  <CardTitle className="text-sm font-medium">合规状态</CardTitle>
-                  <div className="p-2 rounded-full bg-red-500/10">
-                    <Cpu className="h-5 w-5 text-red-500" />
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  <div className="text-2xl font-bold">98.2%</div>
-                  <div className="flex items-center mt-1">
-                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-green-500 to-emerald-500"
-                        style={{ width: "98.2%" }}
-                      ></div>
-                    </div>
-                    <span className="ml-2 text-xs text-green-400">+1.2%</span>
-                  </div>
-                  <div className="flex items-center justify-between mt-2 text-xs">
-                    <span className="flex items-center">
-                      <Shield className="h-3.5 w-3.5 text-green-500 mr-1" />
-                      <span>
-                        最近检测: <span className="text-green-500 font-medium">通过</span>
-                      </span>
-                    </span>
-                    <span className="text-muted-foreground">今日</span>
-                  </div>
-                </CardContent>
-              </Card>
+              <GovernanceCard value={89.5} trend="+2.5%" />
+              <WeeklyGoalsCard value={145} trend="+24" />
+              <PointsCard points={userData?.points || 0} />
+              <ComplianceCard percentage={98.2} trend="+1.2%" />
             </div>
             <div className={cn("grid gap-8 md:gap-8 lg:grid-cols-7 px-2 mb-8 pb-8")}>
               <Card className="col-span-4 tech-card shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp">
@@ -974,59 +846,6 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             </div>
-            {/* 团队成员卡片单独一行横向铺满 */}
-            <Card className="tech-card shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp w-full mb-16">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>团队成员</CardTitle>
-                <div className="relative w-64">
-                  <Input
-                    type="text"
-                    placeholder="搜索成员..."
-                    value={teamMemberSearch}
-                    onChange={(e) => setTeamMemberSearch(e.target.value)}
-                    className="pr-8"
-                  />
-                  <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                </div>
-              </CardHeader>
-              <Separator className="my-2" />
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {teamMembers
-                    .filter(
-                      (member: any) =>
-                        teamMemberSearch === "" ||
-                        member.name.toLowerCase().includes(teamMemberSearch.toLowerCase()) ||
-                        member.department.toLowerCase().includes(teamMemberSearch.toLowerCase()) ||
-                        member.position.toLowerCase().includes(teamMemberSearch.toLowerCase()),
-                    )
-                    .map((member: any, i: number) => (
-                      <div
-                        key={member.id}
-                        className="flex flex-col items-center p-4 rounded-lg border border-primary/10 bg-primary/5 hover:bg-primary/10 transition-colors cursor-pointer"
-                        onClick={() => {
-                          setSelectedColleague(member)
-                          setViewColleagueOpen(true)
-                        }}
-                      >
-                        <Avatar className="h-16 w-16 mb-2 border-2 border-primary/20">
-                          <AvatarImage src={member.avatar} alt={member.name} />
-                          <AvatarFallback className="bg-primary/10 text-primary">
-                            {member.name.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <h3 className="font-medium text-center">{member.name}</h3>
-                        <p className="text-xs text-muted-foreground text-center">
-                          {member.department} · {member.position}
-                        </p>
-                        <Badge className="mt-2 bg-primary/10 text-primary border-none">
-                          Lv.{member.level} · {member.points}分
-                        </Badge>
-                      </div>
-                    ))}
-                </div>
-              </CardContent>
-            </Card>
           </div>
         )}
       </main>

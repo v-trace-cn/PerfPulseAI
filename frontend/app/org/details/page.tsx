@@ -12,7 +12,7 @@ import MemberCard from "@/components/organization/MemberCard"
 import { DetailedMember, DepartmentStats } from "@/lib/types"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useQuery } from "@tanstack/react-query"
-import { directDepartmentApi } from "@/lib/direct-api"
+import { unifiedApi } from "@/lib/unified-api"
 import { useRouter } from "next/navigation"; // 引入 useRouter
 
 // Mock data for members (will be replaced by fetched data)
@@ -84,7 +84,7 @@ export default function DepartmentDetailsPage() {
       if (!departmentId) {
         return Promise.resolve([]); // 如果没有 departmentId，不发起请求
       }
-      return directDepartmentApi.getDepartmentMembers(departmentId).then(res => res.data);
+      return unifiedApi.department.getMembers(departmentId).then(res => res.data);
     },
     enabled: !!departmentId, // 只有当 departmentId 存在时才启用查询
   });

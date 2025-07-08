@@ -24,7 +24,7 @@ import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { useApi } from "@/hooks/useApi"
-import { directActivityApi, directUserApi, directPrApi } from "@/lib/direct-api"
+import { unifiedApi } from "@/lib/unified-api"
 import { useToast } from "@/components/ui/use-toast"
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion"
@@ -47,7 +47,7 @@ export default function ActivityDetailPage() {
   const queryClient = useQueryClient();
   const { data: activityQueryResult, isLoading, error } = useQuery({
     queryKey: ['activity', activityId],
-    queryFn: () => directActivityApi.getActivityByShowId(activityId as string),
+    queryFn: () => unifiedApi.activity.getActivityByShowId(activityId as string),
     enabled: !!activityId,
     refetchOnWindowFocus: false,
     staleTime: 5 * 60 * 1000,
@@ -59,7 +59,7 @@ export default function ActivityDetailPage() {
 
   const { data: userProfileData, isLoading: profileLoading, error: profileError } = useQuery({
     queryKey: ['userProfile', activity?.user_id],
-    queryFn: () => directUserApi.getProfile(String(activity?.user_id)),
+    queryFn: () => unifiedApi.user.getProfile(String(activity?.user_id)),
     enabled: !!activity?.user_id,
     staleTime: 5 * 60 * 1000,
   });
@@ -67,9 +67,9 @@ export default function ActivityDetailPage() {
   console.log("userProfileData in ActivityDetailPage:", userProfileData);
   console.log("activity in ActivityDetailPage:", activity);
 
-  const { execute: triggerAnalysis, isLoading: isAnalyzing, error: analysisError } = useApi(directPrApi.analyzePr)
-  const { execute: resetActivityPoints, isLoading: isResettingPoints } = useApi(directActivityApi.resetActivityPoints)
-  const { execute: calculatePoints, isLoading: isCalculatingPoints, error: calculateError } = useApi(directPrApi.calculatePrPoints)
+  const { execute: triggerAnalysis, isLoading: isAnalyzing, error: analysisError } = useApi(unifiedApi.pr.analyzePr)
+  const { execute: resetActivityPoints, isLoading: isResettingPoints } = useApi(unifiedApi.activity.resetActivityPoints)
+  const { execute: calculatePoints, isLoading: isCalculatingPoints, error: calculateError } = useApi(unifiedApi.pr.calculatePrPoints)
   
   const { toast } = useToast();
 
@@ -82,8 +82,7 @@ export default function ActivityDetailPage() {
 
   const fetchScoringDimensions = async () => {
     try {
-      const { directScoringApi } = await import("@/lib/direct-api");
-      const labels = await directScoringApi.getScoringDimensions();
+      const labels = await unifiedApi.scoring.getDimensions();
       setDimensionLabels(labels.data);
     } catch (err) {
       console.error("获取维度标签失败", err);

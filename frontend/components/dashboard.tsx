@@ -58,13 +58,6 @@ import { User, Activity as ActivityType, RecentActivity, Department, Member as M
 import { GovernanceCard, WeeklyGoalsCard, PointsCard, ComplianceCard } from "@/components/ui/metric-card"
 import { useToast } from "@/components/ui/use-toast"
 import { useApi } from "@/hooks/useApi"
-import Link from "next/link"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 

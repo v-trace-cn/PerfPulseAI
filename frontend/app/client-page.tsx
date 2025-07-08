@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useTheme } from "next-themes"
 import { useToast } from "@/components/ui/use-toast"
-import { authApi } from "@/lib/api"
+import { authApi } from "@/lib/unified-api"
 import { useAuthDialog } from "@/lib/auth-dialog-context"
 import { Loader2 } from "lucide-react"
 

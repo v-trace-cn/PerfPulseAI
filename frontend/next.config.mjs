@@ -27,6 +27,14 @@ const nextConfig = {
     parallelServerBuildTraces: true,
     parallelServerCompiles: true,
   },
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://127.0.0.1:5000'}/api/:path*`,
+      },
+    ];
+  },
   // Using API route handlers instead of rewrites
 }
 

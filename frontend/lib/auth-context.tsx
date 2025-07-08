@@ -1,28 +1,8 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authApi, userApi } from './api';
-
-// Define the User type
-export interface User {
-  id: string;
-  name?: string;
-  email: string;
-  department?: string; // This will become department name
-  departmentId?: number; // 添加 departmentId
-  position?: string;
-  phone?: string; // 添加 phone
-  githubUrl?: string; // 添加 githubUrl
-  avatar?: string; // 添加 avatar
-  joinDate?: string; // 添加 joinDate
-  points?: number;
-  level?: number;
-  completedTasks?: number; // 添加 completedTasks
-  pendingTasks?: number; // 添加 pendingTasks
-  createdAt?: string;
-  updatedAt?: string;
-  // Add other user properties as needed
-};
+import { unifiedApi } from './unified-api';
+import { User, AuthResponse } from './types';
 
 type AuthContextType = {
   user: User | null;
@@ -54,8 +34,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        const userData = await userApi.getProfile();
-        setUser(userData.data);
+        const userData = await unifiedApi.user.getProfile(token);
+        setUser(userData);
       } catch (err) {
         console.error('Profile fetch error:', err);
         // Clear invalid token
@@ -69,10 +49,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshUser = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
     setIsLoading(true);
     try {
-      const userData = await userApi.getProfile();
-      setUser(userData.data);
+      const userData = await unifiedApi.user.getProfile(token);
+      setUser(userData);
     } catch (err) {
       console.error('Refresh user error:', err);
       setError((err as any).message || '刷新用户数据失败');
@@ -86,12 +69,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      const response = await authApi.login(email, password);
-      
+      const response = await unifiedApi.auth.login(email, password);
+
       if (!response.success || !response.data || !response.data.userId) {
         throw new Error(response.message || '登录失败');
       }
-      
+
       if (typeof window !== 'undefined') {
         localStorage.setItem('token', response.data.userId);
         await refreshUser();
@@ -111,12 +94,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      const response = await authApi.register(email, password, name || email.split('@')[0]);
-      
+      const response = await unifiedApi.auth.register(email, password, name || email.split('@')[0]);
+
       if (!response.success || !response.data || !response.data.userId) {
         throw new Error(response.message || '注册失败');
       }
-      
+
       if (typeof window !== 'undefined') {
         localStorage.setItem('token', response.data.userId);
         await refreshUser();

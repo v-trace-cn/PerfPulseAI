@@ -32,7 +32,7 @@ import {
   MessageSquare,
   Layers,
 } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "@/components/ui/use-toast"
 import { ScoreCard } from "@/components/ui/score-card"
 
 // Define mock data for scoringCategories and recentScores directly

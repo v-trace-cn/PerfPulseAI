@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { backendUrl } from '../../../../lib/config/api-config';
+import { getBackendApiUrl } from '../../../../lib/config/api-config';
 
 export async function GET(
   request: Request,
@@ -13,13 +13,13 @@ export async function GET(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
     
-    const response = await fetch(`${backendUrl}/api/users/${userId}`, {
+    const response = await fetch(`${getBackendApiUrl()}/api/users/${userId}`, {
       method: 'GET',
       signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'Origin': backendUrl
+        'Origin': getBackendApiUrl()
       }
     });
     
@@ -54,13 +54,13 @@ export async function PUT(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
     
-    const response = await fetch(`${backendUrl}/api/users/${userId}`, {
+    const response = await fetch(`${getBackendApiUrl()}/api/users/${userId}`, {
       method: 'PUT',
       signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'Origin': backendUrl
+        'Origin': getBackendApiUrl()
       },
       body: JSON.stringify(body),
     });

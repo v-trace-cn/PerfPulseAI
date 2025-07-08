@@ -1,19 +1,25 @@
 import { NextResponse } from 'next/server';
-import { backendUrl } from '../../../../lib/config/api-config';
+import { getBackendApiUrl } from '../../../../lib/config/api-config';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
     // Forward the request to the backend auth 登录接口
-    const response = await fetch(`${backendUrl}/api/auth/login`, {
+    const response = await fetch(`${getBackendApiUrl()}/api/auth/login`, {
       method: 'POST',
+      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'Origin': backendUrl
+        'Origin': getBackendApiUrl()
       },
       body: JSON.stringify(body),
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));

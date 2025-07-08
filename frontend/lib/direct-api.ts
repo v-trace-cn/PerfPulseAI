@@ -6,10 +6,10 @@ import { getApiUrl } from "./config/api-config";
 
 // Generic fetch function with error handling and detailed logging
 async function fetchDirectApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const url = endpoint.startsWith('http') ? endpoint : getApiUrl(endpoint);
+  // 浏览器端使用相对路径，交给 Next.js 重写到正确后端；SSR 时拼完整 URL
+  const url = getApiUrl(endpoint);
   
   console.log(`Attempting to fetch from: ${url} with method: ${options.method || 'GET'}`);
-
   try {
     const response = await fetch(url, {
       ...options,

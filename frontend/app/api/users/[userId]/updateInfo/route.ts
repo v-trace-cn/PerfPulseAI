@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getBackendApiUrl } from '../../../../lib/config/api-config';
 
 // 使用全局变量存储用户数据（在实际应用中应该使用数据库）
 const userDataStore = new Map();

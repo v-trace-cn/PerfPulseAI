@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
-import { backendUrl, frontendOrigin } from '../../../lib/config/api-config';
+import { getBackendApiUrl, getFrontendOriginUrl } from '../../../lib/config/api-config';
 
 export async function GET() {
-  const testUrl = `${backendUrl}/api/health`;
+  const testUrl = `${getBackendApiUrl()}/api/health`;
 
   try {
     // 测试性请求，添加详细日志
     const response = await fetch(testUrl, {
       method: 'GET',
       headers: {
-        'Origin': frontendOrigin // 确保与前端地址一致
+        'Origin': getFrontendOriginUrl() // 确保与前端地址一致
       }
     });
 
@@ -21,7 +21,7 @@ export async function GET() {
     
     return NextResponse.json(data, {
       headers: {
-        'Access-Control-Allow-Origin': frontendOrigin
+        'Access-Control-Allow-Origin': getFrontendOriginUrl()
       }
     });
   } catch (error) {
@@ -38,7 +38,7 @@ export async function GET() {
       { 
         status: 200,
         headers: {
-          'Access-Control-Allow-Origin': frontendOrigin
+          'Access-Control-Allow-Origin': getFrontendOriginUrl()
         }
       }
     );

@@ -11,23 +11,11 @@ import { RecentActivities } from "@/components/recent-activities"
 import RewardSystem from "@/components/reward-system"
 import { ScoringSystem } from "@/components/scoring-system"
 import {
-  Brain,
-  BarChartIcon as ChartBar,
   Award,
   Gauge,
   Shield,
-  Users,
-  Cpu,
-  User as UserIcon,
-  Settings,
   Pencil,
   Trophy,
-  Code,
-  Layers,
-  Paintbrush,
-  BarChart,
-  DollarSign,
-  Scale,
   Mail,
   Phone,
   CheckCircle2,
@@ -38,6 +26,14 @@ import {
   EyeOff,
   Plus,
   Search,
+  Github,
+  Building2,
+  Calendar,
+  Camera,
+  BarChart3 as ChartBar,
+  User as UserIcon,
+  Cpu,
+  Code,
 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -57,9 +53,10 @@ import {
 } from "@/components/ui/dialog"
 import { useAuth } from "@/lib/auth-context"
 import { cn, getRelativeDate } from "@/lib/utils"
-import { directUserApi, directActivityApi, directDepartmentApi } from "@/lib/direct-api"
-import { useToast } from "@/hooks/use-toast"
-import { useTheme } from "next-themes"
+import { unifiedApi } from "@/lib/unified-api"
+import { User, Activity as ActivityType, RecentActivity, Department, Member as MemberType, ProfileUpdateData } from "@/lib/types"
+import { GovernanceCard, WeeklyGoalsCard, PointsCard, ComplianceCard } from "@/components/ui/metric-card"
+import { useToast } from "@/components/ui/use-toast"
 import { useApi } from "@/hooks/useApi"
 import Link from "next/link"
 import {
@@ -258,7 +255,7 @@ export default function Dashboard() {
   const { data: departmentsData, isLoading: isLoadingDepartments } = useQuery({
     queryKey: ["departments"],
     queryFn: async () => {
-      const res = await directDepartmentApi.getDepartments();
+      const res = await unifiedApi.department.getAll();
       if (!res.success) throw new Error(res.message);
       return res.data;
     },
@@ -266,7 +263,7 @@ export default function Dashboard() {
   const departments = Array.isArray(departmentsData) ? departmentsData : [];
 
   // Activity API for fetching recent personal activities
-  const { execute: fetchRecentActivities } = useApi(directActivityApi.getRecentActivities);
+  const { execute: fetchRecentActivities } = useApi(unifiedApi.activity.getRecentActivities);
 
   const handleEditProfile = () => {
     // 在打开编辑对话框时，设置当前用户的部门
@@ -295,14 +292,14 @@ export default function Dashboard() {
         name: userData.name,
         phone: userData.phone,
         githubUrl: userData.githubUrl,
-        departmentId: selectedDepartment, // 使用状态中的部门ID
+        departmentId: selectedDepartment ? parseInt(selectedDepartment) : undefined, // 使用状态中的部门ID
       };
 
       console.log("Updated info to send:", updatedInfo);
       console.log("User object:", user, "User ID:", user?.id);
 
       if (user && user.id) {
-        const result = await directUserApi.updateUserInfo(user.id, updatedInfo);
+        const result = await unifiedApi.user.updateUserInfo(user.id, updatedInfo);
         console.log("API update result:", result);
 
         if (result.success) {
@@ -314,7 +311,7 @@ export default function Dashboard() {
           setEditProfileOpen(false)
           await refreshUser();
           // 如果有其他地方也使用 React Query 查询用户数据，需要使其失效
-          queryClient.invalidateQueries(["user", user.id]);
+          queryClient.invalidateQueries({ queryKey: ["user", user.id] });
         } else {
           toast({
             title: "更新失败",
@@ -344,6 +341,8 @@ export default function Dashboard() {
   useEffect(() => {
     if (user) {
       console.log("AuthContext user updated:", user);
+      console.log("user.points:", user.points);
+      console.log("user.total_points:", user.total_points);
       console.log("user.githubUrl directly:", user.githubUrl);
       setUserData({
         name: user.name || "",
@@ -353,7 +352,7 @@ export default function Dashboard() {
         phone: user.phone || "",
         githubUrl: user.githubUrl || "",
         joinDate: user.joinDate || "",
-        points: user.points ?? 0,
+        points: user.total_points ?? user.points ?? 0,
         level: user.level ?? 0,
         avatar: user.avatar || "/placeholder-logo.png",
         skills: user.skills || [],
@@ -378,7 +377,7 @@ export default function Dashboard() {
               date: getRelativeDate(act.created_at),
               points: act.points,
             }));
-            setUserData((prev) => ({ ...prev, recentActivities: formattedActivities }));
+            setUserData((prev: any) => ({ ...prev, recentActivities: formattedActivities }));
           } else {
             console.error("Fetching recent activities failed or no activities in response.data.activities", response);
           }
@@ -416,9 +415,9 @@ export default function Dashboard() {
     if (files && files.length > 0 && user?.id) {
       const file = files[0]
       try {
-        const result = await directUserApi.uploadAvatar(String(user.id), file)
+        const result = await unifiedApi.user.uploadAvatar(String(user.id), file)
         if (result.success && result.data.avatar) {
-          setUserData((prev) => ({ ...prev, avatar: result.data.avatar }))
+          setUserData((prev: any) => ({ ...prev, avatar: result.data.avatar }))
           toast({
             title: "头像上传成功",
             description: "您的头像已更新。",
@@ -498,94 +497,10 @@ export default function Dashboard() {
         {activeTab === "overview" && (
           <section className="space-y-8 pt-4 animate-fadeIn transition-opacity duration-300">
             <div className="grid gap-6 md:gap-8 md:grid-cols-2 lg:grid-cols-4 max-w-7xl mx-auto px-2">
-              <Card className="tech-card overflow-hidden shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp card-transition-delay-1">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-primary/10 to-transparent">
-                  <CardTitle className="text-sm font-medium">治理指数</CardTitle>
-                  <div className="p-2 rounded-full bg-primary/10">
-                    <Shield className="h-5 w-5 text-primary" />
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  <div className="text-2xl font-bold">89.5</div>
-                  <div className="flex items-center mt-1">
-                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                      <div className="h-full progress-indicator" style={{ width: "89.5%" }}></div>
-                    </div>
-                    <span className="ml-2 text-xs text-green-400">+2.5%</span>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="tech-card overflow-hidden shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp card-transition-delay-2">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-secondary/10 to-transparent">
-                  <CardTitle className="text-sm font-medium">智能任务</CardTitle>
-                  <div className="p-2 rounded-full bg-secondary/10">
-                    <Brain className="h-5 w-5 text-secondary" />
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  <div className="text-2xl font-bold">145</div>
-                  <div className="flex items-center mt-1">
-                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                      <div className="h-full progress-indicator" style={{ width: "72.5%" }}></div>
-                    </div>
-                    <span className="ml-2 text-xs text-green-400">+24</span>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="tech-card overflow-hidden shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp card-transition-delay-3">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-accent/10 to-transparent">
-                  <CardTitle className="text-sm font-medium">积分总数</CardTitle>
-                  <div className="p-2 rounded-full bg-accent/10">
-                    <Award className="h-5 w-5 text-accent" />
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  <div className="text-2xl font-bold">{userData?.points || 0}</div>
-                  <div className="flex items-center mt-1">
-                    <Progress
-                      value={(userData.points / 2000) * 100}
-                      className="h-1.5 w-full bg-muted/50"
-                      indicatorClassName="progress-indicator"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between mt-2 text-xs">
-                    <span className="flex items-center">
-                      <Users className="h-3.5 w-3.5 text-purple-500 mr-1" />
-                      团队加分: <span className="text-purple-500 font-medium ml-1"></span>
-                    </span>
-                    <span className="text-muted-foreground">本周新增</span>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="tech-card overflow-hidden shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp card-transition-delay-4">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-red-500/10 to-transparent">
-                  <CardTitle className="text-sm font-medium">合规状态</CardTitle>
-                  <div className="p-2 rounded-full bg-red-500/10">
-                    <Cpu className="h-5 w-5 text-red-500" />
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  <div className="text-2xl font-bold">98.2%</div>
-                  <div className="flex items-center mt-1">
-                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-green-500 to-emerald-500"
-                        style={{ width: "98.2%" }}
-                      ></div>
-                    </div>
-                    <span className="ml-2 text-xs text-green-400">+1.2%</span>
-                  </div>
-                  <div className="flex items-center justify-between mt-2 text-xs">
-                    <span className="flex items-center">
-                      <Shield className="h-3.5 w-3.5 text-green-500 mr-1" />
-                      <span>
-                        最近检测: <span className="text-green-500 font-medium">通过</span>
-                      </span>
-                    </span>
-                    <span className="text-muted-foreground">今日</span>
-                  </div>
-                </CardContent>
-              </Card>
+              <GovernanceCard value={89.5} trend="+2.5%" />
+              <WeeklyGoalsCard value={145} trend="+24" />
+              <PointsCard points={userData?.points || 0} />
+              <ComplianceCard percentage={98.2} trend="+1.2%" />
             </div>
             <div className={cn("grid gap-8 md:gap-8 lg:grid-cols-7 px-2 mb-8 pb-8")}>
               <Card className="col-span-4 tech-card shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp">

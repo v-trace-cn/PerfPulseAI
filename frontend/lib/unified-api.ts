@@ -3,7 +3,7 @@
  * This file consolidates all API calls and provides a consistent interface
  */
 
-import { getApiUrl } from "./config/api-config";
+import { getApiUrl, getBackendApiUrl } from "./config/api-config";
 
 // API Response types
 export interface ApiResponse<T = any> {
@@ -71,18 +71,25 @@ export interface Department {
 // Generic fetch function with comprehensive error handling
 async function fetchUnifiedApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = getApiUrl(endpoint);
-  
+
   console.log(`[UnifiedAPI] ${options.method || 'GET'} ${url}`);
-  
+
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
     const response = await fetch(url, {
       ...options,
+      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+        'Origin': getBackendApiUrl(),
         ...options.headers,
       },
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));

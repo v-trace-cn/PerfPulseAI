@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { genId, reducer, Action, ToasterToast, State, TOAST_LIMIT, TOAST_REMOVE_DELAY, addToRemoveQueue } from "@/lib/toast-utils"
+import { genId, reducer, Action, ToasterToast, State} from "@/lib/toast-utils"
 
 interface ToastContextType extends State {
   toast: (props: Omit<ToasterToast, "id">) => {

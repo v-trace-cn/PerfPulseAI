@@ -6,12 +6,20 @@ export async function GET() {
 
   try {
     // 测试性请求，添加详细日志
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
     const response = await fetch(testUrl, {
       method: 'GET',
+      signal: controller.signal,
       headers: {
-        'Origin': getFrontendOriginUrl() // 确保与前端地址一致
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Origin': getBackendApiUrl()
       }
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);

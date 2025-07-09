@@ -75,7 +75,7 @@ export default function ActivityDetailPage() {
 
   const { data: prDetails, isLoading: prLoading } = useQuery({
     queryKey: ['prDetails', activity?.id],
-    queryFn: () => directPrApi.getPullRequestDetails(String(activity?.id)),
+    queryFn: () => unifiedApi.pr.getPullRequestDetails(String(activity?.id)),
     enabled: !!activity?.id,
     staleTime: 5 * 60 * 1000,
   });

@@ -13,8 +13,8 @@ class ScoringCriteria(Base):
     description = Column(String(255), nullable=False)
     base_points = Column(Integer, default=0)
     weight = Column(Float, default=1.0)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow().replace(microsecond=0))
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow().replace(microsecond=0), onupdate=lambda: datetime.utcnow().replace(microsecond=0))
     
     def to_dict(self):
         return {
@@ -36,8 +36,8 @@ class ScoringFactor(Base):
     options = Column(JSON, nullable=True)  # 存储选项的JSON数据
     min_value = Column(Integer, nullable=True)
     max_value = Column(Integer, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow().replace(microsecond=0))
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow().replace(microsecond=0), onupdate=lambda: datetime.utcnow().replace(microsecond=0))
     
     def to_dict(self):
         result = {
@@ -69,7 +69,7 @@ class ScoreEntry(Base):
     score = Column(Integer, nullable=False)
     factors = Column(JSON, nullable=True)  # 存储评分因素的JSON数据
     notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow().replace(microsecond=0))
     
     # 关联关系
     user = relationship('User', backref=backref('scores', lazy=True))
@@ -96,7 +96,7 @@ class GovernanceMetric(Base):
     dimension = Column(String(50), nullable=False)  # department, global, etc.
     metric_name = Column(String(50), nullable=False)  # 代码质量, 文档完整性, etc.
     value = Column(Float, nullable=False)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.utcnow().replace(microsecond=0))
     
     def to_dict(self):
         return {

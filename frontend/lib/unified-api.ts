@@ -19,7 +19,7 @@ export interface PaginatedResponse<T = any> {
     rewards?: T[];
     total: number;
     page: number;
-    per_page: number;
+    perPage: number;
   };
   message: string;
   success: boolean;
@@ -49,21 +49,29 @@ export interface UserProfile {
 // Activity types
 export interface Activity {
   id: string;
-  show_id: string;
+  showId: string;
   title: string;
   description?: string;
   status: string;
   points?: number;
-  user_id: string;
-  created_at: string;
-  updated_at?: string;
-  completed_at?: string;
+  userId: string;
+  createdAt: string;
+  updatedAt?: string;
+  completedAt?: string;
+  activityType?: string;
+  diffUrl?: string;
+  user?: any;
+  aiAnalysis?: string;
+  aiAnalysisStartedAt?: string;
+  aiAnalysisCompletedAt?: string;
+  pointsCalculatedAt?: string;
 }
 
 // Department types
 export interface Department {
   id: number;
   name: string;
+  companyId?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -72,7 +80,6 @@ export interface Department {
 async function fetchUnifiedApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = getApiUrl(endpoint);
   
-  console.log(`[UnifiedAPI] ${options.method || 'GET'} ${url}`);
   
   try {
     const response = await fetch(url, {
@@ -86,16 +93,31 @@ async function fetchUnifiedApi<T>(endpoint: string, options: RequestInit = {}): 
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.error(`[UnifiedAPI] Error from ${endpoint}:`, errorData);
+      console.error('❌ API错误响应:', {
+        url,
+        status: response.status,
+        statusText: response.statusText,
+        errorData
+      });
       const errorMessage = errorData.message || errorData.error || errorData.detail || `服务器错误: ${response.status}`;
-      throw new Error(errorMessage);
+
+      // 创建一个包含更多信息的错误对象
+      const error = new Error(errorMessage) as any;
+      error.status = response.status;
+      error.detail = errorData.detail;
+      error.response = errorData;
+      throw error;
     }
 
     const data = await response.json();
-    console.log(`[UnifiedAPI] Success from ${endpoint}:`, data);
+    console.log('✅ API成功响应:', { url, data });
     return data;
   } catch (error) {
-    console.error(`[UnifiedAPI] Request to ${endpoint} failed:`, error);
+    console.error('💥 API请求异常:', {
+      url,
+      error: error instanceof Error ? error.message : error,
+      stack: error instanceof Error ? error.stack : undefined
+    });
     throw error;
   }
 }
@@ -115,7 +137,7 @@ async function fetchPublicKey(): Promise<string> {
 
 async function encryptPayload(payload: any): Promise<string | null> {
   if (typeof window === 'undefined' || !window.crypto?.subtle?.importKey) {
-    console.warn('[UnifiedAPI] WebCrypto RSA-OAEP not available, using plaintext transmission');
+    // WebCrypto警告日志已移除
     return null;
   }
 
@@ -170,6 +192,13 @@ export const unifiedApi = {
       return fetchUnifiedApi(`/api/auth/reset-password`, {
         method: 'POST',
         body: JSON.stringify(body),
+      });
+    },
+
+    verifyInviteCode: async (inviteCode: string): Promise<ApiResponse<{ valid: boolean }>> => {
+      return fetchUnifiedApi(`/api/auth/verify-invite-code`, {
+        method: 'POST',
+        body: JSON.stringify({ inviteCode }),
       });
     },
 
@@ -239,20 +268,45 @@ export const unifiedApi = {
 
   // Department API
   department: {
-    create: (name: string): Promise<ApiResponse<Department>> =>
+    create: (data: any, userId?: string): Promise<ApiResponse<Department>> =>
       fetchUnifiedApi(`/api/departments/`, {
         method: 'POST',
-        body: JSON.stringify({ name }),
+        body: JSON.stringify(data),
+        headers: {
+          'X-User-ID': userId || '',
+        },
       }),
 
-    getAll: (): Promise<ApiResponse<Department[]>> =>
-      fetchUnifiedApi(`/api/departments/`),
+    getAll: (userId?: string): Promise<ApiResponse<Department[]>> =>
+      fetchUnifiedApi(`/api/departments/`, {
+        headers: {
+          'X-User-ID': userId || '',
+        },
+      }),
 
-    delete: (id: string): Promise<ApiResponse> =>
-      fetchUnifiedApi(`/api/departments/${id}`, { method: 'DELETE' }),
+    update: (id: string, data: any, userId?: string): Promise<ApiResponse<Department>> =>
+      fetchUnifiedApi(`/api/departments/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+        headers: {
+          'X-User-ID': userId || '',
+        },
+      }),
 
-    getMembers: (departmentId: string): Promise<ApiResponse<any[]>> =>
-      fetchUnifiedApi(`/api/departments/${departmentId}/members`),
+    delete: (id: string, userId?: string): Promise<ApiResponse> =>
+      fetchUnifiedApi(`/api/departments/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'X-User-ID': userId || '',
+        },
+      }),
+
+    getMembers: (departmentId: string, userId?: string): Promise<ApiResponse<any[]>> =>
+      fetchUnifiedApi(`/api/departments/${departmentId}/members`, {
+        headers: {
+          'X-User-ID': userId || '',
+        },
+      }),
   },
 
   // Scoring API
@@ -260,10 +314,135 @@ export const unifiedApi = {
     getDimensions: (): Promise<ApiResponse<{ [key: string]: string }>> =>
       fetchUnifiedApi(`/api/scoring/dimensions`),
   },
+
+  // Company API
+  company: {
+    getAll: (userId: string): Promise<ApiResponse<any[]>> =>
+      fetchUnifiedApi(`/api/companies/`, {
+        headers: {
+          'X-User-ID': userId,
+        },
+      }),
+
+    getAvailable: (userId: string, search?: string): Promise<ApiResponse<any[]>> =>
+      fetchUnifiedApi(`/api/companies/available${search ? `?search=${encodeURIComponent(search)}` : ''}`, {
+        headers: {
+          'X-User-ID': userId,
+        },
+      }),
+
+    getById: (id: number, userId: string): Promise<ApiResponse<any>> =>
+      fetchUnifiedApi(`/api/companies/${id}`, {
+        headers: {
+          'X-User-ID': userId,
+        },
+      }),
+
+    create: (data: any): Promise<ApiResponse<any>> =>
+      fetchUnifiedApi(`/api/companies/`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+        headers: {
+          'X-User-ID': data.creatorUserId,
+        },
+      }),
+
+    update: (id: number, data: any): Promise<ApiResponse<any>> =>
+      fetchUnifiedApi(`/api/companies/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+        headers: {
+          'X-User-ID': data.userId,
+        },
+      }),
+
+    delete: (id: number, userId: string): Promise<ApiResponse> =>
+      fetchUnifiedApi(`/api/companies/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'X-User-ID': userId,
+        },
+      }),
+
+    getStats: (id: number, userId: string): Promise<ApiResponse<any>> =>
+      fetchUnifiedApi(`/api/companies/${id}/stats`, {
+        headers: {
+          'X-User-ID': userId,
+        },
+      }),
+
+    joinByInviteCode: (inviteCode: string, userId?: string, forceJoin?: boolean): Promise<ApiResponse<any>> =>
+      fetchUnifiedApi(`/api/companies/join`, {
+        method: 'POST',
+        body: JSON.stringify({ inviteCode, userId, forceJoin }),
+        headers: {
+          'X-User-ID': userId || '',
+        },
+      }),
+
+    leaveCompany: (userId?: string): Promise<ApiResponse<any>> =>
+      fetchUnifiedApi(`/api/companies/leave`, {
+        method: 'POST',
+        body: JSON.stringify({ userId }),
+        headers: {
+          'X-User-ID': userId || '',
+        },
+      }),
+
+    getByInviteCode: (inviteCode: string): Promise<ApiResponse<any>> =>
+      fetchUnifiedApi(`/api/companies/invite-code/${inviteCode}`),
+  },
+
+
+
+
+
+  // Permission API
+  permission: {
+    getAll: (userId: string): Promise<ApiResponse<any>> =>
+      fetchUnifiedApi(`/api/permissions/`, {
+        headers: {
+          'X-User-ID': userId,
+        },
+      }),
+
+    getCategories: (userId: string): Promise<ApiResponse<any[]>> =>
+      fetchUnifiedApi(`/api/permissions/categories`, {
+        headers: {
+          'X-User-ID': userId,
+        },
+      }),
+
+    getUserPermissions: (targetUserId: number, userId: string): Promise<ApiResponse<any>> =>
+      fetchUnifiedApi(`/api/permissions/user/${targetUserId}`, {
+        headers: {
+          'X-User-ID': userId,
+        },
+      }),
+
+    checkUserPermissions: (targetUserId: number, permissions: string, userId: string): Promise<ApiResponse<any>> =>
+      fetchUnifiedApi(`/api/permissions/check/${targetUserId}?permissions=${encodeURIComponent(permissions)}`, {
+        headers: {
+          'X-User-ID': userId,
+        },
+      }),
+
+    getDefinitions: (): Promise<ApiResponse<any>> =>
+      fetchUnifiedApi(`/api/permissions/definitions`),
+  },
 };
 
 // Export individual APIs for backward compatibility
-export const { auth: authApi, user: userApi, activity: activityApi, pr: prApi, department: departmentApi, scoring: scoringApi } = unifiedApi;
+export const {
+  auth: authApi,
+  user: userApi,
+  activity: activityApi,
+  pr: prApi,
+  department: departmentApi,
+  scoring: scoringApi,
+  company: companyApi,
+  permission: permissionApi
+} = unifiedApi;
 
 // Default export
 export default unifiedApi;

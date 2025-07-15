@@ -23,7 +23,7 @@ export async function POST(request: Request) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.error('Backend login error response:', errorData);
+      // 错误日志已移除
       // 优先使用后端提供的 detail 或 message，然后回退到中文通用提示
       const errorMsg = errorData.detail || errorData.message || `后端错误: ${response.status}`;
       return NextResponse.json(
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Login error:', error);
+    // 登录错误日志已移除
     return NextResponse.json(
       { 
         success: false,

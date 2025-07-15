@@ -120,8 +120,12 @@ export default function ClientPage() {
         const success = await register(formData.email, formData.password, user?.name);
         if (success) {
           toast({ title: "注册成功", description: "账号已创建，欢迎加入！", variant: "default" });
-          setRegistrationStatus("注册成功，3秒后自动关闭。");
-          setTimeout(() => setAuthDialogOpen(false), 3000);
+          setRegistrationStatus("注册成功，即将跳转到工作台...");
+          setAuthDialogOpen(false);
+          // 注册成功后直接跳转到dashboard
+          setTimeout(() => {
+            router.push('/');
+          }, 1000);
         } else {
           toast({ title: "注册失败", description: error || "请稍后再试", variant: "destructive" });
           setRegistrationStatus(`注册失败: ${error || "未知错误"}`);
@@ -152,7 +156,19 @@ export default function ClientPage() {
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="email">邮箱</Label>
-              <Input id="email" type="email" placeholder="info@v-trace.cn" value={formData.email} onChange={handleInputChange} required />
+              <Input
+                id="email"
+                type="email"
+                placeholder="info@v-trace.cn"
+                value={formData.email}
+                onChange={handleInputChange}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSubmit();
+                  }
+                }}
+                required
+              />
               {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
             </div>
             {(authMode === "login" || authMode === "register" || authMode === "reset-password") && (
@@ -176,7 +192,18 @@ export default function ClientPage() {
             {(authMode === "register" || authMode === "reset-password") && (
               <div className="grid gap-2">
                 <Label htmlFor="confirmPassword">确认密码</Label>
-                <Input id="confirmPassword" type="password" value={formData.confirmPassword} onChange={handleInputChange} required />
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={formData.confirmPassword}
+                  onChange={handleInputChange}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSubmit();
+                    }
+                  }}
+                  required
+                />
                 {errors.confirmPassword && <p className="text-red-500 text-sm">{errors.confirmPassword}</p>}
                 {errors.passwordMatch && <p className="text-red-500 text-sm">{errors.passwordMatch}</p>}
               </div>

@@ -15,13 +15,17 @@ router = APIRouter(prefix="/api/users", tags=["user"])
 @router.get("/{user_id}")
 async def get_user(user_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
-        select(User).filter(User.id == user_id).options(selectinload(User.department_rel))
+        select(User).filter(User.id == user_id).options(
+            selectinload(User.department_rel),
+            selectinload(User.company)
+        )
     )
     user = result.scalars().first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
     department_name = user.department_rel.name if user.department_rel else None
+    company_name = user.company.name if user.company else None
 
     user_data = {
         "id": user.id,
@@ -40,7 +44,9 @@ async def get_user(user_id: int, db: AsyncSession = Depends(get_db)):
         "completed_activities_count": user.completed_tasks,
         "pendingTasks": user.pending_tasks,
         "createdAt": user.created_at.isoformat() if user.created_at else None,
-        "updatedAt": user.updated_at.isoformat() if user.updated_at else None
+        "updatedAt": user.updated_at.isoformat() if user.updated_at else None,
+        "companyId": user.company_id,
+        "companyName": company_name
     }
 
     return {"data": user_data, "message": "查询成功", "success": True}
@@ -52,41 +58,59 @@ async def get_achievements(user_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.post("/{user_id}/updateInfo")
 async def update_user(user_id: int, data: dict = Body(...), db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).filter(User.id == user_id))
-    user = result.scalars().first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    """更新用户信息"""
+    try:
+        print(f"更新用户信息请求: user_id={user_id}, data={data}")
 
-    # 处理部门更新
-    if "departmentId" in data and data["departmentId"] is not None:
-        department_id = int(data["departmentId"])
-        dept_result = await db.execute(select(Department).filter(Department.id == department_id))
-        department_obj = dept_result.scalars().first()
-        if not department_obj:
-            raise HTTPException(status_code=400, detail="指定的部门不存在")
-        user.department_id = department_id
-    elif "departmentId" in data and data["departmentId"] is None:
-        user.department_id = None
+        # 预加载关联对象以避免懒加载导致的异步问题
+        result = await db.execute(
+            select(User)
+            .options(selectinload(User.department_rel), selectinload(User.company))
+            .filter(User.id == user_id)
+        )
+        user = result.scalars().first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
 
-    # 处理其他允许更新的字段
-    update_fields = {"name": "name", "email": "email", "position": "position", "phone": "phone", "githubUrl": "github_url"}
-    for frontend_field, db_field in update_fields.items():
-        if frontend_field in data and data[frontend_field] is not None:
-            if frontend_field == "email":
-                existing_result = await db.execute(select(User).filter(User.email == data[frontend_field], User.id != user_id))
-                existing = existing_result.scalars().first()
-                if existing:
-                    raise HTTPException(status_code=400, detail="该邮箱已被注册")
-            setattr(user, db_field, data[frontend_field])
-        elif frontend_field in data and data[frontend_field] is None:
-            setattr(user, db_field, None)
+        # 处理部门更新
+        if "departmentId" in data and data["departmentId"] is not None:
+            department_id = int(data["departmentId"])
+            dept_result = await db.execute(select(Department).filter(Department.id == department_id))
+            department_obj = dept_result.scalars().first()
+            if not department_obj:
+                raise HTTPException(status_code=400, detail="指定的部门不存在")
+            user.department_id = department_id
+        elif "departmentId" in data and data["departmentId"] is None:
+            user.department_id = None
 
-    if "password" in data and data["password"]:
-        user.set_password(data["password"])
+        # 处理其他允许更新的字段
+        update_fields = {"name": "name", "email": "email", "position": "position", "phone": "phone", "githubUrl": "github_url"}
+        for frontend_field, db_field in update_fields.items():
+            if frontend_field in data and data[frontend_field] is not None:
+                if frontend_field == "email":
+                    existing_result = await db.execute(select(User).filter(User.email == data[frontend_field], User.id != user_id))
+                    existing = existing_result.scalars().first()
+                    if existing:
+                        raise HTTPException(status_code=400, detail="该邮箱已被注册")
+                setattr(user, db_field, data[frontend_field])
+            elif frontend_field in data and data[frontend_field] is None:
+                setattr(user, db_field, None)
 
-    await db.commit()
-    await db.refresh(user)
-    return {"data": user.to_dict(), "message": "用户信息更新成功", "success": True}
+        if "password" in data and data["password"]:
+            user.set_password(data["password"])
+
+        await db.commit()
+        await db.refresh(user)
+        print(f"用户信息更新成功: {user.to_dict()}")
+        return {"data": user.to_dict(), "message": "用户信息更新成功", "success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"更新用户信息时发生错误: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"更新用户信息失败: {str(e)}")
 
 @router.post("/{user_id}/upload_avatar")
 async def upload_avatar(user_id: int, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):

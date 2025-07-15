@@ -28,7 +28,7 @@ class PullRequest(Base):
     analysis = Column(Text, nullable=True)
 
     # 关联到事件
-    events = relationship('PullRequestEvent', back_populates='pull_request')
+    events = relationship('PullRequestEvent', back_populates='pull_request', lazy='dynamic')
 
     def to_dict(self):
         return {

@@ -93,22 +93,22 @@ class Activity(Base):
         
         return {
             "id": self.id,
-            "show_id": self.show_id,
+            "showId": self.show_id,
             "title": self.title,
             "description": self.description,
             "points": self.points,
-            "user_id": self.user_id,
+            "userId": self.user_id,
             "status": self.status,
-            "activity_type": self.activity_type,
-            "diff_url": self.diff_url,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "activityType": self.activity_type,
+            "diffUrl": self.diff_url,
+            "createdAt": self.created_at.isoformat() if self.created_at else None,
+            "completedAt": self.completed_at.isoformat() if self.completed_at else None,
+            "updatedAt": self.updated_at.isoformat() if self.updated_at else None,
             "user": user_data,
-            "ai_analysis": self.pull_request_result.ai_analysis_result if self.pull_request_result else None,
-            "ai_analysis_started_at": self.pull_request_result.ai_analysis_started_at.isoformat() if self.pull_request_result and self.pull_request_result.ai_analysis_started_at else None,
-            "ai_analysis_completed_at": self.pull_request_result.updated_at.isoformat() if self.pull_request_result and self.pull_request_result.updated_at else None,
-            "points_calculated_at": self.completed_at.isoformat() if self.completed_at else None,
+            "aiAnalysis": self.pull_request_result.ai_analysis_result if self.pull_request_result else None,
+            "aiAnalysisStartedAt": self.pull_request_result.ai_analysis_started_at.isoformat() if self.pull_request_result and self.pull_request_result.ai_analysis_started_at else None,
+            "aiAnalysisCompletedAt": self.pull_request_result.updated_at.isoformat() if self.pull_request_result and self.pull_request_result.updated_at else None,
+            "pointsCalculatedAt": self.completed_at.isoformat() if self.completed_at else None,
         }
     
     @classmethod

@@ -17,6 +17,7 @@ class User(Base):
     name = Column(String(100), nullable=False)
     email = Column(String(100), unique=True, nullable=False)
     password_hash = Column(String(200))
+    company_id = Column(Integer, ForeignKey('companies.id'), nullable=True)
     department_id = Column(Integer, ForeignKey('departments.id'), nullable=True)
     department_rel = relationship('Department', backref='users', lazy=True)
     position = Column(String(100))
@@ -28,13 +29,18 @@ class User(Base):
     level = Column(Integer, default=1)
     completed_tasks = Column(Integer, default=0)
     pending_tasks = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # 关联关系
+    company = relationship('Company', back_populates='users', foreign_keys=[company_id])
+
+    created_at = Column(DateTime, default=lambda: datetime.utcnow().replace(microsecond=0))
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow().replace(microsecond=0), onupdate=lambda: datetime.utcnow().replace(microsecond=0))
     
     # 关联关系
     activities = relationship('Activity', back_populates='user', lazy=True)
+    roles = relationship('Role', secondary='user_roles', back_populates='users')
     
-    def __init__(self, name, email, password=None, department=None, position=None, 
+    def __init__(self, name, email, password=None, company_id=None, department=None, position=None,
                  phone=None, join_date=None, points=0, level=1, github_url=None, avatar_url=None, department_id=None):
         """
         Initialize a new User.
@@ -43,6 +49,7 @@ class User(Base):
         self.email = email
         if password:
             self.set_password(password)
+        self.company_id = company_id
         self.department_id = department_id
         self.position = position
         self.phone = phone
@@ -61,11 +68,19 @@ class User(Base):
     def check_password(self, password):
         """验证密码"""
         return pwd_context.verify(password, self.password_hash)
-        
+
+    def has_permission(self, permission_name: str) -> bool:
+        """检查用户是否具有指定权限"""
+        for role in self.roles:
+            for permission in role.permissions:
+                if permission.name == permission_name:
+                    return True
+        return False
+
     def to_dict(self):
         """
         Convert the user object to a dictionary.
-        
+
         Returns:
             dict: Dictionary representation of the user
         """
@@ -84,6 +99,8 @@ class User(Base):
             "level": self.level,
             "completedTasks": self.completed_tasks,
             "pendingTasks": self.pending_tasks,
+            "companyId": self.company_id,
+            "companyName": self.company.name if self.company else None,
             "createdAt": self.created_at.isoformat() if self.created_at else None,
             "updatedAt": self.updated_at.isoformat() if self.updated_at else None
         }

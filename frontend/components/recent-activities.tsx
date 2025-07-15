@@ -60,11 +60,8 @@ export function RecentActivities() {
   const { user, isLoading: userLoading } = useAuth();
 
   useEffect(() => {
-    console.log("User loading status:", userLoading);
-    console.log("User ID:", user?.id);
     const fetchActivities = async () => {
       if (userLoading || !user?.id) {
-        console.log("Skipping fetch activities: userLoading or userId is missing.");
         return;
       }
 
@@ -96,9 +93,10 @@ export function RecentActivities() {
       }));
       setActivities(mappedActivities);
       setCurrentPage(page);
-      setTotalPages(Math.ceil(total / per_page));
-      console.log("Fetched activities data:", fetchedData.data);
-      console.log(`Total: ${total}, Per Page: ${per_page}, Total Pages: ${Math.ceil(total / per_page)}`);
+      // 确保 totalPages 是一个有效的正整数
+      const calculatedTotalPages = total > 0 && per_page > 0 ? Math.ceil(total / per_page) : 1;
+      setTotalPages(Math.max(1, calculatedTotalPages));
+      // 数据获取成功，日志已移除
     } else if (fetchedData && !fetchedData.success) {
       // Handle backend success: false case
       // This is now handled by the apiError state if fetchDirectApi throws.
@@ -176,7 +174,7 @@ export function RecentActivities() {
             <PaginationItem>
               <PaginationPrevious href="#" onClick={() => handlePageChange(currentPage - 1)} />
             </PaginationItem>
-            {[...Array(totalPages)].map((_, index) => (
+            {[...Array(Math.max(1, totalPages))].map((_, index) => (
               <PaginationItem key={index}>
                 <PaginationLink
                   href="#"

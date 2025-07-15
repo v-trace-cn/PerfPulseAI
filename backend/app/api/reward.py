@@ -16,7 +16,7 @@ async def get_rewards(page: int = 1, per_page: int = 10, db: AsyncSession = Depe
     total = total_result.scalar_one()
     items_result = await db.execute(stmt.order_by(Reward.created_at.desc()).offset((page-1)*per_page).limit(per_page))
     items = items_result.scalars().all()
-    return {"data": {"rewards": [r.to_dict() for r in items], "total": total, "page": page, "per_page": per_page}, "message": "查询成功", "success": True}
+    return {"data": {"rewards": [r.to_dict() for r in items], "total": total, "page": page, "perPage": per_page}, "message": "查询成功", "success": True}
 
 @router.get("/{reward_id}")
 async def get_reward(reward_id: str, db: AsyncSession = Depends(get_db)):

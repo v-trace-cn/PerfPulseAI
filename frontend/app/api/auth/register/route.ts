@@ -27,10 +27,10 @@ export async function POST(request: Request) {
     return NextResponse.json(data);
   } catch (error: any) {
     if (error.name === 'AbortError') {
-      console.error('Registration timeout:', error);
+      // 注册超时日志已移除
       return NextResponse.json({ success: false, message: '请求超时，请稍后重试' }, { status: 504 });
     }
-    console.error('Registration error:', error);
+    // 注册错误日志已移除
     return NextResponse.json(
       { 
         success: false,

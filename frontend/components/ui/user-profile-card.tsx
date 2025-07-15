@@ -11,16 +11,17 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { 
-  Award, 
-  Mail, 
-  Phone, 
-  Github, 
-  Building2, 
+import {
+  Award,
+  Mail,
+  Phone,
+  Github,
+  Building2,
+  Building,
   Calendar,
   Pencil,
   Camera,
-  LucideIcon 
+  LucideIcon
 } from "lucide-react";
 import { User } from "@/lib/types";
 
@@ -162,6 +163,11 @@ export function UserProfileCard({
                   value={user.githubUrl}
                   href={user.githubUrl}
                   isClickable
+                />
+                <ContactInfo
+                  icon={Building}
+                  label="公司"
+                  value={user.companyName}
                 />
                 <ContactInfo
                   icon={Building2}

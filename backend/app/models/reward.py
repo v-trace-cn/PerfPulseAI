@@ -18,8 +18,8 @@ class Reward(Base):
     available = Column(Boolean, default=True)
     category = Column(String(50))
     likes = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow().replace(microsecond=0))
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow().replace(microsecond=0), onupdate=lambda: datetime.utcnow().replace(microsecond=0))
     
     # 关联关系
     redemptions = relationship('Redemption', back_populates='reward')
@@ -52,8 +52,8 @@ class Reward(Base):
             "available": self.available,
             "category": self.category,
             "likes": self.likes or 0,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+            "createdAt": self.created_at.isoformat() if self.created_at else None,
+            "updatedAt": self.updated_at.isoformat() if self.updated_at else None
         }
 
 
@@ -124,9 +124,9 @@ class RewardSuggestion(Base):
     category = Column(String(50), nullable=True)  # For new reward suggestions
     is_new_reward = Column(Boolean, default=False)  # Flag to indicate if this is a suggestion for a new reward
     status = Column(String(20), default='pending')  # pending, approved, rejected
-    timestamp = Column(DateTime, default=datetime.utcnow)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.utcnow().replace(microsecond=0))
+    created_at = Column(DateTime, default=lambda: datetime.utcnow().replace(microsecond=0))
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow().replace(microsecond=0), onupdate=lambda: datetime.utcnow().replace(microsecond=0))
     
     reward = relationship('Reward', back_populates='suggestions')
     

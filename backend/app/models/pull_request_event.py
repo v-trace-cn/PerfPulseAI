@@ -15,7 +15,7 @@ class PullRequestEvent(Base):
     event_time = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     details = Column(Text, nullable=True) # 用于存储 AI 分析摘要、审查评论等
 
-    pull_request = relationship('PullRequest', back_populates='events')
+    pull_request = relationship('PullRequest', back_populates='events', lazy='select')
 
     def to_dict(self):
         return {

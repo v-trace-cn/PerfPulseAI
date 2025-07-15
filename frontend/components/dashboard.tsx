@@ -7,8 +7,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Overview } from "@/components/overview"
 import { RecentActivities } from "@/components/recent-activities"
-// 修改导入方式，使用默认导入
-import RewardSystem from "@/components/reward-system"
 import { ScoringSystem } from "@/components/scoring-system"
 import {
   Award,
@@ -20,7 +18,6 @@ import {
   Phone,
   CheckCircle2,
   GitPullRequest,
-  MessageSquare,
   Activity,
   Eye,
   EyeOff,
@@ -28,12 +25,29 @@ import {
   Search,
   Github,
   Building2,
+  Building,
   Calendar,
   Camera,
   BarChart3 as ChartBar,
   User as UserIcon,
   Cpu,
   Code,
+  Coins,
+  ShoppingCart,
+  History,
+  TrendingUp,
+  Gift,
+  Star,
+  ArrowUp,
+  ArrowDown,
+  Package,
+  Clock,
+  CheckCircle,
+  XCircle,
+  Zap,
+  Sparkles,
+  ThumbsUp,
+  Heart
 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -60,6 +74,8 @@ import { useToast } from "@/components/ui/use-toast"
 import { useApi } from "@/hooks/useApi"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { Tabs as PointsTabs, TabsContent as PointsTabsContent, TabsList as PointsTabsList, TabsTrigger as PointsTabsTrigger } from "@/components/ui/tabs"
+
 
 // 添加自定义动画
 const fadeInAnimation = `@keyframes fadeIn {
@@ -219,6 +235,8 @@ export default function Dashboard() {
     total_points: 0, // 初始化总积分
     level: 1,
     achievements: [],
+    companyId: null,
+    companyName: "",
   })
 
   const [showPhone, setShowPhone] = useState(false)
@@ -227,14 +245,15 @@ export default function Dashboard() {
   const [selectedColleague, setSelectedColleague] = useState<User | null>(null)
   const [selectedDepartment, setSelectedDepartment] = useState<string | undefined>(undefined)
 
-  // 使用 useQuery 获取部门列表
+  // 使用 useQuery 获取部门列表 - 只有在用户有公司ID时才执行
   const { data: departmentsData, isLoading: isLoadingDepartments } = useQuery({
-    queryKey: ["departments"],
+    queryKey: ["departments", user?.companyId],
     queryFn: async () => {
-      const res = await unifiedApi.department.getAll();
+      const res = await unifiedApi.department.getAll(user?.id?.toString());
       if (!res.success) throw new Error(res.message);
       return res.data;
     },
+    enabled: !!user?.companyId && !!user?.id,
   });
   const departments = Array.isArray(departmentsData) ? departmentsData : [];
 
@@ -242,7 +261,7 @@ export default function Dashboard() {
   const { execute: fetchRecentActivities } = useApi(unifiedApi.activity.getRecentActivities);
 
   const handleEditProfile = () => {
-    // 在打开编辑对话框时，设置当前用户的部门
+    // 在打开编辑对话框时，设置当前用户的组织
     const currentDepartment = departments.find(d => d.name === userData.department);
     setSelectedDepartment(currentDepartment?.id.toString());
     setEditProfileOpen(true)
@@ -250,8 +269,6 @@ export default function Dashboard() {
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("handleSaveProfile called.");
-    console.log("userData.phone:", userData.phone, "isValidPhone:", isValidPhone(userData.phone));
 
     // 只有当手机号不为空时才进行验证
     if (userData.phone && !isValidPhone(userData.phone)) {
@@ -268,15 +285,11 @@ export default function Dashboard() {
         name: userData.name,
         phone: userData.phone,
         githubUrl: userData.githubUrl,
-        departmentId: selectedDepartment ? parseInt(selectedDepartment) : undefined, // 使用状态中的部门ID
+        departmentId: selectedDepartment ? parseInt(selectedDepartment) : undefined, // 使用状态中的组织ID
       };
-
-      console.log("Updated info to send:", updatedInfo);
-      console.log("User object:", user, "User ID:", user?.id);
 
       if (user && user.id) {
         const result = await unifiedApi.user.updateUserInfo(user.id, updatedInfo);
-        console.log("API update result:", result);
 
         if (result.success) {
           toast({
@@ -316,10 +329,6 @@ export default function Dashboard() {
   // 当获取到最新 user 时，同步基本信息
   useEffect(() => {
     if (user) {
-      console.log("AuthContext user updated:", user);
-      console.log("user.points:", user.points);
-      console.log("user.total_points:", user.total_points);
-      console.log("user.githubUrl directly:", user.githubUrl);
       setUserData({
         name: user.name || "",
         department: user.department || "",
@@ -334,8 +343,10 @@ export default function Dashboard() {
         skills: user.skills || [],
         achievements: userData.achievements,
         recentActivities: userData.recentActivities,
+        companyId: user.companyId,
+        companyName: user.companyName,
       });
-      console.log("Updated userData in useEffect (after explicit set):");
+
     }
   }, [user]);
 
@@ -355,22 +366,15 @@ export default function Dashboard() {
             }));
             setUserData((prev: any) => ({ ...prev, recentActivities: formattedActivities }));
           } else {
-            console.error("Fetching recent activities failed or no activities in response.data.activities", response);
           }
         })
-        .catch((err) => console.error("Error fetching recent activities", err));
+        .catch(() => {
+          // 静默处理错误，避免控制台日志
+        });
     }
   }, [user, fetchRecentActivities]);
 
-  // New useEffect to observe userData changes
-  useEffect(() => {
-    console.log("userData state changed:", userData);
-    if (userData.githubUrl) {
-      console.log("GitHub URL is now present in userData:", userData.githubUrl);
-    } else {
-      console.log("GitHub URL is still NOT present in userData.");
-    }
-  }, [userData]); // Depend on userData to log its changes
+
 
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
@@ -407,7 +411,7 @@ export default function Dashboard() {
           })
         }
       } catch (error) {
-        console.error("上传头像时出错:", error)
+        // 静默处理错误
         toast({
           title: "上传错误",
           description: "上传头像时发生错误，请重试。",
@@ -502,7 +506,7 @@ export default function Dashboard() {
         {activeTab === "rewards" && (
           <section className="animate-fadeIn transition-opacity duration-300 p-4">
             <div className="bg-card rounded-xl border border-border shadow-lg p-6">
-              <RewardSystem />
+              <DashboardPointsOverview />
             </div>
           </section>
         )}
@@ -582,6 +586,19 @@ export default function Dashboard() {
 
                     <Separator />
 
+                    {/* 公司信息 */}
+                    {userData.companyName && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium">公司</h4>
+                        <div className="grid grid-cols-[20px_1fr] gap-2 items-center">
+                          <Building className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm">{userData.companyName}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {userData.companyName && <Separator />}
+
                     {/* GitHub 账号 */}
                     <div className="space-y-2">
                       <h4 className="text-sm font-medium">GitHub 地址</h4>
@@ -628,7 +645,7 @@ export default function Dashboard() {
                     <div className="space-y-2">
                       <h4 className="text-sm font-medium">专业技能</h4>
                       <div className="flex flex-wrap gap-2">
-                        {(userData.skills as string[]).map((skill: string, index: number) => (
+                        {(userData.skills as string[] || []).map((skill: string, index: number) => (
                           <Badge
                             key={index}
                             variant="outline"
@@ -714,19 +731,24 @@ export default function Dashboard() {
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                               <Label htmlFor="edit-department" className="text-right">
-                                部门
+                                组织
                               </Label>
                               <Select
                                 key={`dept-select-${isLoadingDepartments}-${departments.length}`}
                                 value={selectedDepartment}
                                 onValueChange={setSelectedDepartment}
+                                disabled={!user?.companyId}
                               >
                                 <SelectTrigger className="col-span-3">
-                                  <SelectValue placeholder="选择部门" />
+                                  <SelectValue placeholder={user?.companyId ? "选择组织" : "请先加入公司"} />
                                 </SelectTrigger>
                                 <SelectContent className="z-[10000]">
-                                  {isLoadingDepartments ? (
+                                  {!user?.companyId ? (
+                                    <SelectItem value="no-company" disabled>请先加入公司</SelectItem>
+                                  ) : isLoadingDepartments ? (
                                     <SelectItem value="loading" disabled>加载中...</SelectItem>
+                                  ) : departments.length === 0 ? (
+                                    <SelectItem value="no-orgs" disabled>暂无组织</SelectItem>
                                   ) : (
                                     departments.map((dept) => (
                                       <SelectItem key={dept.id} value={String(dept.id)}>
@@ -825,7 +847,7 @@ export default function Dashboard() {
 
                     <TabsContent value="achievements" className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {userData.achievements.map((achievement) => (
+                        {(userData.achievements || []).map((achievement: any) => (
                           <Card key={achievement.id} className="tech-card overflow-hidden">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                               <CardTitle className="text-md font-medium">{achievement.title}</CardTitle>
@@ -905,7 +927,7 @@ export default function Dashboard() {
                 <div className="space-y-2">
                   <h4 className="text-sm font-medium">专业技能</h4>
                   <div className="flex flex-wrap gap-2">
-                    {(selectedColleague.skills as string[]).map((skill: string, index: number) => (
+                    {(selectedColleague.skills as string[] || []).map((skill: string, index: number) => (
                       <Badge key={index} variant="outline" className="bg-muted/30">
                         {skill}
                       </Badge>
@@ -924,4 +946,518 @@ export default function Dashboard() {
       </Dialog>
     </div>
   )
+}
+
+// Dashboard 积分概览组件 - 完整版本
+function DashboardPointsOverview() {
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState("overview")
+  const { toast } = useToast()
+
+  // 模拟数据
+  const mockUserData = {
+    currentPoints: user?.total_points || user?.points || 2450,
+    totalEarned: 3650,
+    totalSpent: 1200,
+    level: user?.level || 5,
+    nextLevelPoints: 3000,
+    monthlyEarned: 180,
+    monthlySpent: 400,
+    redeemCount: 3
+  };
+
+  const mockPointsHistory = [
+    { id: 1, type: "earn", amount: 50, reason: "完成代码审查", date: "2024-01-15", category: "技术贡献" },
+    { id: 2, type: "earn", amount: 30, reason: "提交优化建议", date: "2024-01-14", category: "流程改进" },
+    { id: 3, type: "spend", amount: -200, reason: "兑换咖啡券", date: "2024-01-13", category: "福利兑换" },
+    { id: 4, type: "earn", amount: 80, reason: "解决关键bug", date: "2024-01-12", category: "技术贡献" },
+    { id: 5, type: "spend", amount: -150, reason: "兑换书籍", date: "2024-01-11", category: "学习资源" },
+  ];
+
+  const mockRedeemHistory = [
+    { id: 1, item: "星巴克咖啡券", points: 200, status: "completed", date: "2024-01-13", category: "福利" },
+    { id: 2, item: "技术书籍《Clean Code》", points: 150, status: "completed", date: "2024-01-11", category: "学习" },
+    { id: 3, item: "午餐券", points: 100, status: "pending", date: "2024-01-10", category: "福利" },
+  ];
+
+  const progressPercentage = (mockUserData.currentPoints / mockUserData.nextLevelPoints) * 100;
+
+  return (
+    <div className="space-y-6">
+      {/* 积分概览卡片 */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {/* 当前积分 */}
+        <Card className="relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-orange-600/5" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">当前积分</CardTitle>
+            <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+              <Coins className="h-4 w-4 text-orange-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">{mockUserData.currentPoints}</div>
+            <p className="text-xs text-muted-foreground">
+              <span className="text-green-600 flex items-center">
+                <ArrowUp className="h-3 w-3 mr-1" />
+                比上月增加 +{mockUserData.monthlyEarned}
+              </span>
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* 本月兑换 */}
+        <Card className="relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-green-600/5" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">本月兑换</CardTitle>
+            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+              <Package className="h-4 w-4 text-green-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{mockUserData.redeemCount}</div>
+            <p className="text-xs text-muted-foreground">
+              总价值 {mockUserData.monthlySpent} 积分
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* 积分等级 */}
+        <Card className="relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-purple-600/5" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">积分等级</CardTitle>
+            <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+              <Star className="h-4 w-4 text-purple-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-600">Lv.{mockUserData.level}</div>
+            <div className="mt-2">
+              <Progress value={progressPercentage} className="h-2" />
+              <p className="text-xs text-muted-foreground mt-1">
+                距离下一级别还需 {mockUserData.nextLevelPoints - mockUserData.currentPoints} 积分
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 累计获得 */}
+        <Card className="relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-blue-600/5" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">累计获得</CardTitle>
+            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+              <TrendingUp className="h-4 w-4 text-blue-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{mockUserData.totalEarned}</div>
+            <p className="text-xs text-muted-foreground">
+              已消费 {mockUserData.totalSpent} 积分
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 详细信息标签页 */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="overview">积分商城</TabsTrigger>
+          <TabsTrigger value="history">积分明细</TabsTrigger>
+          <TabsTrigger value="redeem">兑换明细</TabsTrigger>
+        </TabsList>
+
+        {/* 积分商城 */}
+        <TabsContent value="overview" className="space-y-4">
+          <DashboardPointsMall currentPoints={mockUserData.currentPoints} />
+        </TabsContent>
+
+        {/* 积分明细 */}
+        <TabsContent value="history" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <History className="mr-2 h-5 w-5" />
+                积分明细
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {mockPointsHistory.map((record) => (
+                  <div key={record.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        record.type === "earn"
+                          ? "bg-green-100 text-green-600"
+                          : "bg-red-100 text-red-600"
+                      }`}>
+                        {record.type === "earn" ? (
+                          <ArrowUp className="h-4 w-4" />
+                        ) : (
+                          <ArrowDown className="h-4 w-4" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium">{record.reason}</p>
+                        <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                          <Badge variant="secondary" className="text-xs">
+                            {record.category}
+                          </Badge>
+                          <span>•</span>
+                          <span>{record.date}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className={`font-semibold ${
+                      record.type === "earn" ? "text-green-600" : "text-red-600"
+                    }`}>
+                      {record.type === "earn" ? "+" : ""}{record.amount}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 兑换明细 */}
+        <TabsContent value="redeem" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Gift className="mr-2 h-5 w-5" />
+                兑换明细
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {mockRedeemHistory.map((record) => (
+                  <div key={record.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                        <Gift className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{record.item}</p>
+                        <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                          <Badge variant="secondary" className="text-xs">
+                            {record.category}
+                          </Badge>
+                          <span>•</span>
+                          <span>{record.date}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <span className="font-semibold text-blue-600">-{record.points}</span>
+                      <Badge variant={record.status === "completed" ? "default" : "secondary"}>
+                        {record.status === "completed" ? (
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                        ) : (
+                          <Clock className="h-3 w-3 mr-1" />
+                        )}
+                        {record.status === "completed" ? "已完成" : "处理中"}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+// 积分商城组件
+function DashboardPointsMall({ currentPoints }: { currentPoints: number }) {
+  const { toast } = useToast()
+
+  // 奖励数据
+  const rewards = [
+    {
+      id: 1,
+      title: "额外休假日",
+      description: "获得一天带薪休假",
+      points: 750,
+      category: "休闲",
+      icon: Gift,
+      likes: 85,
+      stock: 10,
+      available: true,
+    },
+    {
+      id: 2,
+      title: "专业发展基金",
+      description: "获得用于专业发展的资金支持",
+      points: 1000,
+      category: "职业发展",
+      icon: Award,
+      likes: 92,
+      stock: 5,
+      available: true,
+    },
+    {
+      id: 3,
+      title: "技术书籍补贴",
+      description: "获得用于购买专业技术书籍的补贴",
+      points: 650,
+      category: "职业发展",
+      icon: Trophy,
+      likes: 78,
+      stock: 15,
+      available: true,
+    },
+    {
+      id: 4,
+      title: "健身房会员",
+      description: "一个月的健身房会员资格",
+      points: 450,
+      category: "健康",
+      icon: Zap,
+      likes: 65,
+      stock: 8,
+      available: true,
+    },
+    {
+      id: 5,
+      title: "咖啡券",
+      description: "星巴克咖啡券 5 张",
+      points: 200,
+      category: "福利",
+      icon: Gift,
+      likes: 90,
+      stock: 20,
+      available: true,
+    },
+    {
+      id: 6,
+      title: "团队聚餐",
+      description: "组织团队聚餐活动",
+      points: 800,
+      category: "团队",
+      icon: Sparkles,
+      likes: 88,
+      stock: 3,
+      available: true,
+    },
+    {
+      id: 7,
+      title: "京东购物卡",
+      description: "价值 500 元京东购物卡",
+      points: 1200,
+      category: "福利",
+      icon: Gift,
+      likes: 95,
+      stock: 12,
+      available: true,
+    },
+    {
+      id: 8,
+      title: "办公设备补贴",
+      description: "用于购买键盘、鼠标等办公设备",
+      points: 300,
+      category: "办公",
+      icon: Cpu,
+      likes: 72,
+      stock: 25,
+      available: true,
+    },
+    {
+      id: 9,
+      title: "在线课程券",
+      description: "技术培训平台课程券",
+      points: 400,
+      category: "职业发展",
+      icon: Trophy,
+      likes: 85,
+      stock: 18,
+      available: true,
+    },
+    {
+      id: 10,
+      title: "午餐券",
+      description: "公司食堂午餐券 10 张",
+      points: 150,
+      category: "福利",
+      icon: Gift,
+      likes: 88,
+      stock: 30,
+      available: true,
+    },
+  ]
+
+
+
+  const [redeemDialogOpen, setRedeemDialogOpen] = useState(false)
+  const [selectedRedeemReward, setSelectedRedeemReward] = useState<any>(null)
+
+  const handleRedeemClick = (reward: any) => {
+    if (currentPoints < reward.points) {
+      toast({
+        title: "积分不足",
+        description: `您需要 ${reward.points} 积分，当前只有 ${currentPoints} 积分`,
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!reward.available || reward.stock <= 0) {
+      toast({
+        title: "商品缺货",
+        description: "该商品暂时缺货，请选择其他商品",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setSelectedRedeemReward(reward)
+    setRedeemDialogOpen(true)
+  }
+
+  const confirmRedeem = () => {
+    if (!selectedRedeemReward) return
+
+    // 模拟兑换成功
+    toast({
+      title: "兑换成功",
+      description: `成功兑换 ${selectedRedeemReward.title}，消耗 ${selectedRedeemReward.points} 积分。订单已提交，请等待核销。`,
+      variant: "default",
+    })
+
+    // 更新库存（实际应该调用API）
+    const updatedRewards = rewards.map(r =>
+      r.id === selectedRedeemReward.id
+        ? { ...r, stock: r.stock - 1 }
+        : r
+    )
+
+    setRedeemDialogOpen(false)
+    setSelectedRedeemReward(null)
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* 奖励商城 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <ShoppingCart className="mr-2 h-5 w-5" />
+            积分商城
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {rewards.map((reward) => {
+              const IconComponent = reward.icon
+              const canAfford = currentPoints >= reward.points
+              const inStock = reward.available && reward.stock > 0
+              const canRedeem = canAfford && inStock
+
+              return (
+                <Card key={reward.id} className={`transition-all duration-200 hover:shadow-md ${
+                  canAfford ? 'hover:scale-105' : 'opacity-75'
+                }`}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                        <IconComponent className="h-5 w-5 text-primary" />
+                      </div>
+                      <Badge variant="secondary" className="text-xs">
+                        {reward.category}
+                      </Badge>
+                    </div>
+                    <CardTitle className="text-lg">{reward.title}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <p className="text-sm text-muted-foreground mb-3">
+                      {reward.description}
+                    </p>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-2">
+                        <div className="font-semibold flex items-center text-primary">
+                          <Coins className="h-4 w-4 mr-1" />
+                          {reward.points}
+                        </div>
+                        <div className="flex items-center text-xs text-muted-foreground">
+                          <Heart className="h-3 w-3 mr-1 text-red-500" />
+                          {reward.likes}%
+                        </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        库存: {reward.stock}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex space-x-2">
+                        <Button
+                          variant={canRedeem ? "default" : "secondary"}
+                          size="sm"
+                          disabled={!canRedeem}
+                          className="h-8 text-xs"
+                          onClick={() => handleRedeemClick(reward)}
+                        >
+                          {!inStock ? "缺货" : !canAfford ? "积分不足" : "兑换"}
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+
+
+      {/* 兑换确认弹窗 */}
+      <Dialog open={redeemDialogOpen} onOpenChange={setRedeemDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <Gift className="mr-2 h-5 w-5 text-primary" />
+              确认兑换
+            </DialogTitle>
+          </DialogHeader>
+          {selectedRedeemReward && (
+            <div className="space-y-4">
+              <div className="p-4 bg-muted rounded-lg">
+                <h3 className="font-medium mb-2">{selectedRedeemReward.title}</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  {selectedRedeemReward.description}
+                </p>
+                <div className="flex items-center justify-between text-sm">
+                  <span>消耗积分:</span>
+                  <span className="font-semibold text-primary">
+                    {selectedRedeemReward.points} 积分
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm mt-1">
+                  <span>剩余库存:</span>
+                  <span className="font-semibold">
+                    {selectedRedeemReward.stock} 件
+                  </span>
+                </div>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                兑换后将生成订单，请等待管理员核销。核销完成后您将收到通知。
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRedeemDialogOpen(false)}>
+              取消
+            </Button>
+            <Button onClick={confirmRedeem}>
+              确认兑换
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
 }

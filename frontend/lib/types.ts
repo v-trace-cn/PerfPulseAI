@@ -18,7 +18,7 @@ export interface PaginatedResponse<T = any> {
     members?: T[];
     total: number;
     page: number;
-    per_page: number;
+    perPage: number;
   };
   message: string;
   success: boolean;
@@ -47,6 +47,8 @@ export interface User {
   createdAt?: string;
   updatedAt?: string;
   skills?: string[];
+  companyId?: number;
+  companyName?: string;
 }
 
 export interface UserProfile extends User {
@@ -73,23 +75,27 @@ export interface WorkItem {
 
 export interface Activity {
   id: string;
-  show_id: string;
+  showId: string;
   title: string;
   description?: string;
   status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
   points?: number;
-  user_id: string;
-  created_at: string;
-  updated_at?: string;
-  completed_at?: string;
-  pull_request_result?: {
-    ai_analysis_result?: any;
-  };
+  userId: string;
+  createdAt: string;
+  updatedAt?: string;
+  completedAt?: string;
+  activityType?: string;
+  diffUrl?: string;
+  user?: any;
+  aiAnalysis?: string;
+  aiAnalysisStartedAt?: string;
+  aiAnalysisCompletedAt?: string;
+  pointsCalculatedAt?: string;
 }
 
 export interface RecentActivity {
   id: string;
-  show_id: string;
+  showId: string;
   type: string;
   title: string;
   date: string;
@@ -136,6 +142,7 @@ export interface DetailedMember extends Member {
 export interface Department {
   id: number;
   name: string;
+  companyId?: number;
   createdAt: string;
   updatedAt: string;
 }

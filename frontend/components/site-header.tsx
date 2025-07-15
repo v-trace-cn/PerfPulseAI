@@ -19,6 +19,8 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { useAuthDialog } from "@/lib/auth-dialog-context"
+import SmartOrgNav from "@/components/smart-org-nav"
+import NotificationCenter from "@/components/notification-center"
 
 interface SiteHeaderProps {
   onHelpClick: () => void;
@@ -50,13 +52,10 @@ export default function SiteHeader({ onHelpClick, onSettingsClick }: SiteHeaderP
             />
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           </div>
-          <Link href="/org" className="px-4 h-9 flex items-center rounded-md text-sm font-medium bg-transparent text-primary hover:bg-primary/10 transition-colors ml-1">
-            <Building2 className="mr-2 h-4 w-4" />
-            组织管理
-          </Link>
+          <SmartOrgNav className="px-4 h-9 flex items-center rounded-md text-sm font-medium bg-transparent text-primary hover:bg-primary/10 transition-colors ml-1" />
         </div>
         <div className="flex items-center gap-4 ml-auto">
-          <LayoutGrid className="h-5 w-5 text-primary cursor-pointer hover:opacity-80 transition-opacity" />
+          <NotificationCenter />
           <ThemeToggle />
           <DropdownMenu>
             <DropdownMenuTrigger className="flex items-center gap-2 data-pill hover:bg-muted/50 transition-colors duration-300 relative ml-2">
@@ -70,7 +69,7 @@ export default function SiteHeader({ onHelpClick, onSettingsClick }: SiteHeaderP
                   </Avatar>
                   <div className="flex flex-col text-left">
                     <span className="text-xs font-medium">{user?.name || "未知用户"}</span>
-                    <span className="text-[10px] text-muted-foreground">{user?.department || user?.email || "未知部门"}</span>
+                    <span className="text-[10px] text-muted-foreground">{user?.department || user?.email || "未加入组织"}</span>
                   </div>
                   <Badge className="h-5 ml-1 mr-6 bg-primary/10 text-primary hover:bg-primary/20 border-none">
                     <span className="text-[10px]">Lv. {user?.level || '1'}</span>

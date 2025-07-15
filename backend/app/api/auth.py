@@ -127,3 +127,33 @@ async def setup_test_user(db: AsyncSession = Depends(get_db)):
         "name": test_user.name,
         "email": test_user.email
     }, message="测试用户创建成功", success=True)
+
+@router.post("/verify-invite-code")
+async def verify_invite_code(data: dict = Body(...)):
+    """验证邀请码"""
+    import os
+
+    invite_code = data.get("inviteCode")
+    if not invite_code:
+        return Response(
+            data={"valid": False},
+            message="邀请码不能为空",
+            status_code=400,
+            success=False
+        )
+
+    # 从环境变量获取有效的邀请码
+    valid_invite_code = os.getenv("INVITE_CODE")
+
+    if invite_code == valid_invite_code:
+        return Response(
+            data={"valid": True},
+            message="邀请码验证成功"
+        )
+    else:
+        return Response(
+            data={"valid": False},
+            message="邀请码无效",
+            status_code=401,
+            success=False
+        )

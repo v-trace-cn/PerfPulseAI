@@ -64,8 +64,7 @@ export default function ActivityDetailPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  console.log("userProfileData in ActivityDetailPage:", userProfileData);
-  console.log("activity in ActivityDetailPage:", activity);
+  // 调试日志已移除
 
   const { execute: triggerAnalysis, isLoading: isAnalyzing, error: analysisError } = useApi(unifiedApi.pr.analyzePr)
   const { execute: resetActivityPoints, isLoading: isResettingPoints } = useApi(unifiedApi.activity.resetActivityPoints)
@@ -174,7 +173,7 @@ export default function ActivityDetailPage() {
         description: err.message || "连接服务器失败，未能成功计算积分。",
         variant: "destructive",
       });
-      console.error("Calculate points error:", err);
+      // 错误日志已移除
     } finally {
       setIsCalculatingPointsManual(false);
     }

@@ -358,10 +358,10 @@ export default function Dashboard() {
           if (response && response.success && response.data && response.data.activities) {
             const formattedActivities = response.data.activities.map((act: any) => ({
               id: act.id,
-              show_id: act.show_id,
+              show_id: act.showId || act.show_id,
               type: act.status,
               title: act.title,
-              date: getRelativeDate(act.created_at),
+              date: getRelativeDate(act.createdAt || act.created_at),
               points: act.points,
             }));
             setUserData((prev: any) => ({ ...prev, recentActivities: formattedActivities }));

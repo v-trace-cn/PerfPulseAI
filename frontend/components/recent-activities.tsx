@@ -76,14 +76,14 @@ export function RecentActivities() {
       const { activities: fetchedActivities, total, page, per_page } = fetchedData.data;
       const mappedActivities: Activity[] = fetchedActivities.map((activity: any) => ({
         id: activity.id,
-        show_id: activity.show_id,
+        show_id: activity.showId || activity.show_id,
         title: activity.title,
         description: activity.description,
         points: activity.points,
-        user_id: activity.user_id,
+        user_id: activity.userId || activity.user_id,
         status: activity.status,
-        created_at: activity.created_at,
-        completed_at: activity.completed_at,
+        created_at: activity.createdAt || activity.created_at,
+        completed_at: activity.completedAt || activity.completed_at,
         user: {
           name: activity.user ? activity.user.name : "未知用户",
           avatar: activity.user ? activity.user.avatar : "/placeholder-user.jpg",
@@ -132,7 +132,7 @@ export function RecentActivities() {
         <TooltipProvider key={activity.id}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Link href={`/activities/${activity.show_id}`}>
+              <Link href={activity.show_id ? `/activities/${activity.show_id}` : '#'}>
                 <div className="flex items-center p-3 rounded-lg hover:bg-muted/20 transition-colors duration-300">
                   <div className="relative">
                     <Avatar className="h-9 w-9 border transition-colors duration-300 dark:border-white/10 border-black/5 shadow-sm">

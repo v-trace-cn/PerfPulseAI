@@ -7,7 +7,11 @@ export function cn(...inputs: ClassValue[]) {
 
 // 获取相对时间显示
 export function getRelativeTime(dateString: string) {
+  if (!dateString) return "未知时间"
+
   const date = new Date(dateString)
+  if (isNaN(date.getTime())) return "无效日期"
+
   const now = new Date()
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
 
@@ -41,7 +45,11 @@ export function getRelativeTime(dateString: string) {
 
 // 获取相对日期显示，满足今天、昨天、三天前、一周内及超过一周显示年月日
 export function getRelativeDate(dateString: string) {
+  if (!dateString) return "未知日期"
+
   const date = new Date(dateString)
+  if (isNaN(date.getTime())) return "无效日期"
+
   const now = new Date()
   const diffTime = now.getTime() - date.getTime()
   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))

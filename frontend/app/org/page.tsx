@@ -18,6 +18,8 @@ import {
   Trash2,
   Link as LinkIcon,
   LogOut,
+  Gift,
+  ChevronDown,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -167,13 +169,6 @@ export default function OrganizationManagement() {
   })
 
   const userCreatedCompanies = companiesData?.data || []
-
-  // 调试信息
-  console.log('🏢 公司数据调试:', {
-    companiesData,
-    userCreatedCompanies,
-    userInfo: { id: user?.id, companyId: user?.companyId }
-  })
 
   // 新增部门的 mutation
   const createDepartmentMutation = useMutation({
@@ -532,27 +527,41 @@ export default function OrganizationManagement() {
             </h3>
           </div>
           <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setAssociateCompanyDialogOpen(true)}
-              disabled={!userCreatedCompanies.length || !data?.data?.length}
-            >
-              <LinkIcon className="mr-2 h-4 w-4" />
-              关联公司
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Building className="mr-2 h-4 w-4" />
+                  管理中心
+                  <ChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem asChild>
+                  <Link href="/companies" className="flex items-center w-full">
+                    <Building className="mr-2 h-4 w-4" />
+                    公司管理
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setAssociateCompanyDialogOpen(true)}
+                  disabled={!userCreatedCompanies.length || !data?.data?.length}
+                  className="flex items-center"
+                >
+                  <LinkIcon className="mr-2 h-4 w-4" />
+                  关联公司
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/org/redemption" className="flex items-center w-full">
+                    <Gift className="mr-2 h-4 w-4" />
+                    兑奖中心
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button variant="outline" size="sm">
+              <Settings className="mr-2 h-4 w-4" />
+              设置
             </Button>
-            <Link href="/companies">
-              <Button variant="outline" size="sm">
-                <Building className="mr-2 h-4 w-4" />
-                公司管理
-              </Button>
-            </Link>
-            <Link href="/permissions">
-              <Button variant="outline" size="sm">
-                <Settings className="mr-2 h-4 w-4" />
-                权限管理
-              </Button>
-            </Link>
           </div>
         </header>
 

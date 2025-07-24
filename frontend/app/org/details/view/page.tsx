@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { MemberListAvatar } from "@/components/ui/unified-avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Search,
@@ -166,7 +166,7 @@ function DepartmentDetailsViewContent() {
 
   useEffect(() => {
     const token = searchParams.get('token');
-    
+
     if (!token) {
       setIsValidToken(false);
       return;
@@ -180,10 +180,19 @@ function DepartmentDetailsViewContent() {
           setDepartmentId(data.departmentId.toString());
           setIsValidToken(true);
         } else {
+          // 如果令牌过期且需要新令牌，尝试重定向到组织管理页面
+          if (data.needsNewToken) {
+            console.log('令牌已过期，重定向到组织管理页面');
+            // 延迟重定向，给用户看到错误信息的时间
+            setTimeout(() => {
+              window.location.href = '/org';
+            }, 2000);
+          }
           setIsValidToken(false);
         }
       })
-      .catch(() => {
+      .catch((error) => {
+        console.error('令牌验证失败:', error);
         setIsValidToken(false);
       });
   }, [searchParams]);
@@ -191,11 +200,12 @@ function DepartmentDetailsViewContent() {
   // 使用 useQuery 获取部门成员数据
   const { data: membersData, isLoading, error } = useQuery({
     queryKey: ["departmentMembers", departmentId, user?.id],
-    queryFn: () => {
+    queryFn: async () => {
       if (!departmentId || !user?.id) {
-        return Promise.resolve([]);
+        return [];
       }
-      return unifiedApi.department.getMembers(departmentId, user.id.toString()).then(res => res.data);
+      const response = await unifiedApi.department.getMembers(parseInt(departmentId), user.id.toString());
+      return response.data || [];
     },
     enabled: !!departmentId && !!user?.id && isValidToken === true,
   });
@@ -207,9 +217,9 @@ function DepartmentDetailsViewContent() {
         <CompanyGuard>
           <NotFoundPage
             title="访问被拒绝"
-            message="您的访问令牌无效或已过期。请从组织管理页面重新选择部门。"
+            message="您的访问令牌无效或已过期。正在为您重定向到组织管理页面，请稍候..."
             backUrl="/org"
-            backText="返回组织管理"
+            backText="立即返回组织管理"
           />
         </CompanyGuard>
       </AuthGuard>
@@ -236,29 +246,33 @@ function DepartmentDetailsViewContent() {
 
   // 转换后台数据为前端需要的格式
   const transformMemberData = (backendMember: any) => {
+    const baseScore = backendMember.performanceScore || 0;
+    const commits = backendMember.kpis?.codeCommits || 0;
+
     return {
       id: backendMember.id,
       name: backendMember.name,
+      email: backendMember.email,
       avatar: backendMember.avatar,
       initials: backendMember.initials,
       title: backendMember.title || "开发工程师",
-      level: `P${Math.floor(Math.random() * 3) + 5}`,
-      performanceScore: backendMember.performanceScore || 85,
-      prCount: backendMember.kpis?.codeCommits || Math.floor(Math.random() * 50) + 20,
-      points: backendMember.performanceScore || Math.floor(Math.random() * 100) + 50,
-      codeCommits: backendMember.kpis?.codeCommits || Math.floor(Math.random() * 200) + 100,
-      bugsFixed: backendMember.kpis?.bugsFixed || Math.floor(Math.random() * 20) + 5,
-      newFeatures: backendMember.kpis?.newFeatures || Math.floor(Math.random() * 10) + 2,
-      codeReviews: Math.floor(Math.random() * 50) + 20,
+      level: `P${Math.floor(baseScore / 200) + 5}`, // 根据积分计算等级
+      performanceScore: baseScore,
+      prCount: commits,
+      points: baseScore,
+      codeCommits: commits,
+      bugsFixed: backendMember.kpis?.bugsFixed || 0,
+      newFeatures: backendMember.kpis?.newFeatures || 0,
+      codeReviews: Math.floor(commits * 0.3), // 代码审查约为提交数的30%
       skills: backendMember.skills || ["React", "TypeScript", "Node.js"],
       recentWork: backendMember.recentWork || [
         { id: "w1", title: "功能开发", status: "进行中", date: "2024-01-15", priority: "high" },
         { id: "w2", title: "代码审查", status: "已完成", date: "2024-01-10", priority: "medium" },
       ],
       monthlyStats: {
-        "2024-01": { prCount: Math.floor(Math.random() * 15) + 5, points: Math.floor(Math.random() * 30) + 70, commits: Math.floor(Math.random() * 50) + 30 },
-        "2024-02": { prCount: Math.floor(Math.random() * 15) + 5, points: Math.floor(Math.random() * 30) + 70, commits: Math.floor(Math.random() * 50) + 30 },
-        "2024-03": { prCount: Math.floor(Math.random() * 15) + 5, points: Math.floor(Math.random() * 30) + 70, commits: Math.floor(Math.random() * 50) + 30 },
+        "2024-01": { prCount: Math.floor(commits * 0.3), points: Math.floor(baseScore * 0.3), commits: Math.floor(commits * 0.3) },
+        "2024-02": { prCount: Math.floor(commits * 0.4), points: Math.floor(baseScore * 0.4), commits: Math.floor(commits * 0.4) },
+        "2024-03": { prCount: Math.floor(commits * 0.3), points: Math.floor(baseScore * 0.3), commits: Math.floor(commits * 0.3) },
       },
       status: "active",
       joinDate: backendMember.joinDate || "2023-01-01",
@@ -266,10 +280,12 @@ function DepartmentDetailsViewContent() {
     };
   };
 
-  // 使用后台数据或回退到模拟数据
-  const allMembers = membersData && membersData.length > 0
+
+
+  // 使用后台数据，如果没有数据则使用空数组而不是模拟数据
+  const allMembers = membersData && Array.isArray(membersData) && membersData.length > 0
     ? membersData.map(transformMemberData)
-    : mockDevelopmentMembers;
+    : [];
 
   // 过滤成员
   const filteredMembers = allMembers.filter((member) => {
@@ -581,10 +597,47 @@ function DepartmentDetailsViewContent() {
                       <p className="text-sm">当前筛选条件下没有找到相关成员</p>
                     </div>
                   ) : (
-                    <div className="text-center py-12 text-muted-foreground">
-                      <Users className="mx-auto h-12 w-12 mb-4 opacity-50" />
-                      <p className="text-lg font-medium mb-2">成员列表</p>
-                      <p className="text-sm">找到 {filteredMembers.length} 名成员</p>
+                    <div className="space-y-4">
+                      {filteredMembers.map((member) => (
+                        <div key={member.id} className="flex items-center justify-between p-4 bg-white rounded-lg border hover:shadow-sm transition-shadow">
+                          <div className="flex items-center space-x-4">
+                            <input
+                              type="checkbox"
+                              className="rounded border-gray-300"
+                              checked={selectedMembers.includes(member.id)}
+                              onChange={() => handleSelectMember(member.id)}
+                            />
+                            <MemberListAvatar
+                              name={member.name}
+                              email={member.email}
+                              emailFirst={true}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center space-x-2">
+                                <h3 className="font-medium text-gray-900">{member.email || member.name}</h3>
+                                <Badge variant="outline" className="text-xs px-2 py-1">
+                                  {member.level}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-gray-500">{member.title}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center space-x-8 text-sm">
+                            <div className="text-center">
+                              <div className="font-semibold text-gray-900">{member.codeCommits}</div>
+                              <div className="text-gray-500">PR提交</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="font-semibold text-blue-600">{member.points}</div>
+                              <div className="text-gray-500">积分</div>
+                            </div>
+                            <div className="text-center text-gray-400">
+                              <div className="text-xs">本月</div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>

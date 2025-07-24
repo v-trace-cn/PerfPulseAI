@@ -4,8 +4,8 @@ import { nanoid } from 'nanoid'
 // 临时存储部门访问令牌（在生产环境中应该使用 Redis 或数据库）
 const accessTokens = new Map<string, { departmentId: number; timestamp: number }>()
 
-// 清理过期的令牌（5分钟过期）
-const EXPIRY_TIME = 5 * 60 * 1000 // 5分钟
+// 清理过期的令牌（30分钟过期）
+const EXPIRY_TIME = 30 * 60 * 1000 // 30分钟
 
 function cleanExpiredTokens() {
   const now = Date.now()
@@ -59,7 +59,11 @@ export async function GET(request: NextRequest) {
 
     if (!token) {
       return NextResponse.json(
-        { error: '缺少访问令牌' },
+        {
+          success: false,
+          error: '缺少访问令牌',
+          needsNewToken: true
+        },
         { status: 400 }
       )
     }
@@ -70,7 +74,11 @@ export async function GET(request: NextRequest) {
     const tokenData = accessTokens.get(token)
     if (!tokenData) {
       return NextResponse.json(
-        { error: '无效或过期的访问令牌' },
+        {
+          success: false,
+          error: '无效或过期的访问令牌',
+          needsNewToken: true
+        },
         { status: 401 }
       )
     }
@@ -79,10 +87,17 @@ export async function GET(request: NextRequest) {
     if (Date.now() - tokenData.timestamp > EXPIRY_TIME) {
       accessTokens.delete(token)
       return NextResponse.json(
-        { error: '访问令牌已过期' },
+        {
+          success: false,
+          error: '访问令牌已过期',
+          needsNewToken: true
+        },
         { status: 401 }
       )
     }
+
+    // 延长令牌有效期（刷新时间戳）
+    tokenData.timestamp = Date.now()
 
     return NextResponse.json({
       success: true,
@@ -92,7 +107,11 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('令牌验证API错误:', error)
     return NextResponse.json(
-      { error: '服务器内部错误' },
+      {
+        success: false,
+        error: '服务器内部错误',
+        needsNewToken: true
+      },
       { status: 500 }
     )
   }

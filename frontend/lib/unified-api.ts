@@ -242,7 +242,12 @@ export const unifiedApi = {
       fetchUnifiedApi(`/api/activities/show/${showId}`),
 
     resetActivityPoints: (activityId: string): Promise<ApiResponse> =>
-      fetchUnifiedApi(`/api/activities/${activityId}/reset-points`, { method: 'POST' }),
+      fetchUnifiedApi(`/api/activities/${activityId}/reset-points`, {
+        method: 'POST',
+        headers: {
+          'X-User-ID': getCurrentUserId()?.toString() || '',
+        }
+      }),
   },
 
   // Pull Request API

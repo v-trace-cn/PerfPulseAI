@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { Bell, X, Check, AlertCircle, Gift, TrendingUp, Megaphone, User, Briefcase, Filter, Search, MoreVertical, Trash2, MarkAsUnread } from "lucide-react"
+import { Bell, X, Check, AlertCircle, Gift, TrendingUp, Megaphone, User, Briefcase, Filter, Search, MoreVertical, Trash2, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -493,7 +493,7 @@ function NotificationItem({
             <DropdownMenuContent align="end">
               {notification.read ? (
                 <DropdownMenuItem onClick={() => onMarkAsUnread(notification.id)}>
-                  <MarkAsUnread className="h-4 w-4 mr-2" />
+                  <Mail className="h-4 w-4 mr-2" />
                   标记为未读
                 </DropdownMenuItem>
               ) : (

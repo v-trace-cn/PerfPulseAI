@@ -55,12 +55,12 @@ export default function ActivityDetailPage() {
 
   const activity = activityQueryResult?.data; 
 
-  console.log("activityQueryResult:", activityQueryResult);
+
 
   const { data: userProfileData, isLoading: profileLoading, error: profileError } = useQuery({
-    queryKey: ['userProfile', activity?.user_id],
-    queryFn: () => unifiedApi.user.getProfile(String(activity?.user_id)),
-    enabled: !!activity?.user_id,
+    queryKey: ['userProfile', activity?.userId],
+    queryFn: () => unifiedApi.user.getProfile(String(activity?.userId)),
+    enabled: !!activity?.userId,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -74,7 +74,7 @@ export default function ActivityDetailPage() {
 
   const { data: prDetails, isLoading: prLoading } = useQuery({
     queryKey: ['prDetails', activity?.id],
-    queryFn: () => directPrApi.getPullRequestDetails(String(activity?.id)),
+    queryFn: () => unifiedApi.pr.getPullRequestDetails(String(activity?.id)),
     enabled: !!activity?.id,
     staleTime: 5 * 60 * 1000,
   });
@@ -124,7 +124,7 @@ export default function ActivityDetailPage() {
         description: err.message || "连接服务器失败，未能成功重置活动状态。",
         variant: "destructive",
       });
-      console.error("Activity reset error during AI analysis trigger:", err);
+
       return;
     }
 
@@ -134,10 +134,10 @@ export default function ActivityDetailPage() {
           title: "分析已触发！",
           description: "AI 分析请求已发送，结果将在后台处理。请稍后刷新页面查看。",
       });
-      queryClient.invalidateQueries(['activity', activityId]);
+      queryClient.invalidateQueries({ queryKey: ['activity', activityId] });
     } catch (err: any) {
       toast({ title: "AI 分析触发失败", description: err.message || "连接服务器失败，未能成功触发分析。", variant: "destructive" });
-      console.error("AI analysis trigger error:", err);
+
     }
   };
 
@@ -284,8 +284,8 @@ export default function ActivityDetailPage() {
                     <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                       <span className="text-sm font-medium">代码总数统计变更</span>
                       <span className="text-xs text-green-700">
-                        {activity.ai_analysis?.additions !== undefined && activity.ai_analysis?.deletions !== undefined
-                          ? `+${activity.ai_analysis.additions} -${activity.ai_analysis.deletions}`
+                        {activity.aiAnalysis?.additions !== undefined && activity.aiAnalysis?.deletions !== undefined
+                          ? `+${activity.aiAnalysis.additions} -${activity.aiAnalysis.deletions}`
                           : 'N/A'}
                       </span>
                     </div>
@@ -310,7 +310,7 @@ export default function ActivityDetailPage() {
                     ) : (
                       <>
                         <Star className="mr-2 h-4 w-4" />
-                        {activity.ai_analysis && typeof activity.ai_analysis.overall_score === 'number' && activity.ai_analysis.overall_score > 0 ? "重新 AI 评分" : "获取 AI 评分"}
+                        {activity.aiAnalysis && typeof activity.aiAnalysis.overall_score === 'number' && activity.aiAnalysis.overall_score > 0 ? "重新 AI 评分" : "获取 AI 评分"}
                       </>
                     )}
                   </Button>
@@ -319,19 +319,19 @@ export default function ActivityDetailPage() {
                   {/* —— 综合分数 —— */}
                   <div className="text-center mb-6">
                     <h3 className="text-5xl font-bold text-gray-900 mb-2">
-                      {Math.round(parseFloat(activity.ai_analysis?.overall_score || 0))}
+                      {Math.round(parseFloat(activity.aiAnalysis?.overall_score || 0))}
                     </h3>
-                    {activity?.ai_analysis?.summary && (
+                    {activity?.aiAnalysis?.summary && (
                       <div className="mt-4 text-center text-gray-700">
                         <p className="text-sm font-semibold mb-1">综合评价:</p>
-                        <p className="text-base">{activity.ai_analysis.summary}</p>
+                        <p className="text-base">{activity.aiAnalysis.summary}</p>
                       </div>
                     )}
                   </div>
 
                   {/* —— 维度评分 + 建议 —— */}
                   {(() => {
-                    if (!activity.ai_analysis?.dimensions) return null;
+                    if (!activity.aiAnalysis?.dimensions) return null;
 
                     const dimLabel = (k: string) => (
                       k === 'code_quality' ? '代码质量' :
@@ -347,8 +347,8 @@ export default function ActivityDetailPage() {
 
                     // 将建议按维度归类
                     const suggestionMap: Record<string, any[]> = {};
-                    if (activity.ai_analysis.suggestions) {
-                      activity.ai_analysis.suggestions.forEach((s: any) => {
+                    if (activity.aiAnalysis.suggestions) {
+                      activity.aiAnalysis.suggestions.forEach((s: any) => {
                         const dim = s.dimension || s["主要维度"] || s["维度"] || '其他';
                         if (!suggestionMap[dim]) suggestionMap[dim] = [];
                         suggestionMap[dim].push(s);
@@ -357,7 +357,7 @@ export default function ActivityDetailPage() {
 
                     return (
                       <Accordion type="multiple" className="space-y-2">
-                        {Object.entries(activity.ai_analysis.dimensions)
+                        {Object.entries(activity.aiAnalysis.dimensions)
                           .filter(([key]) => key !== 'innovation')
                           .map(([key, dim]: any) => {
                           const score = parseFloat(dim.score || 0);
@@ -480,9 +480,8 @@ export default function ActivityDetailPage() {
                         <p className="text-gray-500">加载中...</p>
                       ) : (
                         <>
-                          <InfoItem label="已完成任务" value={`${userProfileData?.completed_activities_count ?? 0} 次`} />
+                          <InfoItem label="本次积分" value={`${activity.aiAnalysis?.points?.total_points ?? 0} 分`} color='purple' />
                           <InfoItem label="累计积分" value={`${userProfileData?.total_points ?? 0} 分`} color="blue" />
-                          <InfoItem label="等级" value={`Lv.${userProfileData?.level ?? 1}`} color="green" />
                         </>
                       )}
                     </div>
@@ -499,8 +498,8 @@ export default function ActivityDetailPage() {
                   {(() => {
                     const items: any[] = [];
                     if (activity.points_calculated_at) items.push({ label: '积分计算完成', time: activity.points_calculated_at, color: 'blue' });
-                    if (activity.ai_analysis_completed_at) items.push({ label: 'AI 评价完成', time: activity.ai_analysis_completed_at, color: 'blue' });
-                    if (activity.ai_analysis_started_at) items.push({ label: 'AI 评价开始', time: activity.ai_analysis_started_at, color: 'yellow' });
+                    if (activity.aiAnalysisCompletedAt) items.push({ label: 'AI 评价完成', time: activity.aiAnalysisCompletedAt, color: 'blue' });
+                    if (activity.aiAnalysisStartedAt) items.push({ label: 'AI 评价开始', time: activity.aiAnalysisStartedAt, color: 'yellow' });
 
                     if (prDetails?.events) {
                       prDetails.events.forEach((ev: any) => {
@@ -541,15 +540,15 @@ export default function ActivityDetailPage() {
                   <CardTitle className="text-lg">积分明细</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {activity.ai_analysis?.points?.detailed_points ? (
-                    Array.isArray(activity.ai_analysis.points.detailed_points) ? (
-                      activity.ai_analysis.points.detailed_points.map((item: any, idx: number) => {
+                  {activity.aiAnalysis?.points?.detailed_points ? (
+                    Array.isArray(activity.aiAnalysis.points.detailed_points) ? (
+                      activity.aiAnalysis.points.detailed_points.map((item: any, idx: number) => {
                         const pts = item.bonus ?? item.innovation_bonus ?? 0;
                         const label = item.text ?? (item.bonus !== undefined ? labelMap.bonus : labelMap.innovation_bonus);
                         return <PointItem key={idx} label={label} points={pts} color="blue" />;
                       })
                     ) : (
-                      Object.entries(activity.ai_analysis.points.detailed_points)
+                      Object.entries(activity.aiAnalysis.points.detailed_points)
                         .filter(([dim]) => dim !== 'innovation')
                         .map(([dim, pts]) => (
                           <PointItem key={dim} label={labelMap[dim] || dim} points={Math.round(pts as number)} color="blue" />
@@ -558,12 +557,12 @@ export default function ActivityDetailPage() {
                   ) : (
                     <p className="text-gray-500">暂无积分明细</p>
                   )}
-                  {activity.ai_analysis?.points?.total_points > 0 && (
+                  {activity.aiAnalysis?.points?.total_points > 0 && (
                     <>
                       <Separator className="my-4" />
                       <div className="flex justify-between items-center font-semibold">
                         <span>总计</span>
-                        <span className="text-blue-600">+{activity.ai_analysis.points.total_points}</span>
+                        <span className="text-blue-600">+{activity.aiAnalysis.points.total_points}</span>
                       </div>
                     </>
                   )}

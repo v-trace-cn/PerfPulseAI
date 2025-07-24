@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import AuthGuard from "@/components/guards/AuthGuard"
 import CompanyGuard from "@/components/guards/CompanyGuard"
 import { Button } from "@/components/ui/button"
@@ -8,6 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { useToast } from "@/components/ui/use-toast"
 import {
   Search,
   Download,
@@ -23,11 +25,69 @@ import {
   XCircle,
   Clock,
   Building,
+  ChevronLeft,
+  ChevronRight,
+  Bell,
+  ShoppingCart,
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
+import { useAuth } from "@/lib/auth-context"
+
+// 积分商品数据
+const pointsProducts = [
+  {
+    id: 1,
+    name: "MacBook Pro 16寸",
+    description: "最新款 MacBook Pro，适合开发工作",
+    points: 5000,
+    category: "实物奖励",
+    image: "/placeholder.svg?height=200&width=200",
+    stock: 5,
+    isAvailable: true,
+  },
+  {
+    id: 2,
+    name: "iPad Air",
+    description: "轻薄便携的平板电脑",
+    points: 3500,
+    category: "实物奖励",
+    image: "/placeholder.svg?height=200&width=200",
+    stock: 10,
+    isAvailable: true,
+  },
+  {
+    id: 3,
+    name: "年度会员",
+    description: "各种软件服务的年度会员",
+    points: 1200,
+    category: "虚拟奖励",
+    image: "/placeholder.svg?height=200&width=200",
+    stock: 999,
+    isAvailable: true,
+  },
+  {
+    id: 4,
+    name: "现金红包",
+    description: "直接现金奖励",
+    points: 800,
+    category: "现金奖励",
+    image: "/placeholder.svg?height=200&width=200",
+    stock: 999,
+    isAvailable: true,
+  },
+  {
+    id: 5,
+    name: "在线课程",
+    description: "技能提升在线课程",
+    points: 600,
+    category: "虚拟奖励",
+    image: "/placeholder.svg?height=200&width=200",
+    stock: 999,
+    isAvailable: true,
+  },
+];
 
 // 兑换记录数据结构
 const redemptionData = [
@@ -128,11 +188,23 @@ const timeRangeStats = {
 }
 
 export default function RedemptionPage() {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: new Date(2024, 4, 1), // 2024年5月1日
     to: new Date(2024, 5, 30), // 2024年6月30日
   })
   const [selectedTimeRange, setSelectedTimeRange] = useState("current")
+
+  // 分页状态
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+
+  // 积分商城状态
+  const [showPointsMall, setShowPointsMall] = useState(false)
+  const [selectedProduct, setSelectedProduct] = useState<any>(null)
+  const [isRedeeming, setIsRedeeming] = useState(false)
+  const [userPoints, setUserPoints] = useState(8500) // 模拟用户积分
 
   // 处理时间范围变化
   const handleTimeRangeChange = (value: string) => {
@@ -189,6 +261,131 @@ export default function RedemptionPage() {
     rewardInfo?: any
   }>({ isValid: null, message: "" })
 
+  // 兑换功能
+  const handleRedeem = async (product: any) => {
+    if (userPoints < product.points) {
+      toast({
+        title: "积分不足",
+        description: `您当前有 ${userPoints} 积分，需要 ${product.points} 积分才能兑换此商品。`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsRedeeming(true);
+    try {
+      // 模拟API调用
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // 生成兑换密钥
+      const redeemCode = `GIFT${Date.now()}`;
+
+      // 创建兑换记录
+      const newRedemption = {
+        id: Date.now(),
+        userId: user?.id || 1,
+        userName: user?.name || "当前用户",
+        userAvatar: user?.avatar || "/placeholder.svg?height=32&width=32",
+        department: user?.department || "研发部",
+        redeemCode,
+        rewardType: product.category,
+        rewardName: product.name,
+        pointsCost: product.points,
+        status: "已发放",
+        redeemTime: new Date().toLocaleString(),
+        processTime: new Date().toLocaleString(),
+      };
+
+      // 更新用户积分
+      setUserPoints(prev => prev - product.points);
+
+      // 添加到兑换记录
+      redemptionData.unshift(newRedemption);
+
+      // 发送通知
+      sendRedemptionNotification(redeemCode, product.name);
+
+      toast({
+        title: "兑换成功！",
+        description: `您已成功兑换 ${product.name}，兑换密钥：${redeemCode}`,
+      });
+
+      setSelectedProduct(null);
+      setShowPointsMall(false);
+    } catch (error) {
+      toast({
+        title: "兑换失败",
+        description: "系统错误，请稍后重试。",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRedeeming(false);
+    }
+  };
+
+  // 发送兑换成功通知
+  const sendRedemptionNotification = async (redeemCode: string, productName: string) => {
+    try {
+      const response = await fetch('/api/notifications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: "redemption_success",
+          title: "兑换成功",
+          message: `您已成功兑换 ${productName}，兑换密钥：${redeemCode}`,
+          userId: user?.id || 1,
+          data: {
+            redeemCode,
+            productName,
+            points: selectedProduct?.points
+          }
+        }),
+      });
+
+      if (response.ok) {
+        console.log("通知发送成功");
+      } else {
+        console.error("通知发送失败");
+      }
+    } catch (error) {
+      console.error("发送通知时出错:", error);
+    }
+  };
+
+  // 过滤和分页逻辑
+  const filteredData = redemptionData.filter((record) => {
+    const matchesSearch =
+      record.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.rewardName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.redeemCode.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesStatus = statusFilter === "all" || record.status === statusFilter;
+    const matchesType = rewardTypeFilter === "all" || record.rewardType === rewardTypeFilter;
+
+    return matchesSearch && matchesStatus && matchesType;
+  });
+
+  // 分页计算
+  const totalPages = Math.ceil(filteredData.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedData = filteredData.slice(startIndex, endIndex);
+
+  // 分页控制
+  const goToPage = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
+
+  const goToPrevPage = () => {
+    setCurrentPage(prev => Math.max(1, prev - 1));
+  };
+
+  const goToNextPage = () => {
+    setCurrentPage(prev => Math.min(totalPages, prev + 1));
+  };
+
   const filteredRedemptions = redemptionData.filter((record) => {
     const matchesSearch =
       record.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -200,10 +397,10 @@ export default function RedemptionPage() {
   })
 
   const handleSelectAll = () => {
-    if (selectedRecords.length === filteredRedemptions.length) {
+    if (selectedRecords.length === filteredData.length) {
       setSelectedRecords([])
     } else {
-      setSelectedRecords(filteredRedemptions.map((record) => record.id))
+      setSelectedRecords(filteredData.map((record) => record.id))
     }
   }
 
@@ -239,8 +436,8 @@ export default function RedemptionPage() {
     }
   }
 
-  // 执行兑换
-  const handleRedeem = () => {
+  // 执行密钥兑换
+  const handleKeyRedeem = () => {
     if (keyValidation.isValid && keyValidation.rewardInfo) {
       // 这里可以调用API执行兑换逻辑
       alert(`兑换成功！获得：${keyValidation.rewardInfo.reward}`)
@@ -369,11 +566,28 @@ export default function RedemptionPage() {
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
           <div className="p-6">
             {/* Page Title */}
-            <div className="mb-6">
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <Gift className="h-6 w-6" style={{ color: "#B4A2FA" }} />
-                兑奖管理
-              </h1>
+            <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                  <Gift className="h-6 w-6" style={{ color: "#B4A2FA" }} />
+                  兑奖管理
+                </h1>
+                <p className="text-gray-600 mt-1">管理积分兑换和奖励发放</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-200">
+                  <Trophy className="h-5 w-5 text-yellow-600" />
+                  <span className="text-sm font-medium text-gray-700">我的积分:</span>
+                  <span className="text-lg font-bold text-yellow-600">{userPoints}</span>
+                </div>
+                <Button
+                  onClick={() => setShowPointsMall(true)}
+                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                >
+                  <ShoppingCart className="h-4 w-4 mr-2" />
+                  积分商城
+                </Button>
+              </div>
             </div>
 
             {/* Key Redemption Card */}
@@ -411,7 +625,7 @@ export default function RedemptionPage() {
                       验证密钥
                     </Button>
                     <Button
-                      onClick={handleRedeem}
+                      onClick={handleKeyRedeem}
                       disabled={!keyValidation.isValid}
                       className="text-white disabled:opacity-50"
                       style={{ backgroundColor: "#B4A2FA" }}
@@ -646,7 +860,7 @@ export default function RedemptionPage() {
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                   <CardTitle>兑换记录</CardTitle>
-                  <CardDescription>查看和管理所有兑换记录 ({filteredRedemptions.length} 条记录)</CardDescription>
+                  <CardDescription>查看和管理所有兑换记录 ({filteredData.length} 条记录)</CardDescription>
                 </div>
                 <Button
                   onClick={handleExport}
@@ -715,7 +929,7 @@ export default function RedemptionPage() {
                 </div>
 
                 <div className="space-y-4">
-                  {filteredRedemptions.map((record) => (
+                  {paginatedData.map((record) => (
                     <div
                       key={record.id}
                       className={`flex items-center space-x-4 p-4 rounded-lg border transition-all duration-200 ${
@@ -779,8 +993,199 @@ export default function RedemptionPage() {
                     </div>
                   ))}
                 </div>
+
+                {/* 分页控件 */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600">
+                        显示 {startIndex + 1}-{Math.min(endIndex, filteredData.length)} 条，共 {filteredData.length} 条记录
+                      </span>
+                      <Select value={pageSize.toString()} onValueChange={(value) => {
+                        setPageSize(Number(value));
+                        setCurrentPage(1);
+                      }}>
+                        <SelectTrigger className="w-20 h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="5">5</SelectItem>
+                          <SelectItem value="10">10</SelectItem>
+                          <SelectItem value="20">20</SelectItem>
+                          <SelectItem value="50">50</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <span className="text-sm text-gray-600">条/页</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={goToPrevPage}
+                        disabled={currentPage === 1}
+                        className="h-8 w-8 p-0"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          let pageNum;
+                          if (totalPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (currentPage <= 3) {
+                            pageNum = i + 1;
+                          } else if (currentPage >= totalPages - 2) {
+                            pageNum = totalPages - 4 + i;
+                          } else {
+                            pageNum = currentPage - 2 + i;
+                          }
+
+                          return (
+                            <Button
+                              key={pageNum}
+                              variant={currentPage === pageNum ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => goToPage(pageNum)}
+                              className="h-8 w-8 p-0"
+                            >
+                              {pageNum}
+                            </Button>
+                          );
+                        })}
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={goToNextPage}
+                        disabled={currentPage === totalPages}
+                        className="h-8 w-8 p-0"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
+
+            {/* 积分商城对话框 */}
+            <Dialog open={showPointsMall} onOpenChange={setShowPointsMall}>
+              <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <ShoppingCart className="h-5 w-5" />
+                    积分商城
+                  </DialogTitle>
+                  <DialogDescription>
+                    使用您的积分兑换精美奖品
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 py-4">
+                  {pointsProducts.map((product) => (
+                    <Card key={product.id} className="relative overflow-hidden">
+                      <div className="aspect-square bg-gray-100 flex items-center justify-center">
+                        <Gift className="h-16 w-16 text-gray-400" />
+                      </div>
+                      <CardContent className="p-4">
+                        <h3 className="font-semibold text-lg mb-2">{product.name}</h3>
+                        <p className="text-sm text-gray-600 mb-3">{product.description}</p>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-1">
+                            <Trophy className="h-4 w-4 text-yellow-500" />
+                            <span className="font-bold text-lg text-yellow-600">{product.points}</span>
+                            <span className="text-sm text-gray-500">积分</span>
+                          </div>
+                          <Badge variant="secondary">{product.category}</Badge>
+                        </div>
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-sm text-gray-500">库存: {product.stock}</span>
+                          <span className={`text-sm ${product.isAvailable ? 'text-green-600' : 'text-red-600'}`}>
+                            {product.isAvailable ? '有货' : '缺货'}
+                          </span>
+                        </div>
+                        <Button
+                          onClick={() => setSelectedProduct(product)}
+                          disabled={!product.isAvailable || userPoints < product.points}
+                          className="w-full"
+                          variant={userPoints >= product.points ? "default" : "secondary"}
+                        >
+                          {userPoints >= product.points ? '立即兑换' : '积分不足'}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* 兑换确认对话框 */}
+            <Dialog open={!!selectedProduct} onOpenChange={() => setSelectedProduct(null)}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>确认兑换</DialogTitle>
+                  <DialogDescription>
+                    您确定要兑换以下商品吗？
+                  </DialogDescription>
+                </DialogHeader>
+
+                {selectedProduct && (
+                  <div className="py-4">
+                    <div className="flex items-center gap-4 p-4 border rounded-lg">
+                      <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
+                        <Gift className="h-8 w-8 text-gray-400" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold">{selectedProduct.name}</h3>
+                        <p className="text-sm text-gray-600">{selectedProduct.description}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <Trophy className="h-4 w-4 text-yellow-500" />
+                          <span className="font-bold text-yellow-600">{selectedProduct.points} 积分</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                      <div className="flex justify-between items-center mb-2">
+                        <span>当前积分:</span>
+                        <span className="font-bold">{userPoints}</span>
+                      </div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span>兑换消耗:</span>
+                        <span className="font-bold text-red-600">-{selectedProduct.points}</span>
+                      </div>
+                      <div className="flex justify-between items-center border-t pt-2">
+                        <span>剩余积分:</span>
+                        <span className="font-bold">{userPoints - selectedProduct.points}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setSelectedProduct(null)}>
+                    取消
+                  </Button>
+                  <Button
+                    onClick={() => selectedProduct && handleRedeem(selectedProduct)}
+                    disabled={isRedeeming}
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                  >
+                    {isRedeeming ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        兑换中...
+                      </>
+                    ) : (
+                      '确认兑换'
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
       </CompanyGuard>

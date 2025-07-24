@@ -126,13 +126,13 @@ export default function CompanyGuard({ children, fallback }: CompanyGuardProps) 
             </Button>
             
             <div className="text-center">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => router.push('/companies')}
                 className="w-full"
               >
                 <Building className="mr-2 h-4 w-4" />
-                管理公司
+                创建或管理公司
               </Button>
             </div>
             
@@ -141,7 +141,7 @@ export default function CompanyGuard({ children, fallback }: CompanyGuardProps) 
                 <AlertTriangle className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
                 <div className="text-sm text-blue-800">
                   <p className="font-medium">提示：</p>
-                  <p>请联系公司管理员获取邀请码，或者在公司管理页面创建新公司。</p>
+                  <p>请联系公司管理员获取公司邀请码，或者点击下方按钮创建新公司（需要系统邀请码）。</p>
                 </div>
               </div>
             </div>

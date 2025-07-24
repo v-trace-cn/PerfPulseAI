@@ -31,7 +31,7 @@ export function DepartmentSettings({ department }: DepartmentSettingsProps) {
     description: "",
     manager: department.manager,
     budget: "500000",
-    targetPerformance: department.performance.toString(),
+    targetPerformance: department.performance?.toString() || "85",
   })
 
   const [notifications, setNotifications] = useState({
@@ -56,7 +56,7 @@ export function DepartmentSettings({ department }: DepartmentSettingsProps) {
 
   const handleSave = () => {
     // 保存设置逻辑
-    console.log("保存部门设置:", formData, notifications)
+
     setIsEditing(false)
   }
 

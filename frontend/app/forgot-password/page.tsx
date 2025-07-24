@@ -63,7 +63,7 @@ export default function ForgotPasswordPage() {
       toast({ title: "重置成功", description: "请使用新密码登录系统", variant: "default" })
       router.push("/")
     } catch (err) {
-      console.error(err)
+
       toast({ title: "重置失败", description: "请稍后再试", variant: "destructive" })
     } finally {
       setIsLoading(false)

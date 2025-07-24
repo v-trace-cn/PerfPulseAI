@@ -75,6 +75,53 @@ import { useApi } from "@/hooks/useApi"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Tabs as PointsTabs, TabsContent as PointsTabsContent, TabsList as PointsTabsList, TabsTrigger as PointsTabsTrigger } from "@/components/ui/tabs"
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
+
+// 积分相关类型定义
+interface PointTransaction {
+  id: string;
+  userId: number;
+  transactionType: string;
+  amount: number;
+  balanceAfter: number;
+  referenceId?: string;
+  referenceType?: string;
+  description?: string;
+  createdAt: string;
+  canDispute: boolean;
+  disputeTimeLeft: number;
+}
+
+interface UserPointsSummary {
+  userId: number;
+  currentBalance: number;
+  totalTransactions: number;
+  totalEarned: number;
+  totalSpent: number;
+  lastTransactionDate?: string;
+  currentLevel?: {
+    id: number;
+    level: number;
+    name: string;
+    minPoints: number;
+    maxPoints?: number;
+    benefits?: string;
+    icon?: string;
+    color?: string;
+  };
+  nextLevel?: {
+    id: number;
+    level: number;
+    name: string;
+    minPoints: number;
+    maxPoints?: number;
+    benefits?: string;
+    icon?: string;
+    color?: string;
+  };
+  pointsToNext?: number;
+  progressPercentage: number;
+}
 
 
 // 添加自定义动画
@@ -222,6 +269,119 @@ export default function Dashboard() {
   const searchParams = useSearchParams()
   const { user, refreshUser } = useAuth()
   const queryClient = useQueryClient(); // 初始化 queryClient
+
+  // 获取积分摘要数据
+  const { data: pointsSummary, isLoading: pointsSummaryLoading } = useQuery<UserPointsSummary>({
+    queryKey: ['points-summary', user?.id],
+    queryFn: async () => {
+      const response = await fetch(`/api/points/summary?userId=${user?.id}`, {
+        headers: {
+          'X-User-Id': user?.id?.toString() || '',
+        }
+      })
+      if (!response.ok) throw new Error('Failed to fetch points summary')
+      return response.json()
+    },
+    staleTime: 30000, // 30秒缓存
+    enabled: !!user?.id, // 只有在用户登录且有ID时才执行
+  })
+
+  // 获取积分交易记录（最近5条）
+  const { data: pointsTransactions, isLoading: pointsTransactionsLoading, error: pointsTransactionsError } = useQuery<{
+    transactions: PointTransaction[];
+    totalCount: number;
+  }>({
+    queryKey: ['points-transactions-recent', user?.id],
+    queryFn: async () => {
+      const response = await fetch(`/api/points/transactions?page=1&page_size=5`, {
+        headers: {
+          'X-User-Id': user?.id?.toString() || '',
+        }
+      })
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch points transactions: ${response.status}`);
+      }
+      const data = await response.json();
+      return data;
+    },
+    staleTime: 10000, // 10秒缓存
+    enabled: !!user?.id, // 只有在用户登录且有ID时才执行
+  })
+
+  // 获取月度积分统计
+  const { data: monthlyStats, isLoading: monthlyStatsLoading } = useQuery<{
+    userId: number;
+    monthlyTransactions: number;
+    monthlyEarned: number;
+    monthlySpent: number;
+    monthStart: string;
+  }>({
+    queryKey: ['points-monthly-stats', user?.id],
+    queryFn: async () => {
+      const response = await fetch(`/api/points/monthly-stats`, {
+        headers: {
+          'X-User-Id': user?.id?.toString() || '',
+        },
+      })
+      if (!response.ok) {
+        throw new Error('Failed to fetch monthly stats')
+      }
+      return response.json()
+    },
+    staleTime: 60000, // 1分钟缓存
+    enabled: !!user?.id, // 只有在用户登录且有ID时才执行
+  })
+
+  // 获取兑换统计
+  const { data: redemptionStats, isLoading: redemptionStatsLoading } = useQuery<{
+    userId: number;
+    totalRedemptions: number;
+    totalPointsSpent: number;
+    monthlyRedemptions: number;
+    monthlyPointsSpent: number;
+    monthStart: string;
+  }>({
+    queryKey: ['points-redemption-stats', user?.id],
+    queryFn: async () => {
+      const response = await fetch(`/api/points/redemption-stats`, {
+        headers: {
+          'X-User-Id': user?.id?.toString() || '',
+        },
+      })
+      if (!response.ok) {
+        throw new Error('Failed to fetch redemption stats')
+      }
+      return response.json()
+    },
+    staleTime: 60000, // 1分钟缓存
+    enabled: !!user?.id, // 只有在用户登录且有ID时才执行
+  })
+
+  // 获取周度积分统计
+  const { data: weeklyStats, isLoading: weeklyStatsLoading } = useQuery<{
+    userId: number;
+    weeklyTransactions: number;
+    weeklyEarned: number;
+    weeklySpent: number;
+    weekStart: string;
+  }>({
+    queryKey: ['points-weekly-stats', user?.id],
+    queryFn: async () => {
+      const response = await fetch(`/api/points/weekly-stats`, {
+        headers: {
+          'X-User-Id': user?.id?.toString() || '',
+        },
+      })
+      if (!response.ok) {
+        throw new Error('Failed to fetch weekly stats')
+      }
+      return response.json()
+    },
+    staleTime: 60000, // 1分钟缓存
+    enabled: !!user?.id, // 只有在用户登录且有ID时才执行
+  })
+
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [userData, setUserData] = useState<any>({
@@ -506,7 +666,19 @@ export default function Dashboard() {
         {activeTab === "rewards" && (
           <section className="animate-fadeIn transition-opacity duration-300 p-4">
             <div className="bg-card rounded-xl border border-border shadow-lg p-6">
-              <DashboardPointsOverview />
+              <DashboardPointsOverview
+                pointsSummary={pointsSummary}
+                pointsSummaryLoading={pointsSummaryLoading}
+                pointsTransactions={pointsTransactions}
+                pointsTransactionsLoading={pointsTransactionsLoading}
+                pointsTransactionsError={pointsTransactionsError}
+                monthlyStats={monthlyStats}
+                monthlyStatsLoading={monthlyStatsLoading}
+                weeklyStats={weeklyStats}
+                weeklyStatsLoading={weeklyStatsLoading}
+                redemptionStats={redemptionStats}
+                redemptionStatsLoading={redemptionStatsLoading}
+              />
             </div>
           </section>
         )}
@@ -948,31 +1120,285 @@ export default function Dashboard() {
   )
 }
 
+// 积分明细分页组件
+function PointsHistoryWithPagination({ userId }: { userId?: string | number }) {
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+
+  // 获取积分交易记录（分页）
+  const { data: pointsTransactions, isLoading, error } = useQuery<{
+    transactions: PointTransaction[];
+    totalCount: number;
+    totalPages: number;
+    currentPage: number;
+  }>({
+    queryKey: ['points-transactions-paginated', userId, currentPage, pageSize],
+    queryFn: async () => {
+      const response = await fetch(`/api/points/transactions?page=${currentPage}&page_size=${pageSize}`, {
+        headers: {
+          'X-User-Id': userId?.toString() || '',
+        }
+      })
+      if (!response.ok) {
+        throw new Error(`Failed to fetch points transactions: ${response.status}`);
+      }
+      const data = await response.json();
+      return {
+        ...data,
+        totalPages: Math.ceil(data.totalCount / pageSize)
+      };
+    },
+    staleTime: 10000, // 10秒缓存
+    enabled: !!userId, // 只有在用户登录且有ID时才执行
+  })
+
+  // 转换积分交易记录为显示格式
+  const pointsHistory = pointsTransactions?.transactions?.map(transaction => ({
+    id: transaction.id,
+    type: transaction.transactionType === 'EARN' ? 'earn' : 'spend',
+    amount: transaction.transactionType === 'EARN' ? transaction.amount : -Math.abs(transaction.amount),
+    reason: transaction.description || '积分交易',
+    date: new Date(transaction.createdAt).toLocaleDateString('zh-CN'),
+    category: getTransactionCategory(transaction.transactionType, transaction.referenceType)
+  })) || [];
+
+  // 获取交易类别的辅助函数
+  function getTransactionCategory(transactionType: string, referenceType?: string) {
+    if (transactionType === 'EARN') {
+      if (referenceType === 'activity') return '技术贡献';
+      if (referenceType === 'bonus') return '奖励积分';
+      return '积分获得';
+    } else if (transactionType === 'SPEND') {
+      if (referenceType === 'redemption') return '福利兑换';
+      return '积分消费';
+    }
+    return '其他';
+  }
+
+  const totalPages = pointsTransactions?.totalPages || 0;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center">
+            <History className="mr-2 h-5 w-5" />
+            积分明细
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              共 {pointsTransactions?.totalCount || 0} 条记录
+            </span>
+            <Select value={pageSize.toString()} onValueChange={(value) => {
+              setPageSize(Number(value));
+              setCurrentPage(1);
+            }}>
+              <SelectTrigger className="w-20 h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="5">5</SelectItem>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+              </SelectContent>
+            </Select>
+            <span className="text-sm text-muted-foreground">条/页</span>
+          </div>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {isLoading ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              加载中...
+            </div>
+          ) : error ? (
+            <div className="text-center py-8 text-red-500">
+              加载失败: {error.message}
+            </div>
+          ) : pointsHistory.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              暂无积分记录
+            </div>
+          ) : (
+            pointsHistory.map((record) => (
+              <div key={record.id} className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                    record.type === "earn"
+                      ? "bg-green-100 text-green-600"
+                      : "bg-red-100 text-red-600"
+                  }`}>
+                    {record.type === "earn" ? (
+                      <ArrowUp className="h-4 w-4" />
+                    ) : (
+                      <ArrowDown className="h-4 w-4" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-medium">{record.reason}</p>
+                    <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                      <Badge variant="secondary" className="text-xs">
+                        {record.category}
+                      </Badge>
+                      <span>•</span>
+                      <span>{record.date}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className={`font-semibold ${
+                  record.type === "earn" ? "text-green-600" : "text-red-600"
+                }`}>
+                  {record.type === "earn" ? "+" : ""}{record.amount}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* 分页控件 */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-6 pt-4 border-t">
+            <div className="text-sm text-muted-foreground">
+              显示 {((currentPage - 1) * pageSize) + 1}-{Math.min(currentPage * pageSize, pointsTransactions?.totalCount || 0)} 条，
+              共 {pointsTransactions?.totalCount || 0} 条记录
+            </div>
+
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                  />
+                </PaginationItem>
+
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+
+                  return (
+                    <PaginationItem key={pageNum}>
+                      <PaginationLink
+                        onClick={() => setCurrentPage(pageNum)}
+                        isActive={currentPage === pageNum}
+                        className="cursor-pointer"
+                      >
+                        {pageNum}
+                      </PaginationLink>
+                    </PaginationItem>
+                  );
+                })}
+
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // Dashboard 积分概览组件 - 完整版本
-function DashboardPointsOverview() {
+function DashboardPointsOverview({
+  pointsSummary,
+  pointsSummaryLoading,
+  pointsTransactions,
+  pointsTransactionsLoading,
+  pointsTransactionsError,
+  monthlyStats,
+  monthlyStatsLoading,
+  weeklyStats,
+  weeklyStatsLoading,
+  redemptionStats,
+  redemptionStatsLoading
+}: {
+  pointsSummary?: UserPointsSummary;
+  pointsSummaryLoading: boolean;
+  pointsTransactions?: { transactions: PointTransaction[]; totalCount: number };
+  pointsTransactionsLoading: boolean;
+  pointsTransactionsError?: Error;
+  monthlyStats?: {
+    userId: number;
+    monthlyTransactions: number;
+    monthlyEarned: number;
+    monthlySpent: number;
+    monthStart: string;
+  };
+  monthlyStatsLoading: boolean;
+  weeklyStats?: {
+    userId: number;
+    weeklyTransactions: number;
+    weeklyEarned: number;
+    weeklySpent: number;
+    weekStart: string;
+  };
+  weeklyStatsLoading: boolean;
+  redemptionStats?: {
+    userId: number;
+    totalRedemptions: number;
+    totalPointsSpent: number;
+    monthlyRedemptions: number;
+    monthlyPointsSpent: number;
+    monthStart: string;
+  };
+  redemptionStatsLoading: boolean;
+}) {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("overview")
   const { toast } = useToast()
 
-  // 模拟数据
-  const mockUserData = {
-    currentPoints: user?.total_points || user?.points || 2450,
-    totalEarned: 3650,
-    totalSpent: 1200,
-    level: user?.level || 5,
-    nextLevelPoints: 3000,
-    monthlyEarned: 180,
-    monthlySpent: 400,
-    redeemCount: 3
+  // 使用真实数据或fallback到模拟数据
+  const userData = {
+    currentPoints: pointsSummary?.currentBalance || user?.total_points || user?.points || 0,
+    totalEarned: pointsSummary?.totalEarned || 0,
+    totalSpent: pointsSummary?.totalSpent || 0,
+    level: pointsSummary?.currentLevel?.level || user?.level || 1,
+    nextLevelPoints: pointsSummary?.pointsToNext || 0,
+    monthlyEarned: monthlyStats?.monthlyEarned || 0,
+    monthlySpent: monthlyStats?.monthlySpent || 0,
+    redeemCount: redemptionStats?.monthlyRedemptions || 0,
+    progressPercentage: pointsSummary?.progressPercentage || 0
   };
 
-  const mockPointsHistory = [
-    { id: 1, type: "earn", amount: 50, reason: "完成代码审查", date: "2024-01-15", category: "技术贡献" },
-    { id: 2, type: "earn", amount: 30, reason: "提交优化建议", date: "2024-01-14", category: "流程改进" },
-    { id: 3, type: "spend", amount: -200, reason: "兑换咖啡券", date: "2024-01-13", category: "福利兑换" },
-    { id: 4, type: "earn", amount: 80, reason: "解决关键bug", date: "2024-01-12", category: "技术贡献" },
-    { id: 5, type: "spend", amount: -150, reason: "兑换书籍", date: "2024-01-11", category: "学习资源" },
-  ];
+  // 转换积分交易记录为显示格式
+  const pointsHistory = pointsTransactions?.transactions?.map(transaction => ({
+    id: transaction.id,
+    type: transaction.transactionType === 'EARN' ? 'earn' : 'spend',
+    amount: transaction.transactionType === 'EARN' ? transaction.amount : -Math.abs(transaction.amount),
+    reason: transaction.description || '积分交易',
+    date: new Date(transaction.createdAt).toLocaleDateString('zh-CN'),
+    category: getTransactionCategory(transaction.transactionType, transaction.referenceType)
+  })) || [];
+
+  // 获取交易类别的辅助函数
+  function getTransactionCategory(transactionType: string, referenceType?: string) {
+    if (transactionType === 'EARN') {
+      if (referenceType === 'activity') return '技术贡献';
+      if (referenceType === 'bonus') return '奖励积分';
+      return '积分获得';
+    } else if (transactionType === 'SPEND') {
+      if (referenceType === 'redemption') return '福利兑换';
+      return '积分消费';
+    }
+    return '其他';
+  }
 
   const mockRedeemHistory = [
     { id: 1, item: "星巴克咖啡券", points: 200, status: "completed", date: "2024-01-13", category: "福利" },
@@ -980,7 +1406,7 @@ function DashboardPointsOverview() {
     { id: 3, item: "午餐券", points: 100, status: "pending", date: "2024-01-10", category: "福利" },
   ];
 
-  const progressPercentage = (mockUserData.currentPoints / mockUserData.nextLevelPoints) * 100;
+  const progressPercentage = userData.progressPercentage;
 
   return (
     <div className="space-y-6">
@@ -996,13 +1422,9 @@ function DashboardPointsOverview() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{mockUserData.currentPoints}</div>
-            <p className="text-xs text-muted-foreground">
-              <span className="text-green-600 flex items-center">
-                <ArrowUp className="h-3 w-3 mr-1" />
-                比上月增加 +{mockUserData.monthlyEarned}
-              </span>
-            </p>
+            <div className="text-2xl font-bold text-orange-600">
+              {pointsSummaryLoading ? '...' : userData.currentPoints}
+            </div>
           </CardContent>
         </Card>
 
@@ -1016,10 +1438,9 @@ function DashboardPointsOverview() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{mockUserData.redeemCount}</div>
-            <p className="text-xs text-muted-foreground">
-              总价值 {mockUserData.monthlySpent} 积分
-            </p>
+            <div className="text-2xl font-bold text-green-600">
+              {pointsSummaryLoading ? '...' : userData.redeemCount}
+            </div>
           </CardContent>
         </Card>
 
@@ -1033,11 +1454,13 @@ function DashboardPointsOverview() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-600">Lv.{mockUserData.level}</div>
+            <div className="text-2xl font-bold text-purple-600">
+              Lv.{pointsSummaryLoading ? '...' : userData.level}
+            </div>
             <div className="mt-2">
               <Progress value={progressPercentage} className="h-2" />
               <p className="text-xs text-muted-foreground mt-1">
-                距离下一级别还需 {mockUserData.nextLevelPoints - mockUserData.currentPoints} 积分
+                {pointsSummaryLoading ? '加载中...' : `距离下一级别还需 ${userData.nextLevelPoints} 积分`}
               </p>
             </div>
           </CardContent>
@@ -1053,9 +1476,11 @@ function DashboardPointsOverview() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{mockUserData.totalEarned}</div>
+            <div className="text-2xl font-bold text-blue-600">
+              {pointsSummaryLoading ? '...' : userData.totalEarned}
+            </div>
             <p className="text-xs text-muted-foreground">
-              已消费 {mockUserData.totalSpent} 积分
+              已消费 {pointsSummaryLoading ? '...' : userData.totalSpent} 积分
             </p>
           </CardContent>
         </Card>
@@ -1071,55 +1496,12 @@ function DashboardPointsOverview() {
 
         {/* 积分商城 */}
         <TabsContent value="overview" className="space-y-4">
-          <DashboardPointsMall currentPoints={mockUserData.currentPoints} />
+          <DashboardPointsMall currentPoints={userData.currentPoints} />
         </TabsContent>
 
         {/* 积分明细 */}
         <TabsContent value="history" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <History className="mr-2 h-5 w-5" />
-                积分明细
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {mockPointsHistory.map((record) => (
-                  <div key={record.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        record.type === "earn"
-                          ? "bg-green-100 text-green-600"
-                          : "bg-red-100 text-red-600"
-                      }`}>
-                        {record.type === "earn" ? (
-                          <ArrowUp className="h-4 w-4" />
-                        ) : (
-                          <ArrowDown className="h-4 w-4" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium">{record.reason}</p>
-                        <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                          <Badge variant="secondary" className="text-xs">
-                            {record.category}
-                          </Badge>
-                          <span>•</span>
-                          <span>{record.date}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className={`font-semibold ${
-                      record.type === "earn" ? "text-green-600" : "text-red-600"
-                    }`}>
-                      {record.type === "earn" ? "+" : ""}{record.amount}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <PointsHistoryWithPagination userId={user?.id} />
         </TabsContent>
 
         {/* 兑换明细 */}
@@ -1182,7 +1564,7 @@ function DashboardPointsMall({ currentPoints }: { currentPoints: number }) {
       id: 1,
       title: "额外休假日",
       description: "获得一天带薪休假",
-      points: 750,
+      points: 7,
       category: "休闲",
       icon: Gift,
       likes: 85,
@@ -1193,7 +1575,7 @@ function DashboardPointsMall({ currentPoints }: { currentPoints: number }) {
       id: 2,
       title: "专业发展基金",
       description: "获得用于专业发展的资金支持",
-      points: 1000,
+      points: 10,
       category: "职业发展",
       icon: Award,
       likes: 92,
@@ -1204,7 +1586,7 @@ function DashboardPointsMall({ currentPoints }: { currentPoints: number }) {
       id: 3,
       title: "技术书籍补贴",
       description: "获得用于购买专业技术书籍的补贴",
-      points: 650,
+      points: 6,
       category: "职业发展",
       icon: Trophy,
       likes: 78,
@@ -1215,7 +1597,7 @@ function DashboardPointsMall({ currentPoints }: { currentPoints: number }) {
       id: 4,
       title: "健身房会员",
       description: "一个月的健身房会员资格",
-      points: 450,
+      points: 4,
       category: "健康",
       icon: Zap,
       likes: 65,
@@ -1226,7 +1608,7 @@ function DashboardPointsMall({ currentPoints }: { currentPoints: number }) {
       id: 5,
       title: "咖啡券",
       description: "星巴克咖啡券 5 张",
-      points: 200,
+      points: 20,
       category: "福利",
       icon: Gift,
       likes: 90,
@@ -1237,7 +1619,7 @@ function DashboardPointsMall({ currentPoints }: { currentPoints: number }) {
       id: 6,
       title: "团队聚餐",
       description: "组织团队聚餐活动",
-      points: 800,
+      points: 80,
       category: "团队",
       icon: Sparkles,
       likes: 88,
@@ -1248,7 +1630,7 @@ function DashboardPointsMall({ currentPoints }: { currentPoints: number }) {
       id: 7,
       title: "京东购物卡",
       description: "价值 500 元京东购物卡",
-      points: 1200,
+      points: 12,
       category: "福利",
       icon: Gift,
       likes: 95,
@@ -1259,7 +1641,7 @@ function DashboardPointsMall({ currentPoints }: { currentPoints: number }) {
       id: 8,
       title: "办公设备补贴",
       description: "用于购买键盘、鼠标等办公设备",
-      points: 300,
+      points: 3,
       category: "办公",
       icon: Cpu,
       likes: 72,
@@ -1270,7 +1652,7 @@ function DashboardPointsMall({ currentPoints }: { currentPoints: number }) {
       id: 9,
       title: "在线课程券",
       description: "技术培训平台课程券",
-      points: 400,
+      points: 4,
       category: "职业发展",
       icon: Trophy,
       likes: 85,

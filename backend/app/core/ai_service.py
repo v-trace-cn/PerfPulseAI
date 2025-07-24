@@ -297,6 +297,7 @@ async def pr_suggestion_agent(structured_diff, pr_info) -> list:
     # 使用统一的提示词进行单次 AI 调用
     prompt = f"""
 你是专业的代码优化建议专家。这些建议要像是一位经验丰富、善于分享的超级优秀的老程序员给出的，通俗易懂且能切实帮助我提升个人能力。
+每个维度要给出 1-10 条建议。
 请针对以下所有代码变更片段，从代码质量、可维护性、安全性、性能优化、创新性、可观测性六个维度，全面分析，指出优点和不足，给出具体可执行的重要建议。
 每条建议必须是一个JSON对象，包含以下字段：
 - "主要维度": 建议所属的主要维度（例如 "代码质量"）。
@@ -496,48 +497,24 @@ async def perform_pr_analysis(pr: PullRequest) -> dict:
 @timeit
 async def calculate_points_from_analysis(analysis_score_result: dict) -> dict:
     """
-    根据 AI 评分结果，调用 AI 模型判断应授予的积分。
-    """
-    prompt = (
-        "你是一位专业的绩效评估顾问。你的任务是根据为你提供的绩效分析评分报告，公正地为员工的工作成果评定积分。"\
-        "请仔细阅读以下分析结果，它包含了对某项工作成果的总体评分以及多个维度的详细评分。"\
-        "根据这份分析，请决定应授予的总积分（0-10分）"\
-        "最终返回一个 JSON 对象，包含以下字段："\
-        "- `bonus`: 基于整体表现计算出的总积分（整数）。"\
-        f"以下是分析结果：\n\n总体评分: {analysis_score_result.get('overall_score', 0)}\n\n维度评分: {json.dumps(analysis_score_result.get('dimensions', {}), ensure_ascii=False)}\\n创新性分数: {analysis_score_result.get('innovation_score', 0)}\\n"
-    )
+    根据 AI 评分结果，除以10，来进行计算。
 
-    client = get_openai_client()
-    cp_start = time.time()
-    completion = await client.chat.completions.create(
-        model=DOUBAO_MODEL,
-        messages=[
-            {"role": "system", "content": "你是一个专业的积分计算助手。请严格按照要求返回包含detailed_points的JSON对象。"},
-            {"role": "user", "content": prompt}
-        ],
-    )
-    cp_elapsed = time.time() - cp_start
-    logger.info(f"[calculate_points_from_analysis] AI call completed in {cp_elapsed:.2f}s")
-    content = completion.choices[0].message.content
-    try:
-        points_result = json.loads(content)
-        logger.info(f"[calculate_points_from_analysis] Parsed points_result: {points_result}")
-        # 计算基础积分和创新加分
-        bonus = points_result.get("bonus", 0)
-        innovation_bonus = analysis_score_result.get("innovation_score", 0)
-        # 计算总积分
-        total_points = bonus + innovation_bonus
-        detailed_points = [
-            {"bonus": bonus, "text": "基础积分"},
-            {"innovation_bonus": innovation_bonus, "text": "创新加分"},
-        ]
-    except json.JSONDecodeError as e:
-        logger.error(f"[calculate_points_from_analysis] Error decoding JSON from AI: {e}. Content: {content[:500]}...")
-        total_points = 0
-        detailed_points = detailed_points = [
-            {"bonus": 0, "text": "基础积分"},
-            {"innovation_bonus": 0, "text": "创新加分"},
-        ]
+    """
+    total_points = 0
+    detailed_points = [
+        {"bonus": 0, "text": "基础积分"},
+        {"innovation_bonus": 0, "text": "创新加分"},
+    ]
+    # 计算基础积分和创新加分
+    bonus = analysis_score_result.get("overall_score", 0)
+    bonus = bonus * 0.1
+    innovation_bonus = analysis_score_result.get("innovation_score", 0)
+    # 计算总积分
+    total_points = bonus + innovation_bonus
+    detailed_points = [
+        {"bonus": bonus, "text": "基础积分"},
+        {"innovation_bonus": innovation_bonus, "text": "创新加分"},
+    ]
 
     return {
         "total_points": total_points,

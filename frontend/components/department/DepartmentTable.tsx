@@ -73,9 +73,13 @@ export function DepartmentTable({
         router.push(data.redirectUrl);
       } else {
         console.error('获取访问令牌失败:', data.error);
+        // 显示用户友好的错误信息
+        alert('无法访问部门详情，请稍后重试');
       }
     } catch (error) {
       console.error('导航失败:', error);
+      // 显示用户友好的错误信息
+      alert('网络错误，请检查网络连接后重试');
     }
   };
 

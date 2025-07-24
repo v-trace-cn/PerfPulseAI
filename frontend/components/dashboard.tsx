@@ -50,7 +50,7 @@ import {
   Heart
 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { ProfileAvatar, UnifiedAvatar } from "@/components/ui/unified-avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -698,12 +698,10 @@ export default function Dashboard() {
               <Card className="tech-card shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp md:col-span-1">
                 <CardHeader className="flex flex-col items-center text-center pb-2 bg-gradient-to-r from-primary/10 to-transparent rounded-t-xl overflow-hidden">
                   <div className="relative mb-2">
-                    <Avatar className="h-24 w-24 border-4 border-primary/20">
-                      <AvatarImage src={userData.avatar} alt={userData.name} />
-                      <AvatarFallback className="bg-primary/10 text-primary text-xl">
-                        {userData.name.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
+                    <ProfileAvatar
+                      name={userData.name}
+                      email={userData.email}
+                    />
                     <div className="absolute bottom-0 right-0 bg-primary text-white rounded-full p-1">
                       <Cpu className="h-4 w-4" />
                     </div>
@@ -1053,12 +1051,14 @@ export default function Dashboard() {
           {selectedColleague && (
             <div className="py-4">
               <div className="flex flex-col items-center mb-4">
-                <Avatar className="h-20 w-20 mb-2 border-4 border-primary/20">
-                  <AvatarImage src={selectedColleague.avatar} alt={selectedColleague.name} />
-                  <AvatarFallback className="bg-primary/10 text-primary text-xl">
-                    {selectedColleague.name.charAt(0)}
-                  </AvatarFallback>
-                </Avatar>
+                <UnifiedAvatar
+                  name={selectedColleague.name}
+                  email={selectedColleague.email}
+                  size="xl"
+                  showBorder={true}
+                  borderStyle="heavy"
+                  className="mb-2"
+                />
                 <h2 className="text-xl font-bold">{selectedColleague.name}</h2>
                 <Badge className="mt-1 bg-primary/10 text-primary border-none">
                   {selectedColleague.department} · {selectedColleague.position}

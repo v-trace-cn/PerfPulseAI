@@ -6,6 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from app.core.database import get_db
+from app.core.base_api import BaseAPIRouter
+from app.core.decorators import handle_api_errors, transaction
 from app.models.company import Company
 from app.models.user import User
 from app.models.department import Department
@@ -16,108 +18,98 @@ from typing import List, Optional
 from datetime import datetime
 import asyncio
 
-router = APIRouter(prefix="/api/companies", tags=["company"])
+# Initialize router using base class
+base_router = BaseAPIRouter(prefix="/api/companies", tags=["company"])
+router = base_router.router
 
 
 @router.get("/")
+@handle_api_errors
 async def get_companies(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(simple_user_required)
 ):
     """获取用户创建的公司列表"""
-    try:
-        # 获取用户创建的公司
-        result = await db.execute(
-            select(Company)
-            .filter(Company.creator_user_id == current_user.id)
-            .order_by(Company.created_at.desc())
-        )
-        companies = result.scalars().all()
+    # 获取用户创建的公司
+    result = await db.execute(
+        select(Company)
+        .filter(Company.creator_user_id == current_user.id)
+        .order_by(Company.created_at.desc())
+    )
+    companies = result.scalars().all()
 
-        companies_data = []
-        for company in companies:
-            # 手动构建公司数据，避免调用 to_dict() 中的关系访问
-            user_count = await db.scalar(select(func.count(User.id)).filter(User.company_id == company.id))
-            dept_count = await db.scalar(select(func.count(Department.id)).filter(Department.company_id == company.id))
+    companies_data = []
+    for company in companies:
+        # 手动构建公司数据，避免调用 to_dict() 中的关系访问
+        user_count = await db.scalar(select(func.count(User.id)).filter(User.company_id == company.id))
+        dept_count = await db.scalar(select(func.count(Department.id)).filter(Department.company_id == company.id))
 
-            company_dict = {
-                "id": company.id,
-                "name": company.name,
-                "description": company.description,
-                "domain": company.domain,
-                "inviteCode": company.invite_code,
-                "isActive": company.is_active,
-                "createdAt": company.created_at.isoformat() if company.created_at else None,
-                "updatedAt": company.updated_at.isoformat() if company.updated_at else None,
-                "creatorUserId": company.creator_user_id,
-                "userCount": user_count or 0,
-                "departmentCount": dept_count or 0,
-                "organizationCount": 0  # 暂时设为0，如果需要可以后续添加查询
-            }
-            companies_data.append(company_dict)
-
-        return {
-            "success": True,
-            "data": companies_data,
-            "message": "获取公司列表成功"
+        company_dict = {
+            "id": company.id,
+            "name": company.name,
+            "description": company.description,
+            "domain": company.domain,
+            "inviteCode": company.invite_code,
+            "isActive": company.is_active,
+            "createdAt": company.created_at.isoformat() if company.created_at else None,
+            "updatedAt": company.updated_at.isoformat() if company.updated_at else None,
+            "creatorUserId": company.creator_user_id,
+            "userCount": user_count or 0,
+            "departmentCount": dept_count or 0,
+            "organizationCount": 0  # 暂时设为0，如果需要可以后续添加查询
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"获取公司列表失败: {str(e)}")
+        companies_data.append(company_dict)
+
+    return base_router.success_response(companies_data, "获取公司列表成功")
 
 
 @router.get("/available")
+@handle_api_errors
 async def get_available_companies(
     search: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(simple_user_required)
 ):
     """获取所有可用的公司列表（供新用户加入）"""
-    try:
-        # 构建查询条件
-        query = select(Company).filter(Company.is_active == True)
+    # 构建查询条件
+    query = select(Company).filter(Company.is_active == True)
 
-        # 如果有搜索关键词，添加搜索条件
-        if search and search.strip():
-            search_term = f"%{search.strip()}%"
-            query = query.filter(
-                Company.name.ilike(search_term) |
-                Company.description.ilike(search_term) |
-                Company.domain.ilike(search_term)
-            )
+    # 如果有搜索关键词，添加搜索条件
+    if search and search.strip():
+        search_term = f"%{search.strip()}%"
+        query = query.filter(
+            Company.name.ilike(search_term) |
+            Company.description.ilike(search_term) |
+            Company.domain.ilike(search_term)
+        )
 
-        query = query.order_by(Company.created_at.desc())
-        result = await db.execute(query)
-        companies = result.scalars().all()
+    query = query.order_by(Company.created_at.desc())
+    result = await db.execute(query)
+    companies = result.scalars().all()
 
-        companies_data = []
-        for company in companies:
-            # 手动构建公司数据
-            user_count = await db.scalar(select(func.count(User.id)).filter(User.company_id == company.id))
-            dept_count = await db.scalar(select(func.count(Department.id)).filter(Department.company_id == company.id))
+    companies_data = []
+    for company in companies:
+        # 手动构建公司数据
+        user_count = await db.scalar(select(func.count(User.id)).filter(User.company_id == company.id))
+        dept_count = await db.scalar(select(func.count(Department.id)).filter(Department.company_id == company.id))
 
-            company_dict = {
-                "id": company.id,
-                "name": company.name,
-                "description": company.description,
-                "domain": company.domain,
-                "inviteCode": company.invite_code,
-                "isActive": company.is_active,
-                "createdAt": company.created_at.isoformat() if company.created_at else None,
-                "updatedAt": company.updated_at.isoformat() if company.updated_at else None,
-                "creatorUserId": company.creator_user_id,
-                "userCount": user_count or 0,
-                "departmentCount": dept_count or 0,
-                "organizationCount": 0  # 暂时设为0，如果需要可以后续添加查询
-            }
-            companies_data.append(company_dict)
-
-        return {
-            "success": True,
-            "data": companies_data,
-            "message": "获取可用公司列表成功"
+        company_dict = {
+            "id": company.id,
+            "name": company.name,
+            "description": company.description,
+            "domain": company.domain,
+            "inviteCode": company.invite_code,
+            "isActive": company.is_active,
+            "createdAt": company.created_at.isoformat() if company.created_at else None,
+            "updatedAt": company.updated_at.isoformat() if company.updated_at else None,
+            "creatorUserId": company.creator_user_id,
+            "userCount": user_count or 0,
+            "departmentCount": dept_count or 0,
+            "organizationCount": 0  # 暂时设为0，如果需要可以后续添加查询
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"获取可用公司列表失败: {str(e)}")
+        companies_data.append(company_dict)
+
+    return base_router.success_response(companies_data, "获取可用公司列表成功")
 
 
 @router.get("/{company_id}")
@@ -167,86 +159,78 @@ async def get_company(
 
 
 @router.post("/")
+@handle_api_errors
+@transaction
 async def create_company(
     data: dict = Body(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(PermissionCheckers.company_create)
 ):
     """创建新公司"""
-    try:
-        name = data.get("name")
-        description = data.get("description", "")
-        domain = data.get("domain")
-        # 将空字符串转换为 None 以避免 UNIQUE 约束冲突
-        if domain and not domain.strip():
-            domain = None
-        creator_user_id = data.get("creatorUserId")  # 创建者用户ID
-        
-        if not name:
-            raise HTTPException(status_code=400, detail="公司名称不能为空")
-        
-        if not creator_user_id:
-            raise HTTPException(status_code=400, detail="创建者用户ID不能为空")
-        
-        # 检查公司名称是否已存在
-        result = await db.execute(select(Company).filter(Company.name == name))
-        if result.scalars().first():
-            raise HTTPException(status_code=400, detail="公司名称已存在")
-        
-        # 检查域名是否已存在
-        if domain:
-            result = await db.execute(select(Company).filter(Company.domain == domain))
-            if result.scalars().first():
-                raise HTTPException(status_code=400, detail="公司域名已存在")
-        
-        # 检查创建者用户是否存在
-        result = await db.execute(select(User).filter(User.id == creator_user_id))
-        creator_user = result.scalars().first()
-        if not creator_user:
-            raise HTTPException(status_code=404, detail="创建者用户不存在")
-        
-        # 创建公司
-        company = Company(
-            name=name,
-            creator_user_id=creator_user_id,
-            description=description,
-            domain=domain
-        )
-        db.add(company)
-        await db.commit()
-        await db.refresh(company)
-        
-        # 为公司初始化权限和角色
-        await init_company_permissions_and_roles(db, company.id)
-        
-        # 将创建者设置为公司的超级管理员
-        await assign_creator_as_admin(db, creator_user_id, company.id)
-        
-        # 手动构建返回数据
-        company_data = {
-            "id": company.id,
-            "name": company.name,
-            "description": company.description,
-            "domain": company.domain,
-            "inviteCode": company.invite_code,
-            "isActive": company.is_active,
-            "createdAt": company.created_at.isoformat() if company.created_at else None,
-            "updatedAt": company.updated_at.isoformat() if company.updated_at else None,
-            "userCount": 0,  # 创建者不再自动加入，所以初始用户数为0
-            "departmentCount": 0,
-            "organizationCount": 0
-        }
+    name = data.get("name")
+    description = data.get("description", "")
+    domain = data.get("domain")
+    # 将空字符串转换为 None 以避免 UNIQUE 约束冲突
+    if domain and not domain.strip():
+        domain = None
+    creator_user_id = data.get("creatorUserId")  # 创建者用户ID
 
-        return {
-            "success": True,
-            "data": company_data,
-            "message": "创建公司成功"
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        await db.rollback()
-        raise HTTPException(status_code=500, detail=f"创建公司失败: {str(e)}")
+    if not name:
+        base_router.error_response("公司名称不能为空", 400)
+
+    if not creator_user_id:
+        base_router.error_response("创建者用户ID不能为空", 400)
+
+    # 检查公司名称是否已存在
+    result = await db.execute(select(Company).filter(Company.name == name))
+    if result.scalars().first():
+        base_router.error_response("公司名称已存在", 400)
+
+    # 检查域名是否已存在
+    if domain:
+        result = await db.execute(select(Company).filter(Company.domain == domain))
+        if result.scalars().first():
+            base_router.error_response("公司域名已存在", 400)
+
+    # 检查创建者用户是否存在
+    result = await db.execute(select(User).filter(User.id == creator_user_id))
+    creator_user = result.scalars().first()
+    if not creator_user:
+        base_router.error_response("创建者用户不存在", 404)
+
+    # 创建公司
+    company = Company(
+        name=name,
+        creator_user_id=creator_user_id,
+        description=description,
+        domain=domain
+    )
+    db.add(company)
+    await db.flush()
+    await db.refresh(company)
+
+    # 为公司初始化权限和角色
+    await init_company_permissions_and_roles(db, company.id)
+
+    # 将创建者设置为公司的超级管理员
+    await assign_creator_as_admin(db, creator_user_id, company.id)
+
+    # 手动构建返回数据
+    company_data = {
+        "id": company.id,
+        "name": company.name,
+        "description": company.description,
+        "domain": company.domain,
+        "inviteCode": company.invite_code,
+        "isActive": company.is_active,
+        "createdAt": company.created_at.isoformat() if company.created_at else None,
+        "updatedAt": company.updated_at.isoformat() if company.updated_at else None,
+        "userCount": 0,  # 创建者不再自动加入，所以初始用户数为0
+        "departmentCount": 0,
+        "organizationCount": 0
+    }
+
+    return base_router.success_response(company_data, "创建公司成功")
 
 
 @router.put("/{company_id}")

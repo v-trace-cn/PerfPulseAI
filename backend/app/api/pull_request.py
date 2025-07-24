@@ -8,6 +8,8 @@ from app.models.activity import Activity
 from app.models.pull_request_result import PullRequestResult
 from app.core.ai_service import perform_pr_analysis, calculate_points_from_analysis
 from app.models.user import User
+from app.services.point_service import PointService
+from app.models.scoring import TransactionType
 from datetime import datetime, timezone
 from typing import List
 from fastapi.responses import StreamingResponse
@@ -237,6 +239,49 @@ async def calculate_pr_points(
         points_to_award = points_calculation_result["total_points"]
         detailed_points = points_calculation_result["detailed_points"]
 
+        # 使用新的积分服务来处理积分授予
+        point_service = PointService(db)
+
+        # 检查是否已经为此活动授予过积分
+        existing_transaction = await point_service._check_duplicate_transaction(
+            user_id=activity.user_id,
+            reference_id=activity_show_id,
+            reference_type='activity',
+            transaction_type=TransactionType.EARN
+        )
+
+        if existing_transaction:
+            # 如果已存在交易，检查是否需要调整积分
+            old_amount = existing_transaction.amount
+            if old_amount != points_to_award:
+                # 需要调整积分
+                adjustment_amount = points_to_award - old_amount
+                await point_service.adjust_points(
+                    user_id=activity.user_id,
+                    amount=adjustment_amount,
+                    reference_id=activity_show_id,
+                    reference_type='activity_adjustment',
+                    description=f"活动重新评分调整: {activity_show_id} (原{old_amount}分 -> 现{points_to_award}分)"
+                )
+                print(f"[积分调整] 活动 {activity_show_id} 积分从 {old_amount} 调整为 {points_to_award}，调整量: {adjustment_amount}")
+            else:
+                print(f"[积分发放] 活动 {activity_show_id} 积分无变化，保持 {points_to_award} 分")
+        else:
+            # 首次授予积分
+            await point_service.earn_points(
+                user_id=activity.user_id,
+                amount=points_to_award,
+                reference_id=activity_show_id,
+                reference_type='activity',
+                description=f"PR活动积分: {activity.pull_request_result.repository}#{activity.pull_request_result.pr_number}",
+                extra_data={
+                    "activity_id": activity.id,
+                    "pr_node_id": activity.pull_request_result.pr_node_id,
+                    "detailed_points": detailed_points
+                }
+            )
+            print(f"[积分发放] 用户 {activity.user_id} 获得活动 {activity_show_id} 积分 {points_to_award}")
+
         # 记录本次发放的积分，用于后续的活动积分显示
         activity.points = points_to_award
         activity.status = "completed"
@@ -245,20 +290,8 @@ async def calculate_pr_points(
         # 将积分信息写回 analysis_result 中，方便前端一次性获取
         activity.pull_request_result.ai_analysis_result["points"] = points_calculation_result
 
-        # 加载用户并更新其总积分
-        user_result = await db.execute(select(User).filter(User.id == activity.user_id))
-        user = user_result.scalars().first()
-        if user:
-            # 累加积分，而不是复杂的加减
-            user.points = (user.points or 0) + points_to_award
-            print(f"[积分发放] user_id={user.id}, activity_id={activity.id}, awarded={points_to_award}, new_total_points={user.points}")
-        else:
-            print(f"Could not find user with id {activity.user_id} to award points.")
-        
         await db.commit()
         await db.refresh(activity)
-        if user:
-            await db.refresh(user)
 
         return {"message": f"Successfully awarded {points_to_award} points for activity {activity_show_id}.", "points_awarded": points_to_award}
 
@@ -292,4 +325,126 @@ async def analyze_pull_request(
     except HTTPException as e:
         raise e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to trigger AI analysis: {e}") 
+        raise HTTPException(status_code=500, detail=f"Failed to trigger AI analysis: {e}")
+
+
+@router.post("/{activity_show_id}/recalculate-points")
+async def recalculate_pr_points(
+    activity_show_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    重新计算指定活动的积分，支持积分调整
+    """
+    try:
+        activity_result = await db.execute(
+            select(Activity)
+            .filter(Activity.show_id == activity_show_id)
+            .options(joinedload(Activity.pull_request_result))
+        )
+        activity = activity_result.scalars().first()
+
+        if not activity:
+            raise HTTPException(status_code=404, detail=f"Activity with show ID {activity_show_id} not found.")
+
+        # 检查是否已存在 AI 分析结果
+        if not activity.pull_request_result or not activity.pull_request_result.ai_analysis_result:
+            raise HTTPException(status_code=400, detail="缺少 AI 分析结果，请先进行 AI 评分。")
+
+        analysis_result = activity.pull_request_result.ai_analysis_result
+
+        score_result = analysis_result.get("score") or {
+            "overall_score": analysis_result.get("overall_score"),
+            "dimensions": analysis_result.get("dimensions")
+        }
+
+        # 重新计算积分
+        points_calculation_result = await calculate_points_from_analysis(score_result)
+        new_points = points_calculation_result["total_points"]
+
+        # 使用积分服务处理积分调整
+        point_service = PointService(db)
+
+        # 获取现有的积分交易记录
+        existing_transaction = await point_service._check_duplicate_transaction(
+            user_id=activity.user_id,
+            reference_id=activity_show_id,
+            reference_type='activity',
+            transaction_type=TransactionType.EARN
+        )
+
+        if existing_transaction:
+            old_points = existing_transaction.amount
+            if old_points != new_points:
+                # 计算调整量
+                adjustment_amount = new_points - old_points
+
+                # 创建积分调整交易
+                await point_service.adjust_points(
+                    user_id=activity.user_id,
+                    amount=adjustment_amount,
+                    reference_id=activity_show_id,
+                    reference_type='activity_recalculation',
+                    description=f"活动积分重新计算: {activity_show_id} (原{old_points}分 -> 现{new_points}分)",
+                    extra_data={
+                        "activity_id": activity.id,
+                        "old_points": old_points,
+                        "new_points": new_points,
+                        "recalculated_at": datetime.utcnow().isoformat()
+                    }
+                )
+
+                # 更新活动记录
+                activity.points = new_points
+                activity.pull_request_result.ai_analysis_result["points"] = points_calculation_result
+
+                await db.commit()
+                await db.refresh(activity)
+
+                return {
+                    "message": f"积分已重新计算并调整",
+                    "oldPoints": old_points,
+                    "newPoints": new_points,
+                    "adjustment": adjustment_amount,
+                    "activityShowId": activity_show_id
+                }
+            else:
+                return {
+                    "message": "积分无需调整",
+                    "points": new_points,
+                    "activityShowId": activity_show_id
+                }
+        else:
+            # 如果没有现有交易，直接授予积分
+            await point_service.earn_points(
+                user_id=activity.user_id,
+                amount=new_points,
+                reference_id=activity_show_id,
+                reference_type='activity',
+                description=f"PR活动积分: {activity.pull_request_result.repository}#{activity.pull_request_result.pr_number}",
+                extra_data={
+                    "activity_id": activity.id,
+                    "pr_node_id": activity.pull_request_result.pr_node_id,
+                    "detailed_points": points_calculation_result["detailed_points"]
+                }
+            )
+
+            activity.points = new_points
+            activity.status = "completed"
+            activity.completed_at = datetime.utcnow()
+            activity.pull_request_result.ai_analysis_result["points"] = points_calculation_result
+
+            await db.commit()
+            await db.refresh(activity)
+
+            return {
+                "message": f"首次授予积分",
+                "points": new_points,
+                "activityShowId": activity_show_id
+            }
+
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to recalculate points: {e}")

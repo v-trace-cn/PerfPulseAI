@@ -2,257 +2,296 @@
 
 import uuid
 from datetime import datetime
+from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Body, BackgroundTasks, File, UploadFile
-from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from pydantic import BaseModel, Field
 import asyncio
 
-from app.core.database import get_db, AsyncSessionLocal
+from app.core.database import get_db
+from app.core.base_api import BaseAPIRouter, PaginationParams
+from app.core.decorators import handle_api_errors, require_authenticated
+from app.core.permissions import simple_user_required
+from app.services.activity_service import ActivityService
 from app.models.activity import Activity
-from app.core.scheduler import process_pending_tasks
-from app.models.pull_request_result import PullRequestResult
-from app.models.pull_request import PullRequest
-from app.core.ai_service import perform_pr_analysis, calculate_points_from_analysis
 from app.models.user import User
+from app.api.auth import get_current_user
+from app.core.scheduler import process_pending_tasks
 from app.core.logging_config import logger
 
-router = APIRouter(prefix="/api/activities", tags=["activity"])
+# Pydantic schemas
+class ActivityCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    points: int = 0
+    user_id: str
+
+class ActivityUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    points: Optional[int] = None
+    status: Optional[str] = None
+
+class ActivityQuery(PaginationParams):
+    search: Optional[str] = ""
+    user_id: Optional[str] = None
+
+# Initialize router using base class
+base_router = BaseAPIRouter(prefix="/api/activities", tags=["activity"])
+router = base_router.router
 
 @router.get("/")
+@handle_api_errors
 async def get_activities(
-    page: int = 1,
-    per_page: int = 10,
-    search: str = "",
+    query: ActivityQuery = Depends(),
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(Activity).options(joinedload(Activity.pull_request_result), joinedload(Activity.user))
-    if search:
-        pattern = f"%{search}%"
-        stmt = stmt.filter(
-            Activity.title.ilike(pattern) |
-            Activity.description.ilike(pattern)
-        )
-    total_result = await db.execute(select(func.count()).select_from(stmt.subquery()))
-    total = total_result.scalar_one()
-    items_result = (
-        await db.execute(stmt.order_by(Activity.created_at.desc())
-             .offset((page - 1) * per_page)
-             .limit(per_page))
+    """获取活动列表"""
+    from sqlalchemy import select, desc
+    from app.models.activity import Activity
+
+    # 构建查询
+    query_stmt = select(Activity)
+
+    if query.user_id:
+        query_stmt = query_stmt.filter(Activity.user_id == query.user_id)
+
+    if query.search:
+        search_filter = Activity.title.contains(query.search) | Activity.description.contains(query.search)
+        query_stmt = query_stmt.filter(search_filter)
+
+    query_stmt = query_stmt.order_by(desc(Activity.created_at))
+
+    # 执行查询
+    result = await db.execute(query_stmt)
+    activities = result.scalars().all()
+
+    return base_router.success_response(
+        data=[a.to_dict() for a in activities],
+        message="查询成功"
     )
-    items = items_result.scalars().all()
-    return {
-        "data": {
-            "activities": [a.to_dict() for a in items],
-            "total": total,
-            "page": page,
-            "perPage": per_page,
-        },
-        "message": "查询成功",
-        "success": True,
-    }
 
 @router.get("/recent")
+@handle_api_errors
 async def get_recent_activities(
-    user_id: str | None = None,
-    page: int = 1,
-    per_page: int = 10,
+    query: ActivityQuery = Depends(),
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(Activity).options(joinedload(Activity.user), joinedload(Activity.pull_request_result))
-    if user_id:
-        stmt = stmt.filter(Activity.user_id == user_id)
-    
-    # 计算总数
-    total_result = await db.execute(select(func.count()).select_from(stmt.subquery()))
-    total = total_result.scalar_one()
+    """获取最近的活动"""
+    from sqlalchemy import select, desc, func
+    from sqlalchemy.orm import selectinload
+    from app.models.activity import Activity
 
-    # 应用分页
-    recent_result = (
-        await db.execute(stmt.order_by(Activity.created_at.desc())
-          .offset((page - 1) * per_page)
-          .limit(per_page))
-    )
-    recent = recent_result.scalars().all()
-    return {
-        "data": {
-            "activities": [a.to_dict() for a in recent],
+    # 获取分页参数
+    page = getattr(query, 'page', 1)
+    per_page = getattr(query, 'per_page', 10)
+    offset = (page - 1) * per_page
+
+    # 构建查询，预加载用户关系
+    query_stmt = select(Activity).options(selectinload(Activity.user)).order_by(desc(Activity.created_at))
+
+    if query.user_id:
+        query_stmt = query_stmt.filter(Activity.user_id == query.user_id)
+
+    # 获取总数
+    count_stmt = select(func.count(Activity.id))
+    if query.user_id:
+        count_stmt = count_stmt.filter(Activity.user_id == query.user_id)
+
+    total_result = await db.execute(count_stmt)
+    total = total_result.scalar() or 0
+
+    # 执行分页查询
+    paginated_query = query_stmt.offset(offset).limit(per_page)
+    result = await db.execute(paginated_query)
+    activities = result.scalars().all()
+
+    return base_router.success_response(
+        data={
+            "activities": [a.to_dict() for a in activities],
             "total": total,
             "page": page,
-            "perPage": per_page,
+            "per_page": per_page
         },
-        "message": "查询成功",
-        "success": True,
-    }
+        message="查询成功"
+    )
 
 @router.post("/")
+@handle_api_errors
 async def create_activity(
-    data: dict = Body(...),
+    data: ActivityCreate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    activity_uuid = str(uuid.uuid4())
-    new_act = Activity(
-        title=data.get("title"),
-        description=data.get("description"),
-        points=int(data.get("points", 0)),
-        user_id=data.get("user_id"),
-        status="pending",
-        created_at=datetime.utcnow(),
-        completed_at=None,
+    """创建新活动"""
+    service = ActivityService(db)
+    
+    activity = await service.create_activity(
+        title=data.title,
+        description=data.description,
+        points=data.points,
+        user_id=data.user_id,
+        show_id=str(uuid.uuid4())
     )
-    new_act.show_id = activity_uuid
-    db.add(new_act)
-    await db.commit()
-    await db.refresh(new_act)
-
-    # Fetch the newly created activity with eager loaded relationships
-    result = await db.execute(select(Activity).options(joinedload(Activity.user), joinedload(Activity.pull_request_result)).filter(Activity.id == new_act.id))
-    loaded_act = result.scalars().first()
-
-    if not loaded_act:
-        raise HTTPException(status_code=500, detail="无法加载新创建的活动")
-
-    return {
-        "data": loaded_act.to_dict(),
-        "message": "创建成功",
-        "success": True,
-    }
+    
+    return base_router.success_response(
+        data=activity.to_dict(),
+        message="创建成功"
+    )
 
 @router.get("/{activity_id}")
-async def get_activity(activity_id: str, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Activity).options(joinedload(Activity.pull_request_result), joinedload(Activity.user)).filter(Activity.id == activity_id))
-    act = result.scalars().first()
-    if not act:
+@handle_api_errors
+async def get_activity(
+    activity_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """根据ID获取活动详情"""
+    service = ActivityService(db)
+
+    activity = await service.get_by_id(activity_id)
+    if not activity:
         raise HTTPException(status_code=404, detail="找不到活动")
-    return {
-        "data": act.to_dict(),
-        "message": "查询成功",
-        "success": True,
-    }
+
+    return base_router.success_response(
+        data=activity.to_dict(),
+        message="查询成功"
+    )
 
 @router.get("/show/{show_id}")
-async def get_activity_by_show_id(show_id: str, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Activity).options(joinedload(Activity.pull_request_result), joinedload(Activity.user)).filter(Activity.show_id == show_id))
-    act = result.scalars().first()
-    if not act:
+@handle_api_errors
+async def get_activity_by_show_id(
+    show_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """根据show_id获取活动详情"""
+    service = ActivityService(db)
+    
+    activity = await service.get_by_show_id(show_id)
+    if not activity:
         raise HTTPException(status_code=404, detail="找不到活动")
-    return {
-        "data": act.to_dict(),
-        "message": "查询成功",
-        "success": True,
-    }
+    
+    return base_router.success_response(
+        data=activity.to_dict(),
+        message="查询成功"
+    )
 
 @router.put("/{activity_id}")
+@handle_api_errors
 async def update_activity(
     activity_id: str,
+    data: ActivityUpdate,
     background_tasks: BackgroundTasks,
-    data: dict = Body(...),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    result = await db.execute(select(Activity).options(joinedload(Activity.pull_request_result), joinedload(Activity.user)).filter(Activity.id == activity_id))
-    act = result.scalars().first()
-    if not act:
+    """更新活动信息"""
+    service = ActivityService(db)
+    
+    activity = await service.update_activity(
+        activity_id,
+        data.dict(exclude_unset=True)
+    )
+    
+    if not activity:
         raise HTTPException(status_code=404, detail="找不到活动")
-    if "title" in data:
-        act.title = data["title"]
-    if "description" in data:
-        act.description = data["description"]
-    if "points" in data:
-        act.points = int(data["points"])
-    if data.get("status"):
-        act.status = data["status"]
-        if data["status"] == "completed" and not act.completed_at:
-            act.completed_at = datetime.utcnow()
-    await db.commit()
-    await db.refresh(act)
-    # 触发即时处理所有 pending 任务
-    asyncio.create_task(process_pending_tasks())
-    return {
-        "data": act.to_dict(),
-        "message": "更新成功",
-        "success": True,
-    }
+    
+    # 如果状态更新为completed，触发后台任务
+    if data.status == "completed":
+        asyncio.create_task(process_pending_tasks())
+    
+    return base_router.success_response(
+        data=activity.to_dict(),
+        message="更新成功"
+    )
 
 @router.delete("/{activity_id}")
-async def delete_activity(activity_id: str, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Activity).options(joinedload(Activity.pull_request_result), joinedload(Activity.user)).filter(Activity.id == activity_id))
-    act = result.scalars().first()
-    if not act:
+@handle_api_errors
+@require_authenticated
+async def delete_activity(
+    activity_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """删除活动"""
+    service = ActivityService(db)
+    
+    success = await service.delete(activity_id)
+    if not success:
         raise HTTPException(status_code=404, detail="找不到活动")
-    await db.delete(act)
-    await db.commit()
-    return {
-        "message": "删除成功",
-        "success": True,
-    }
+    
+    return base_router.success_response(message="删除成功")
 
 @router.post("/{activity_id}/reset-points")
-async def reset_activity_points(activity_id: str, db: AsyncSession = Depends(get_db)):
-    """
-    重置活动的积分，并同步回退用户积分，允许重新计算。
-    """
+@handle_api_errors
+async def reset_activity_points(
+    activity_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(simple_user_required)
+):
+    """重置活动的积分，并同步回退用户积分"""
+    service = ActivityService(db)
+    
     try:
-        # 查找活动并预加载关联的用户和PR结果
-        result = await db.execute(
-            select(Activity)
-            .options(
-                joinedload(Activity.user).joinedload(User.department_rel),
-                joinedload(Activity.pull_request_result)
-            )
-            .filter(Activity.show_id == activity_id)
+        result = await service.reset_activity_points(activity_id)
+        return base_router.success_response(
+            data=result,
+            message="重置成功，积分已回退，可重新计算"
         )
-        act = result.scalars().first()
-        if not act:
-            raise HTTPException(status_code=404, detail="找不到活动")
-        
-        # 查找用户（此时已预加载）
-        user = act.user
-        if not user:
-            # 如果活动没有关联用户，记录警告并继续，不抛出404
-            logger.warning(f"Activity {activity_id} has no associated user. Points cannot be reset for user.")
-            # 即使没有用户，也重置活动状态，以便重新计算
-            act.points = 0
-            act.status = "pending"
-            act.completed_at = None
-            if act.pull_request_result:
-                act.pull_request_result.ai_analysis_result = None
-            await db.commit()
-            # No need for db.refresh(act) here, as we're immediately returning
-            return {
-                "data": {"activity": act.to_dict()},
-                "message": "活动已重置，但由于未找到关联用户，用户积分未回退。",
-                "success": True,
-            }
-
-        # 回退用户积分
-        if act.points and act.points > 0:
-            user.points = max((user.points or 0) - act.points, 0)
-        
-        # 重置活动积分和状态
-        act.points = 0
-        act.status = "pending"
-        act.completed_at = None
-        
-        # 清空AI分析结果
-        if act.pull_request_result:
-            act.pull_request_result.ai_analysis_result = None
-        
-        await db.commit()
-        # No need for db.refresh(act) or db.refresh(user) here, as frontend re-fetches
-        
-        return {
-            "data": {
-                "activity": act.to_dict(),
-                "user": user.to_dict(),
-            },
-            "message": "重置成功，积分已回退，可重新计算",
-            "success": True,
-        }
-    except HTTPException as e:
-        # 捕获 FastAPI 的 HTTPException，直接重新抛出
-        raise e
+    except ValueError as e:
+        # 活动未找到
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        # 捕获其他所有异常，打印日志并返回通用错误信息
-        await db.rollback() # 在发生错误时回滚数据库会话
         logger.error(f"Error resetting activity points for {activity_id}: {e}")
         raise HTTPException(status_code=500, detail=f"重置积分时发生内部错误: {e}")
+
+
+@router.post("/{activity_id}/award-points")
+@handle_api_errors
+async def award_activity_points(
+    activity_id: str,
+    points: int,
+    description: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """为活动授予积分"""
+    service = ActivityService(db)
+
+    try:
+        result = await service.award_activity_points(
+            activity_id=activity_id,
+            points=points,
+            description=description
+        )
+        return base_router.success_response(
+            data=result,
+            message=f"成功授予 {points} 积分"
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error awarding points for activity {activity_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"授予积分时发生内部错误: {e}")
+
+
+@router.get("/{activity_id}/points-status")
+@handle_api_errors
+async def get_activity_points_status(
+    activity_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取活动的积分状态"""
+    service = ActivityService(db)
+
+    try:
+        result = await service.get_activity_points_status(activity_id)
+        return base_router.success_response(
+            data=result,
+            message="获取积分状态成功"
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error getting points status for activity {activity_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"获取积分状态时发生内部错误: {e}")

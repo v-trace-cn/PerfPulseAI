@@ -1,8 +1,8 @@
 import uuid
 import json
 from dataclasses import dataclass
-from typing import Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, Body
+from typing import Dict, Any, Optional
+from fastapi import APIRouter, Depends, HTTPException, Body, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import asyncio
@@ -157,3 +157,38 @@ async def verify_invite_code(data: dict = Body(...)):
             status_code=401,
             success=False
         )
+
+
+# 依赖函数，用于获取当前用户
+async def get_current_user(
+    user_id: Optional[str] = Header(None, alias="X-User-Id"),
+    db: AsyncSession = Depends(get_db)
+) -> User:
+    """
+    获取当前用户的依赖函数
+    从请求头中获取用户ID，然后从数据库查询用户信息
+    """
+    if not user_id:
+        raise HTTPException(
+            status_code=401,
+            detail="未提供用户ID，请先登录"
+        )
+
+    try:
+        user_id_int = int(user_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="无效的用户ID格式"
+        )
+
+    result = await db.execute(select(User).filter(User.id == user_id_int))
+    user = result.scalars().first()
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="用户不存在"
+        )
+
+    return user

@@ -56,6 +56,18 @@ watch_logger = logging.getLogger('watchfiles')
 watch_logger.setLevel(logging.CRITICAL)
 watch_logger.propagate = False
 
+# 过滤无效日志: 忽略 OpenAI 相关的调试日志
+logging.getLogger('openai').setLevel(logging.WARNING)
+logging.getLogger('openai._base_client').setLevel(logging.WARNING)
+logging.getLogger('openai.resources').setLevel(logging.WARNING)
+logging.getLogger('openai.resources.chat').setLevel(logging.WARNING)
+logging.getLogger('openai.resources.chat.completions').setLevel(logging.WARNING)
+
+# 彻底禁用 OpenAI 调试日志输出
+openai_logger = logging.getLogger('openai._base_client')
+openai_logger.setLevel(logging.CRITICAL)
+openai_logger.propagate = False
+
 # 工具函数，便于各模块获取 logger
 def get_logger(name=None):
     return logging.getLogger(name)

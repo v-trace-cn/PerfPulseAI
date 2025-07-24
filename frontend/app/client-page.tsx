@@ -140,7 +140,7 @@ export default function ClientPage() {
         }
       }
     } catch (err: any) {
-      console.error("Auth action error:", err);
+
       toast({ title: "操作失败", description: err.message || "请稍后再试。", variant: "destructive" });
     }
   };

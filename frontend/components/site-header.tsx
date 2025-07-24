@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { NavbarAvatar } from "@/components/ui/unified-avatar"
 import { Badge } from "@/components/ui/badge"
 import { HelpCircle, LogIn, LogOut, Settings, User, UserPlus, Search, LayoutGrid, Building2 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
@@ -61,12 +61,10 @@ export default function SiteHeader({ onHelpClick, onSettingsClick }: SiteHeaderP
             <DropdownMenuTrigger className="flex items-center gap-2 data-pill hover:bg-muted/50 transition-colors duration-300 relative ml-2">
               {isAuthenticated ? (
                 <>
-                  <Avatar className="h-6 w-6 border-2 border-primary/20">
-                    <AvatarImage src="/placeholder.svg?height=32&width=32" alt={user?.name || "用户"} />
-                    <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                      {user?.name ? user.name.charAt(0) : "用"}
-                    </AvatarFallback>
-                  </Avatar>
+                  <NavbarAvatar
+                    name={user?.name}
+                    email={user?.email}
+                  />
                   <div className="flex flex-col text-left">
                     <span className="text-xs font-medium">{user?.name || "未知用户"}</span>
                     <span className="text-[10px] text-muted-foreground">{user?.department || user?.email || "未加入组织"}</span>

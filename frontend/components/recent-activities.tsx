@@ -74,7 +74,7 @@ export function RecentActivities() {
   useEffect(() => {
     if (fetchedData && fetchedData.success && fetchedData.data) {
       const { activities: fetchedActivities, total, page, per_page } = fetchedData.data;
-      const mappedActivities: Activity[] = fetchedActivities.map((activity: any) => ({
+      const mappedActivities: Activity[] = (fetchedActivities || []).map((activity: any) => ({
         id: activity.id,
         show_id: activity.showId || activity.show_id,
         title: activity.title,
@@ -96,7 +96,6 @@ export function RecentActivities() {
       // 确保 totalPages 是一个有效的正整数
       const calculatedTotalPages = total > 0 && per_page > 0 ? Math.ceil(total / per_page) : 1;
       setTotalPages(Math.max(1, calculatedTotalPages));
-      // 数据获取成功，日志已移除
     } else if (fetchedData && !fetchedData.success) {
       // Handle backend success: false case
       // This is now handled by the apiError state if fetchDirectApi throws.
@@ -116,7 +115,7 @@ export function RecentActivities() {
     return <div className="text-center text-destructive">错误: {apiError}</div>;
   }
 
-  if (!fetchedData || !fetchedData.success || !fetchedData.data || fetchedData.data.activities.length === 0) {
+  if (!fetchedData || !fetchedData.success || !fetchedData.data || !fetchedData.data.activities || fetchedData.data.activities.length === 0) {
     return <div className="text-center text-muted-foreground">暂无最新活动。</div>;
   }
 
@@ -124,6 +123,12 @@ export function RecentActivities() {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
     }
+  };
+
+  const handlePaginationClick = (page: number) => (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    handlePageChange(page);
   };
 
   return (
@@ -168,25 +173,34 @@ export function RecentActivities() {
           </Tooltip>
         </TooltipProvider>
       ))}
-      {(
+
+      {totalPages > 1 && (
         <Pagination className="mt-4">
           <PaginationContent>
             <PaginationItem>
-              <PaginationPrevious href="#" onClick={() => handlePageChange(currentPage - 1)} />
+              <PaginationPrevious
+                href="#"
+                onClick={handlePaginationClick(currentPage - 1)}
+                className={currentPage <= 1 ? "pointer-events-none opacity-50" : ""}
+              />
             </PaginationItem>
             {[...Array(Math.max(1, totalPages))].map((_, index) => (
               <PaginationItem key={index}>
                 <PaginationLink
                   href="#"
                   isActive={currentPage === index + 1}
-                  onClick={() => handlePageChange(index + 1)}
+                  onClick={handlePaginationClick(index + 1)}
                 >
                   {index + 1}
                 </PaginationLink>
               </PaginationItem>
             ))}
             <PaginationItem>
-              <PaginationNext href="#" onClick={() => handlePageChange(currentPage + 1)} />
+              <PaginationNext
+                href="#"
+                onClick={handlePaginationClick(currentPage + 1)}
+                className={currentPage >= totalPages ? "pointer-events-none opacity-50" : ""}
+              />
             </PaginationItem>
           </PaginationContent>
         </Pagination>

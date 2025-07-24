@@ -93,12 +93,7 @@ async function fetchUnifiedApi<T>(endpoint: string, options: RequestInit = {}): 
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.error('❌ API错误响应:', {
-        url,
-        status: response.status,
-        statusText: response.statusText,
-        errorData
-      });
+
       const errorMessage = errorData.message || errorData.error || errorData.detail || `服务器错误: ${response.status}`;
 
       // 创建一个包含更多信息的错误对象
@@ -110,14 +105,10 @@ async function fetchUnifiedApi<T>(endpoint: string, options: RequestInit = {}): 
     }
 
     const data = await response.json();
-    console.log('✅ API成功响应:', { url, data });
+
     return data;
   } catch (error) {
-    console.error('💥 API请求异常:', {
-      url,
-      error: error instanceof Error ? error.message : error,
-      stack: error instanceof Error ? error.stack : undefined
-    });
+
     throw error;
   }
 }
@@ -159,7 +150,7 @@ async function encryptPayload(payload: any): Promise<string | null> {
     );
     return arrayBufferToBase64(encrypted);
   } catch (err) {
-    console.error('[UnifiedAPI] RSA encryption failed, falling back to plaintext:', err);
+
     return null;
   }
 }
@@ -251,7 +242,12 @@ export const unifiedApi = {
       fetchUnifiedApi(`/api/activities/show/${showId}`),
 
     resetActivityPoints: (activityId: string): Promise<ApiResponse> =>
-      fetchUnifiedApi(`/api/activities/${activityId}/reset-points`, { method: 'POST' }),
+      fetchUnifiedApi(`/api/activities/${activityId}/reset-points`, {
+        method: 'POST',
+        headers: {
+          'X-User-ID': getCurrentUserId()?.toString() || '',
+        }
+      }),
   },
 
   // Pull Request API
@@ -277,14 +273,21 @@ export const unifiedApi = {
         },
       }),
 
-    getAll: (userId?: string): Promise<ApiResponse<Department[]>> =>
-      fetchUnifiedApi(`/api/departments/`, {
+    getAll: (userId?: string, companyId?: number): Promise<ApiResponse<Department[]>> =>
+      fetchUnifiedApi(`/api/departments/${companyId ? `?company_id=${companyId}` : ''}`, {
         headers: {
           'X-User-ID': userId || '',
         },
       }),
 
-    update: (id: string, data: any, userId?: string): Promise<ApiResponse<Department>> =>
+    getById: (id: number, userId?: string): Promise<ApiResponse<Department>> =>
+      fetchUnifiedApi(`/api/departments/${id}`, {
+        headers: {
+          'X-User-ID': userId || '',
+        },
+      }),
+
+    update: (id: number, data: any, userId?: string): Promise<ApiResponse<Department>> =>
       fetchUnifiedApi(`/api/departments/${id}`, {
         method: 'PUT',
         body: JSON.stringify(data),
@@ -293,7 +296,7 @@ export const unifiedApi = {
         },
       }),
 
-    delete: (id: string, userId?: string): Promise<ApiResponse> =>
+    delete: (id: number, userId?: string): Promise<ApiResponse> =>
       fetchUnifiedApi(`/api/departments/${id}`, {
         method: 'DELETE',
         headers: {
@@ -301,8 +304,47 @@ export const unifiedApi = {
         },
       }),
 
-    getMembers: (departmentId: string, userId?: string): Promise<ApiResponse<any[]>> =>
+    getMembers: (departmentId: number, userId?: string): Promise<ApiResponse<any[]>> =>
       fetchUnifiedApi(`/api/departments/${departmentId}/members`, {
+        headers: {
+          'X-User-ID': userId || '',
+        },
+      }),
+
+    join: (departmentId: number, userId?: string): Promise<ApiResponse> =>
+      fetchUnifiedApi(`/api/departments/${departmentId}/join`, {
+        method: 'POST',
+        headers: {
+          'X-User-ID': userId || '',
+        },
+      }),
+
+    leave: (userId?: string): Promise<ApiResponse> =>
+      fetchUnifiedApi(`/api/departments/leave`, {
+        method: 'POST',
+        headers: {
+          'X-User-ID': userId || '',
+        },
+      }),
+
+    associateToCompany: (companyId: number, userId?: string): Promise<ApiResponse> =>
+      fetchUnifiedApi(`/api/departments/associate-company`, {
+        method: 'POST',
+        body: JSON.stringify({ companyId }),
+        headers: {
+          'X-User-ID': userId || '',
+        },
+      }),
+
+    getStats: (departmentId: number, userId?: string, timeRange?: string): Promise<ApiResponse<any>> =>
+      fetchUnifiedApi(`/api/departments/${departmentId}/stats${timeRange ? `?timeRange=${timeRange}` : ''}`, {
+        headers: {
+          'X-User-ID': userId || '',
+        },
+      }),
+
+    exportData: (departmentId: number, format: 'csv' | 'excel', userId?: string): Promise<ApiResponse<any>> =>
+      fetchUnifiedApi(`/api/departments/${departmentId}/export?format=${format}`, {
         headers: {
           'X-User-ID': userId || '',
         },

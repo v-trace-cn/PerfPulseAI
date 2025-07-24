@@ -79,18 +79,33 @@ class Activity(Base):
     def to_dict(self):
         """
         Convert the activity object to a dictionary.
-        
+
         Returns:
             dict: Dictionary representation of the activity
         """
         user_data = None
-        if self.user:
-            user_data = {
-                "name": self.user.name,
-                "avatar": self.user.avatar_url,
-                "initials": self.user.name[0] if self.user.name else "无",
-            }
-        
+        try:
+            if self.user:
+                user_data = {
+                    "name": self.user.name,
+                    "avatar": self.user.avatar_url,
+                    "initials": self.user.name[0] if self.user.name else "无",
+                }
+        except:
+            user_data = None
+
+        # 安全地获取 PR 结果数据
+        ai_analysis = None
+        ai_analysis_started_at = None
+        ai_analysis_completed_at = None
+        try:
+            if self.pull_request_result:
+                ai_analysis = self.pull_request_result.ai_analysis_result
+                ai_analysis_started_at = self.pull_request_result.ai_analysis_started_at.isoformat() if self.pull_request_result.ai_analysis_started_at else None
+                ai_analysis_completed_at = self.pull_request_result.updated_at.isoformat() if self.pull_request_result.updated_at else None
+        except:
+            pass
+
         return {
             "id": self.id,
             "showId": self.show_id,
@@ -105,9 +120,9 @@ class Activity(Base):
             "completedAt": self.completed_at.isoformat() if self.completed_at else None,
             "updatedAt": self.updated_at.isoformat() if self.updated_at else None,
             "user": user_data,
-            "aiAnalysis": self.pull_request_result.ai_analysis_result if self.pull_request_result else None,
-            "aiAnalysisStartedAt": self.pull_request_result.ai_analysis_started_at.isoformat() if self.pull_request_result and self.pull_request_result.ai_analysis_started_at else None,
-            "aiAnalysisCompletedAt": self.pull_request_result.updated_at.isoformat() if self.pull_request_result and self.pull_request_result.updated_at else None,
+            "aiAnalysis": ai_analysis,
+            "aiAnalysisStartedAt": ai_analysis_started_at,
+            "aiAnalysisCompletedAt": ai_analysis_completed_at,
             "pointsCalculatedAt": self.completed_at.isoformat() if self.completed_at else None,
         }
     

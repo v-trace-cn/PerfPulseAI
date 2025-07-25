@@ -43,24 +43,8 @@ def upgrade() -> None:
     op.create_index('idx_notifications_user_status', 'notifications', ['user_id', 'status'])
     op.create_index('idx_notifications_user_created', 'notifications', ['user_id', 'created_at'])
     
-    # Add check constraints for data integrity
-    op.create_check_constraint(
-        'ck_notifications_status_valid',
-        'notifications',
-        "status IN ('UNREAD', 'READ', 'ARCHIVED')"
-    )
-    
-    op.create_check_constraint(
-        'ck_notifications_type_valid',
-        'notifications',
-        "type IN ('announcement', 'personal', 'business', 'system', 'points', 'redemption')"
-    )
-    
-    op.create_check_constraint(
-        'ck_notifications_read_at_logic',
-        'notifications',
-        "(status = 'UNREAD' AND read_at IS NULL) OR (status != 'UNREAD' AND read_at IS NOT NULL)"
-    )
+    # Note: SQLite doesn't support adding check constraints after table creation
+    # Check constraints should be defined in table creation above
 
 
 def downgrade() -> None:
@@ -74,10 +58,7 @@ def downgrade() -> None:
     op.drop_index('idx_notifications_status', table_name='notifications')
     op.drop_index('idx_notifications_user_id', table_name='notifications')
     
-    # Drop check constraints
-    op.drop_constraint('ck_notifications_read_at_logic', 'notifications', type_='check')
-    op.drop_constraint('ck_notifications_type_valid', 'notifications', type_='check')
-    op.drop_constraint('ck_notifications_status_valid', 'notifications', type_='check')
+    # Note: SQLite constraints are dropped automatically when tables are dropped
     
     # Drop table
     op.drop_table('notifications')

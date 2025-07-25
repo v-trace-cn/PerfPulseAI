@@ -29,18 +29,20 @@ def upgrade() -> None:
     op.create_index('idx_point_purchases_redemption_code', 'point_purchases', ['redemption_code'])
     
     # Add unique constraint to ensure redemption codes are unique when not null
-    op.create_unique_constraint(
-        'uq_point_purchases_redemption_code',
-        'point_purchases',
-        ['redemption_code']
-    )
+    # Using batch_alter_table for SQLite compatibility
+    with op.batch_alter_table('point_purchases') as batch_op:
+        batch_op.create_unique_constraint(
+            'uq_point_purchases_redemption_code',
+            ['redemption_code']
+        )
 
 
 def downgrade() -> None:
     """Remove redemption code column from point_purchases table."""
     
-    # Drop unique constraint
-    op.drop_constraint('uq_point_purchases_redemption_code', 'point_purchases', type_='unique')
+    # Drop unique constraint using batch_alter_table for SQLite compatibility
+    with op.batch_alter_table('point_purchases') as batch_op:
+        batch_op.drop_constraint('uq_point_purchases_redemption_code', type_='unique')
     
     # Drop index
     op.drop_index('idx_point_purchases_redemption_code', table_name='point_purchases')

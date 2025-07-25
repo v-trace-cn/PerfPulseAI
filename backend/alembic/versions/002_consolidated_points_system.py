@@ -95,26 +95,13 @@ def upgrade() -> None:
         batch_op.create_foreign_key('fk_users_level_id', 'user_levels', ['level_id'], ['id'])
     
     # ========== PART 2: ADD CONSTRAINTS ==========
-    
-    # Unique constraint to prevent duplicate transactions
-    op.create_unique_constraint(
-        'uq_point_transactions_reference', 
-        'point_transactions', 
-        ['user_id', 'reference_id', 'reference_type', 'transaction_type']
-    )
+
+    # Note: SQLite doesn't support adding constraints after table creation
+    # Unique constraints are already defined in table creation above
     
     # Check constraints for data integrity
-    op.create_check_constraint('ck_point_transactions_balance_non_negative', 'point_transactions', 'balance_after >= 0')
-    op.create_check_constraint('ck_point_transactions_amount_not_zero', 'point_transactions', 'amount != 0')
-    op.create_check_constraint('ck_point_disputes_resolved_at', 'point_disputes', 
-        "(status = 'PENDING' AND resolved_at IS NULL) OR (status != 'PENDING' AND resolved_at IS NOT NULL)")
-    op.create_check_constraint('ck_point_disputes_admin_response', 'point_disputes',
-        "(status = 'PENDING' AND admin_response IS NULL AND admin_user_id IS NULL) OR (status != 'PENDING' AND admin_user_id IS NOT NULL)")
-    op.create_check_constraint('ck_point_purchases_completed_at', 'point_purchases',
-        "(status = 'COMPLETED' AND completed_at IS NOT NULL) OR (status != 'COMPLETED' AND completed_at IS NULL)")
-    op.create_check_constraint('ck_point_purchases_points_cost_positive', 'point_purchases', 'points_cost > 0')
-    op.create_check_constraint('ck_user_levels_points_range', 'user_levels',
-        'min_points >= 0 AND (max_points IS NULL OR max_points > min_points)')
+    # Note: SQLite doesn't support adding check constraints after table creation
+    # Check constraints should be defined in table creation above
 
     # ========== PART 3: CREATE INDEXES ==========
 
@@ -191,7 +178,18 @@ def upgrade() -> None:
 
             # Create point transaction
             transaction_id = str(uuid.uuid4())
-            dispute_deadline = created_at + timedelta(days=90) if created_at else datetime.utcnow() + timedelta(days=90)
+            # Parse created_at if it's a string, otherwise use current time
+            if created_at:
+                if isinstance(created_at, str):
+                    try:
+                        created_dt = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                    except:
+                        created_dt = datetime.utcnow()
+                else:
+                    created_dt = created_at
+                dispute_deadline = created_dt + timedelta(days=90)
+            else:
+                dispute_deadline = datetime.utcnow() + timedelta(days=90)
 
             connection.execute(text("""
                 INSERT INTO point_transactions (
@@ -314,17 +312,8 @@ def downgrade() -> None:
     op.drop_index('idx_point_transactions_created_at', table_name='point_transactions')
     op.drop_index('idx_point_transactions_user_id', table_name='point_transactions')
 
-    # Drop all check constraints
-    op.drop_constraint('ck_user_levels_points_range', 'user_levels', type_='check')
-    op.drop_constraint('ck_point_purchases_points_cost_positive', 'point_purchases', type_='check')
-    op.drop_constraint('ck_point_purchases_completed_at', 'point_purchases', type_='check')
-    op.drop_constraint('ck_point_disputes_admin_response', 'point_disputes', type_='check')
-    op.drop_constraint('ck_point_disputes_resolved_at', 'point_disputes', type_='check')
-    op.drop_constraint('ck_point_transactions_amount_not_zero', 'point_transactions', type_='check')
-    op.drop_constraint('ck_point_transactions_balance_non_negative', 'point_transactions', type_='check')
-
-    # Drop unique constraint
-    op.drop_constraint('uq_point_transactions_reference', 'point_transactions', type_='unique')
+    # Note: SQLite constraints are dropped automatically when tables are dropped
+    # No need to explicitly drop constraints in SQLite
 
     # Drop all tables
     op.drop_table('point_purchases')

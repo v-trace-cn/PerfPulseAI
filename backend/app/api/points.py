@@ -21,8 +21,8 @@ class PointTransactionResponse(BaseModel):
     id: str
     userId: int
     transactionType: str
-    amount: int
-    balanceAfter: int
+    amount: float
+    balanceAfter: float
     referenceId: Optional[str]
     referenceType: Optional[str]
     description: Optional[str]
@@ -43,20 +43,20 @@ class PaginatedTransactionsResponse(BaseModel):
 
 class UserPointsSummaryResponse(BaseModel):
     userId: int
-    currentBalance: int
+    currentBalance: float
     totalTransactions: int
-    totalEarned: int
-    totalSpent: int
+    totalEarned: float
+    totalSpent: float
     lastTransactionDate: Optional[str]
     currentLevel: Optional[dict]
     nextLevel: Optional[dict]
-    pointsToNext: Optional[int]
+    pointsToNext: Optional[float]
     progressPercentage: float
     # 兑换相关统计
     totalRedemptions: int = 0
-    totalPointsSpentOnRedemptions: int = 0
+    totalPointsSpentOnRedemptions: float = 0
     monthlyRedemptions: int = 0
-    monthlyPointsSpentOnRedemptions: int = 0
+    monthlyPointsSpentOnRedemptions: float = 0
 
 
 @router.get("/points/balance")
@@ -66,8 +66,8 @@ async def get_my_points_balance(
 ):
     """获取我的积分余额"""
     point_service = PointService(db)
-    balance = await point_service.get_user_balance(current_user.id)
-    
+    balance = await point_service.get_user_balance_for_display(current_user.id)
+
     return {
         "userId": current_user.id,
         "balance": balance
@@ -405,41 +405,45 @@ async def create_sample_point_data(
         # 创建一些示例交易记录
         transactions = []
 
-        # 获得积分记录
+        # 获得积分记录（使用前端展示格式）
         transaction1 = await point_service.earn_points(
             user_id=current_user.id,
-            amount=100,
+            amount=10.0,  # 前端展示格式：10.0积分
             reference_id="test_activity_1",
             reference_type="activity",
-            description="完成代码审查任务"
+            description="完成代码审查任务",
+            is_display_amount=True
         )
         transactions.append(transaction1)
 
         transaction2 = await point_service.earn_points(
             user_id=current_user.id,
-            amount=50,
+            amount=5.0,  # 前端展示格式：5.0积分
             reference_id="test_activity_2",
             reference_type="activity",
-            description="提交高质量代码"
+            description="提交高质量代码",
+            is_display_amount=True
         )
         transactions.append(transaction2)
 
         transaction3 = await point_service.earn_points(
             user_id=current_user.id,
-            amount=25,
+            amount=2.5,  # 前端展示格式：2.5积分
             reference_id="test_bonus_1",
             reference_type="bonus",
-            description="每日签到奖励"
+            description="每日签到奖励",
+            is_display_amount=True
         )
         transactions.append(transaction3)
 
-        # 消费积分记录
+        # 消费积分记录（使用前端展示格式）
         transaction4 = await point_service.spend_points(
             user_id=current_user.id,
-            amount=30,
+            amount=3.0,  # 前端展示格式：3.0积分
             reference_id="test_purchase_1",
             reference_type="purchase",
-            description="兑换咖啡券"
+            description="兑换咖啡券",
+            is_display_amount=True
         )
         transactions.append(transaction4)
 

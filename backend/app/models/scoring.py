@@ -155,12 +155,15 @@ class PointTransaction(Base):
     purchases = relationship('PointPurchase', back_populates='transaction', cascade='all, delete-orphan')
 
     def to_dict(self):
+        # 导入转换器
+        from app.services.point_service import PointConverter
+
         return {
             "id": self.id,
             "userId": self.user_id,
             "transactionType": self.transaction_type.value if self.transaction_type else None,
-            "amount": self.amount,
-            "balanceAfter": self.balance_after,
+            "amount": PointConverter.format_for_api(self.amount),
+            "balanceAfter": PointConverter.format_for_api(self.balance_after),
             "referenceId": self.reference_id,
             "referenceType": self.reference_type,
             "description": self.description,
@@ -243,16 +246,28 @@ class UserLevel(Base):
     created_at = Column(DateTime, default=lambda: datetime.utcnow().replace(microsecond=0))
 
     def to_dict(self):
+        # 导入转换器
+        try:
+            from app.services.point_service import PointConverter
+            min_points_display = PointConverter.format_for_api(self.min_points)
+            max_points_display = PointConverter.format_for_api(self.max_points) if self.max_points else None
+            points_range = f"{min_points_display}-{max_points_display if max_points_display else '∞'}"
+        except:
+            # 如果转换失败，使用原始值
+            min_points_display = self.min_points
+            max_points_display = self.max_points
+            points_range = f"{self.min_points}-{self.max_points if self.max_points else '∞'}"
+
         return {
             "id": self.id,
             "name": self.name,
-            "minPoints": self.min_points,
-            "maxPoints": self.max_points,
+            "minPoints": min_points_display,
+            "maxPoints": max_points_display,
             "benefits": self.benefits,
             "icon": self.icon,
             "color": self.color,
             "createdAt": self.created_at.isoformat() if isinstance(self.created_at, datetime) else self.created_at,
-            "pointsRange": f"{self.min_points}-{self.max_points if self.max_points else '∞'}",
+            "pointsRange": points_range,
             "isUnlimited": self.max_points is None
         }
 
@@ -294,13 +309,16 @@ class PointPurchase(Base):
     transaction = relationship('PointTransaction', back_populates='purchases')
 
     def to_dict(self):
+        # 导入转换器
+        from app.services.point_service import PointConverter
+
         return {
             "id": self.id,
             "userId": self.user_id,
             "itemId": self.item_id,
             "itemName": self.item_name,
             "itemDescription": self.item_description,
-            "pointsCost": self.points_cost,
+            "pointsCost": PointConverter.format_for_api(self.points_cost),
             "transactionId": self.transaction_id,
             "status": self.status.value if self.status else None,
             "redemptionCode": self.redemption_code,

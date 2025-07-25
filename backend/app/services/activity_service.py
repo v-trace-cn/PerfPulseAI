@@ -64,9 +64,12 @@ class ActivityService:
         """根据show_id获取活动"""
         try:
             from app.models.activity import Activity
+            from sqlalchemy.orm import joinedload
 
             result = await self.db.execute(
-                select(Activity).filter(Activity.show_id == show_id)
+                select(Activity)
+                .options(joinedload(Activity.pull_request_result), joinedload(Activity.user))
+                .filter(Activity.show_id == show_id)
             )
             return result.scalar_one_or_none()
         except Exception as e:
@@ -107,9 +110,12 @@ class ActivityService:
         """根据ID获取活动"""
         try:
             from app.models.activity import Activity
+            from sqlalchemy.orm import joinedload
 
             result = await self.db.execute(
-                select(Activity).filter(Activity.id == activity_id)
+                select(Activity)
+                .options(joinedload(Activity.pull_request_result), joinedload(Activity.user))
+                .filter(Activity.id == activity_id)
             )
             return result.scalar_one_or_none()
         except Exception as e:
@@ -137,10 +143,17 @@ class ActivityService:
             return False
 
     async def reset_activity_points(self, activity_id: str) -> Dict[str, Any]:
-        """重置活动积分并回退用户积分"""
+        """重置活动积分并回退用户积分
+
+        Args:
+            activity_id: 可以是activity.id或activity.show_id
+        """
         try:
-            # 获取活动信息
-            activity = await self.get_by_id(activity_id)
+            # 先尝试通过show_id获取活动，如果失败再尝试通过id获取
+            activity = await self.get_by_show_id(activity_id)
+            if not activity:
+                activity = await self.get_by_id(activity_id)
+
             if not activity:
                 raise ValueError(f"Activity {activity_id} not found")
 
@@ -169,10 +182,15 @@ class ActivityService:
                         reverted_transaction = await point_service.adjust_points(
                             user_id=activity.user_id,
                             amount=-old_points,  # 负数表示回退
-                            admin_user_id=activity.user_id,  # 这里可以传入操作者ID
-                            reason=f"重置活动积分: {activity.title}",
                             reference_id=activity.show_id,
-                            reference_type='activity_reset'
+                            reference_type='activity_reset',
+                            description=f"重置活动积分: {activity.title}",
+                            extra_data={
+                                "activity_id": activity.id,
+                                "activity_title": activity.title,
+                                "reset_reason": "AI重新评分前重置"
+                            },
+                            is_display_amount=True  # old_points是前端展示格式
                         )
                         logger.info(f"Reverted {old_points} points for user {activity.user_id} from activity {activity_id}")
 
@@ -181,18 +199,19 @@ class ActivityService:
                     # 继续执行，不因积分回退失败而中断活动重置
 
             # 重置活动积分和状态
-            await self.update_activity(activity_id, {
+            await self.update_activity(activity.id, {
                 "points": 0,
                 "status": "pending"
             })
 
-            logger.info(f"Reset activity {activity_id} points from {old_points} to 0")
+            logger.info(f"Reset activity {activity.show_id} (ID: {activity.id}) points from {old_points} to 0")
 
             return {
-                "activity_id": activity_id,
+                "activity_id": activity.id,
+                "activity_show_id": activity.show_id,
                 "reverted_points": old_points,
                 "user_id": activity.user_id,
-                "transaction_id": reverted_transaction.id if reverted_transaction else None,
+                "transaction_id": reverted_transaction.id if 'reverted_transaction' in locals() and reverted_transaction else None,
                 "message": "积分已重置，可重新计算"
             }
 
@@ -226,6 +245,7 @@ class ActivityService:
             point_service = PointService(self.db)
 
             # 创建积分交易记录
+            # points参数是前端展示格式，需要传递is_display_amount=True让服务层转换
             transaction = await point_service.earn_points(
                 user_id=activity.user_id,
                 amount=points,
@@ -236,7 +256,8 @@ class ActivityService:
                     "activity_id": activity.id,
                     "activity_title": activity.title,
                     **(extra_data or {})
-                }
+                },
+                is_display_amount=True  # 明确指定这是前端展示格式
             )
 
             # 更新活动状态和积分

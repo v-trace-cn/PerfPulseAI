@@ -186,19 +186,26 @@ async def get_pull_request_details(pr_node_id: str, db: AsyncSession = Depends(g
     """
     根据 PR 的 Node ID 获取其详细信息和时间线事件。
     """
+    # 分别查询PullRequest和Events，避免dynamic关系的eager loading问题
     result = await db.execute(
-        select(PullRequest)
-        .options(joinedload(PullRequest.events))
-        .filter(PullRequest.pr_node_id == pr_node_id)
+        select(PullRequest).filter(PullRequest.pr_node_id == pr_node_id)
     )
     pr = result.scalars().first()
-    
+
     if not pr:
         raise HTTPException(status_code=404, detail="Pull Request not found")
-        
-    # 对事件按时间升序排序
-    if pr.events:
-        pr.events.sort(key=lambda event: event.event_time)
+
+    # 单独查询events并手动排序
+    from app.models.pull_request_event import PullRequestEvent
+    events_result = await db.execute(
+        select(PullRequestEvent)
+        .filter(PullRequestEvent.pr_node_id == pr_node_id)
+        .order_by(PullRequestEvent.event_time)
+    )
+    events = events_result.scalars().all()
+
+    # 手动设置events属性（转换为列表以便排序）
+    pr._events_list = events
         
     return pr.to_dict()
 
@@ -212,17 +219,24 @@ async def calculate_pr_points(
     确保一个活动只能兑换一次积分。
     """
     try:
-        activity_result = await db.execute(select(Activity).filter(Activity.show_id == activity_show_id).options(joinedload(Activity.pull_request_result)))
+        # 分别查询Activity和PullRequestResult，避免复杂的关联加载
+        activity_result = await db.execute(select(Activity).filter(Activity.show_id == activity_show_id))
         activity = activity_result.scalars().first()
 
         if not activity:
             raise HTTPException(status_code=404, detail=f"Activity with show ID {activity_show_id} not found.")
-        
+
+        # 单独查询PullRequestResult
+        pr_result_query = await db.execute(
+            select(PullRequestResult).filter(PullRequestResult.pr_node_id == activity.id)
+        )
+        pull_request_result = pr_result_query.scalars().first()
+
         # 检查是否已存在 AI 分析结果
-        if not activity.pull_request_result or not activity.pull_request_result.ai_analysis_result:
+        if not pull_request_result or not pull_request_result.ai_analysis_result:
             raise HTTPException(status_code=400, detail="缺少 AI 分析结果，请先进行 AI 评分。")
 
-        analysis_result = activity.pull_request_result.ai_analysis_result # 直接使用已存在的分析结果
+        analysis_result = pull_request_result.ai_analysis_result # 直接使用已存在的分析结果
 
         # 如果活动已完成且已存在 points 字段，则不重复授予，直接返回现有积分
         if activity.status == "completed" and activity.points is not None and activity.points > 0:
@@ -251,21 +265,29 @@ async def calculate_pr_points(
         )
 
         if existing_transaction:
+            # 导入积分转换器
+            from app.services.point_service import PointConverter
+
             # 如果已存在交易，检查是否需要调整积分
-            old_amount = existing_transaction.amount
-            if old_amount != points_to_award:
-                # 需要调整积分
-                adjustment_amount = points_to_award - old_amount
+            old_amount_storage = existing_transaction.amount  # 后端存储格式
+            old_amount_display = PointConverter.format_for_api(old_amount_storage)  # 前端展示格式
+            new_amount_display = points_to_award  # AI计算的是前端展示格式
+            new_amount_storage = PointConverter.to_storage(new_amount_display)  # 转换为后端存储格式
+
+            if old_amount_storage != new_amount_storage:
+                # 需要调整积分（使用前端展示格式计算调整量）
+                adjustment_amount_display = new_amount_display - old_amount_display
                 await point_service.adjust_points(
                     user_id=activity.user_id,
-                    amount=adjustment_amount,
+                    amount=adjustment_amount_display,
                     reference_id=activity_show_id,
                     reference_type='activity_adjustment',
-                    description=f"活动重新评分调整: {activity_show_id} (原{old_amount}分 -> 现{points_to_award}分)"
+                    description=f"AI重新评分调整: {activity_show_id} (原{old_amount_display}分 -> 现{new_amount_display}分)",
+                    is_display_amount=True  # 调整量是前端展示格式
                 )
-                print(f"[积分调整] 活动 {activity_show_id} 积分从 {old_amount} 调整为 {points_to_award}，调整量: {adjustment_amount}")
+                print(f"[积分调整] 活动 {activity_show_id} 积分从 {old_amount_display} 调整为 {new_amount_display}，调整量: {adjustment_amount_display}")
             else:
-                print(f"[积分发放] 活动 {activity_show_id} 积分无变化，保持 {points_to_award} 分")
+                print(f"[积分发放] 活动 {activity_show_id} 积分无变化，保持 {new_amount_display} 分")
         else:
             # 首次授予积分
             await point_service.earn_points(
@@ -273,12 +295,13 @@ async def calculate_pr_points(
                 amount=points_to_award,
                 reference_id=activity_show_id,
                 reference_type='activity',
-                description=f"PR活动积分: {activity.pull_request_result.repository}#{activity.pull_request_result.pr_number}",
+                description=f"PR活动积分: {pull_request_result.repository}#{pull_request_result.pr_number}",
                 extra_data={
                     "activity_id": activity.id,
-                    "pr_node_id": activity.pull_request_result.pr_node_id,
+                    "pr_node_id": pull_request_result.pr_node_id,
                     "detailed_points": detailed_points
-                }
+                },
+                is_display_amount=True  # AI计算的积分是前端展示格式
             )
             print(f"[积分发放] 用户 {activity.user_id} 获得活动 {activity_show_id} 积分 {points_to_award}")
 
@@ -288,7 +311,7 @@ async def calculate_pr_points(
         activity.completed_at = datetime.utcnow()
 
         # 将积分信息写回 analysis_result 中，方便前端一次性获取
-        activity.pull_request_result.ai_analysis_result["points"] = points_calculation_result
+        pull_request_result.ai_analysis_result["points"] = points_calculation_result
 
         await db.commit()
         await db.refresh(activity)
@@ -337,21 +360,29 @@ async def recalculate_pr_points(
     重新计算指定活动的积分，支持积分调整
     """
     try:
+        # 分别查询Activity和PullRequestResult，避免复杂的关联加载
         activity_result = await db.execute(
-            select(Activity)
-            .filter(Activity.show_id == activity_show_id)
-            .options(joinedload(Activity.pull_request_result))
+            select(Activity).filter(Activity.show_id == activity_show_id)
         )
         activity = activity_result.scalars().first()
 
         if not activity:
             raise HTTPException(status_code=404, detail=f"Activity with show ID {activity_show_id} not found.")
 
+        # 单独查询PullRequestResult
+        pr_result_query = await db.execute(
+            select(PullRequestResult).filter(PullRequestResult.pr_node_id == activity.id)
+        )
+        pull_request_result = pr_result_query.scalars().first()
+
+        # 手动设置关联，避免SQLAlchemy的自动加载问题
+        activity.pull_request_result = pull_request_result
+
         # 检查是否已存在 AI 分析结果
-        if not activity.pull_request_result or not activity.pull_request_result.ai_analysis_result:
+        if not pull_request_result or not pull_request_result.ai_analysis_result:
             raise HTTPException(status_code=400, detail="缺少 AI 分析结果，请先进行 AI 评分。")
 
-        analysis_result = activity.pull_request_result.ai_analysis_result
+        analysis_result = pull_request_result.ai_analysis_result
 
         score_result = analysis_result.get("score") or {
             "overall_score": analysis_result.get("overall_score"),
@@ -374,44 +405,57 @@ async def recalculate_pr_points(
         )
 
         if existing_transaction:
-            old_points = existing_transaction.amount
-            if old_points != new_points:
-                # 计算调整量
-                adjustment_amount = new_points - old_points
+            # 导入积分转换器
+            from app.services.point_service import PointConverter
+
+            # 获取旧积分（后端存储格式）和新积分（前端展示格式）
+            old_points_storage = existing_transaction.amount
+            old_points_display = PointConverter.format_for_api(old_points_storage)
+            new_points_display = new_points  # AI计算的是前端展示格式
+            new_points_storage = PointConverter.to_storage(new_points_display)
+
+            # 比较存储格式的积分
+            if old_points_storage != new_points_storage:
+                # 计算调整量（前端展示格式）
+                adjustment_amount_display = new_points_display - old_points_display
 
                 # 创建积分调整交易
                 await point_service.adjust_points(
                     user_id=activity.user_id,
-                    amount=adjustment_amount,
+                    amount=adjustment_amount_display,
                     reference_id=activity_show_id,
                     reference_type='activity_recalculation',
-                    description=f"活动积分重新计算: {activity_show_id} (原{old_points}分 -> 现{new_points}分)",
+                    description=f"AI重新评分积分调整: {activity_show_id} (原{old_points_display}分 -> 现{new_points_display}分)",
                     extra_data={
                         "activity_id": activity.id,
-                        "old_points": old_points,
-                        "new_points": new_points,
-                        "recalculated_at": datetime.utcnow().isoformat()
-                    }
+                        "old_points_display": old_points_display,
+                        "new_points_display": new_points_display,
+                        "old_points_storage": old_points_storage,
+                        "new_points_storage": new_points_storage,
+                        "recalculated_at": datetime.utcnow().isoformat(),
+                        "recalculation_reason": "AI重新评分"
+                    },
+                    is_display_amount=True  # 调整量是前端展示格式
                 )
 
-                # 更新活动记录
-                activity.points = new_points
-                activity.pull_request_result.ai_analysis_result["points"] = points_calculation_result
+                # 更新活动记录（存储前端展示格式用于显示）
+                activity.points = new_points_display
+                pull_request_result.ai_analysis_result["points"] = points_calculation_result
 
                 await db.commit()
                 await db.refresh(activity)
 
                 return {
                     "message": f"积分已重新计算并调整",
-                    "oldPoints": old_points,
-                    "newPoints": new_points,
-                    "adjustment": adjustment_amount,
+                    "oldPoints": old_points_display,
+                    "newPoints": new_points_display,
+                    "adjustment": adjustment_amount_display,
                     "activityShowId": activity_show_id
                 }
             else:
                 return {
                     "message": "积分无需调整",
-                    "points": new_points,
+                    "points": new_points_display,
                     "activityShowId": activity_show_id
                 }
         else:
@@ -421,18 +465,20 @@ async def recalculate_pr_points(
                 amount=new_points,
                 reference_id=activity_show_id,
                 reference_type='activity',
-                description=f"PR活动积分: {activity.pull_request_result.repository}#{activity.pull_request_result.pr_number}",
+                description=f"PR活动积分: {pull_request_result.repository}#{pull_request_result.pr_number}",
                 extra_data={
                     "activity_id": activity.id,
-                    "pr_node_id": activity.pull_request_result.pr_node_id,
+                    "pr_node_id": pull_request_result.pr_node_id,
                     "detailed_points": points_calculation_result["detailed_points"]
-                }
+                },
+                is_display_amount=True  # AI计算的积分是前端展示格式
             )
 
-            activity.points = new_points
+            # 更新活动记录（存储前端展示格式用于显示）
+            activity.points = new_points  # new_points是前端展示格式
             activity.status = "completed"
             activity.completed_at = datetime.utcnow()
-            activity.pull_request_result.ai_analysis_result["points"] = points_calculation_result
+            pull_request_result.ai_analysis_result["points"] = points_calculation_result
 
             await db.commit()
             await db.refresh(activity)

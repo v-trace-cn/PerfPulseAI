@@ -3,7 +3,8 @@
 """
 import uuid
 from datetime import datetime, timedelta
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any, Tuple, Union
+from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, desc, text, case
 from sqlalchemy.orm import joinedload
@@ -16,6 +17,33 @@ from app.models.scoring import (
     TransactionType, DisputeStatus, PurchaseStatus
 )
 from app.models.user import User
+
+
+class PointConverter:
+    """积分转换工具类 - 处理积分的放大和缩小"""
+
+    # 积分放大倍数：后端存储时放大10倍，前端展示时缩小10倍
+    SCALE_FACTOR = 10
+
+    @classmethod
+    def to_storage(cls, display_points: Union[int, float]) -> int:
+        """将前端展示的积分转换为后端存储的积分（放大10倍）"""
+        if display_points is None:
+            return 0
+        return int(float(display_points) * cls.SCALE_FACTOR)
+
+    @classmethod
+    def to_display(cls, storage_points: Union[int, float]) -> float:
+        """将后端存储的积分转换为前端展示的积分（缩小10倍）"""
+        if storage_points is None:
+            return 0.0
+        return float(storage_points) / cls.SCALE_FACTOR
+
+    @classmethod
+    def format_for_api(cls, storage_points: Union[int, float]) -> float:
+        """格式化积分用于API返回（保留1位小数）"""
+        display_points = cls.to_display(storage_points)
+        return round(display_points, 1)
 from app.core.database import get_db
 
 logger = logging.getLogger(__name__)
@@ -65,7 +93,7 @@ class PointService:
 
     @cache_user_balance
     async def get_user_balance(self, user_id: int) -> int:
-        """获取用户当前积分余额（带缓存）"""
+        """获取用户当前积分余额（后端存储格式，放大10倍）"""
         # 优先从用户表获取，作为缓存
         user_result = await self.db.execute(
             select(User.points).filter(User.id == user_id)
@@ -73,19 +101,24 @@ class PointService:
         user_points = user_result.scalar()
 
         if user_points is not None:
-            return user_points
+            return int(user_points)
 
         # 如果用户表没有数据，从交易记录计算
         return await self.calculate_user_balance(user_id)
 
+    async def get_user_balance_for_display(self, user_id: int) -> float:
+        """获取用户当前积分余额（前端展示格式，缩小10倍）"""
+        storage_balance = await self.get_user_balance(user_id)
+        return PointConverter.format_for_api(storage_balance)
+
     async def calculate_user_balance(self, user_id: int) -> int:
-        """通过交易记录计算用户积分余额（用于一致性检查）"""
+        """通过交易记录计算用户积分余额（后端存储格式）"""
         result = await self.db.execute(
             select(func.sum(PointTransaction.amount))
             .filter(PointTransaction.user_id == user_id)
         )
         balance = result.scalar()
-        return balance if balance is not None else 0
+        return int(balance) if balance is not None else 0
 
     async def verify_user_balance_consistency(self, user_id: int) -> Tuple[bool, int, int]:
         """验证用户积分一致性"""
@@ -97,16 +130,28 @@ class PointService:
     async def earn_points(
         self,
         user_id: int,
-        amount: int,
+        amount: Union[int, float],
         reference_id: Optional[str] = None,
         reference_type: Optional[str] = None,
         description: Optional[str] = None,
         extra_data: Optional[Dict[str, Any]] = None,
-        dispute_deadline_days: int = 90
+        dispute_deadline_days: int = 90,
+        is_display_amount: bool = True
     ) -> PointTransaction:
-        """用户获得积分"""
+        """用户获得积分
+
+        Args:
+            user_id: 用户ID
+            amount: 积分数量
+            is_display_amount: 如果为True，表示amount是前端展示格式（需要放大10倍存储）
+                              如果为False，表示amount已经是后端存储格式（不需要转换）
+        """
         if amount <= 0:
             raise ValueError("积分数量必须大于0")
+
+        # 转换积分格式：如果是展示格式，需要放大10倍存储
+        storage_amount = PointConverter.to_storage(amount) if is_display_amount else int(amount)
+        display_amount = PointConverter.to_display(storage_amount)
 
         # 检查是否存在重复交易
         if reference_id and reference_type:
@@ -117,16 +162,16 @@ class PointService:
                 logger.warning(f"重复的积分交易: user_id={user_id}, reference_id={reference_id}")
                 return existing
 
-        # 获取当前余额
+        # 获取当前余额（后端存储格式）
         current_balance = await self.get_user_balance(user_id)
-        new_balance = current_balance + amount
+        new_balance = current_balance + storage_amount
 
         # 创建交易记录
         transaction = PointTransaction(
             id=str(uuid.uuid4()),
             user_id=user_id,
             transaction_type=TransactionType.EARN,
-            amount=amount,
+            amount=storage_amount,
             balance_after=new_balance,
             reference_id=reference_id,
             reference_type=reference_type,
@@ -147,35 +192,48 @@ class PointService:
         await self.db.commit()
         await self.db.refresh(transaction)
 
-        logger.info(f"用户 {user_id} 获得 {amount} 积分，当前余额: {new_balance}")
+        logger.info(f"用户 {user_id} 获得 {display_amount} 积分（存储: {storage_amount}），当前余额: {PointConverter.to_display(new_balance)}")
         return transaction
     
     async def spend_points(
         self,
         user_id: int,
-        amount: int,
+        amount: Union[int, float],
         reference_id: Optional[str] = None,
         reference_type: Optional[str] = None,
         description: Optional[str] = None,
-        extra_data: Optional[Dict[str, Any]] = None
+        extra_data: Optional[Dict[str, Any]] = None,
+        is_display_amount: bool = True
     ) -> PointTransaction:
-        """用户消费积分"""
+        """用户消费积分
+
+        Args:
+            user_id: 用户ID
+            amount: 积分数量
+            is_display_amount: 如果为True，表示amount是前端展示格式（需要放大10倍存储）
+                              如果为False，表示amount已经是后端存储格式（不需要转换）
+        """
         if amount <= 0:
             raise ValueError("积分数量必须大于0")
 
-        # 获取当前余额并验证
-        current_balance = await self.get_user_balance(user_id)
-        if current_balance < amount:
-            raise ValueError(f"积分余额不足，当前余额: {current_balance}，需要: {amount}")
+        # 转换积分格式：如果是展示格式，需要放大10倍存储
+        storage_amount = PointConverter.to_storage(amount) if is_display_amount else int(amount)
+        display_amount = PointConverter.to_display(storage_amount)
 
-        new_balance = current_balance - amount
+        # 获取当前余额并验证（后端存储格式）
+        current_balance = await self.get_user_balance(user_id)
+        if current_balance < storage_amount:
+            current_display = PointConverter.to_display(current_balance)
+            raise ValueError(f"积分余额不足，当前余额: {current_display}，需要: {display_amount}")
+
+        new_balance = current_balance - storage_amount
 
         # 创建交易记录
         transaction = PointTransaction(
             id=str(uuid.uuid4()),
             user_id=user_id,
             transaction_type=TransactionType.SPEND,
-            amount=-amount,  # 负数表示消费
+            amount=-storage_amount,  # 负数表示消费
             balance_after=new_balance,
             reference_id=reference_id,
             reference_type=reference_type,
@@ -195,57 +253,68 @@ class PointService:
         await self.db.commit()
         await self.db.refresh(transaction)
 
-        logger.info(f"用户 {user_id} 消费 {amount} 积分，当前余额: {new_balance}")
-        return transaction
-        await self._update_user_points(user_id, new_balance)
-        
-        await self.db.commit()
-        await self.db.refresh(transaction)
-        
+        logger.info(f"用户 {user_id} 消费 {display_amount} 积分（存储: {storage_amount}），当前余额: {PointConverter.to_display(new_balance)}")
         return transaction
     
     async def adjust_points(
         self,
         user_id: int,
-        amount: int,
-        admin_user_id: int,
-        reason: str,
+        amount: Union[int, float],
         reference_id: Optional[str] = None,
-        reference_type: Optional[str] = None
+        reference_type: Optional[str] = None,
+        description: Optional[str] = None,
+        extra_data: Optional[Dict[str, Any]] = None,
+        is_display_amount: bool = True
     ) -> PointTransaction:
-        """管理员调整积分"""
-        # 获取当前余额
+        """积分调整（支持AI重新评分等场景）
+
+        Args:
+            user_id: 用户ID
+            amount: 调整积分数量（可以是正数或负数）
+            is_display_amount: 如果为True，表示amount是前端展示格式
+        """
+        if amount == 0:
+            raise ValueError("调整积分数量不能为0")
+
+        # 转换积分格式
+        storage_amount = PointConverter.to_storage(amount) if is_display_amount else int(amount)
+        display_amount = PointConverter.to_display(storage_amount)
+
+        # 获取当前余额（后端存储格式）
         current_balance = await self.get_user_balance(user_id)
-        new_balance = current_balance + amount
-        
+        new_balance = current_balance + storage_amount
+
+        # 确保余额不会变为负数
         if new_balance < 0:
-            raise ValueError("调整后积分不能为负数")
-        
+            current_display = PointConverter.to_display(current_balance)
+            raise ValueError(f"积分调整后余额不能为负数，当前余额: {current_display}，调整数量: {display_amount}")
+
         # 创建交易记录
         transaction = PointTransaction(
             id=str(uuid.uuid4()),
             user_id=user_id,
             transaction_type=TransactionType.ADJUST,
-            amount=amount,
+            amount=storage_amount,
             balance_after=new_balance,
             reference_id=reference_id,
             reference_type=reference_type,
-            description=f"管理员调整: {reason}",
-            extra_data={"admin_user_id": admin_user_id, "reason": reason},
+            description=description or f"积分调整: {'+' if storage_amount > 0 else ''}{display_amount}",
+            extra_data=extra_data,
             created_at=datetime.utcnow().replace(microsecond=0)
         )
-        
+
         self.db.add(transaction)
-        
+
         # 更新用户积分
         await self._update_user_points(user_id, new_balance)
-        
+
         # 检查用户等级变化
         await self._check_level_upgrade(user_id, new_balance)
-        
+
         await self.db.commit()
         await self.db.refresh(transaction)
-        
+
+        logger.info(f"调整用户 {user_id} 积分 {display_amount}（存储: {storage_amount}），当前余额: {PointConverter.to_display(new_balance)}")
         return transaction
     
     async def get_user_transactions(
@@ -372,9 +441,9 @@ class PointService:
         return {
             "userId": user_id,
             "totalRedemptions": total_stats.total_redemptions or 0,
-            "totalPointsSpent": int(total_stats.total_points_spent or 0),
+            "totalPointsSpent": PointConverter.format_for_api(total_stats.total_points_spent or 0),
             "monthlyRedemptions": monthly_stats.monthly_redemptions or 0,
-            "monthlyPointsSpent": int(monthly_stats.monthly_points_spent or 0),
+            "monthlyPointsSpent": PointConverter.format_for_api(monthly_stats.monthly_points_spent or 0),
             "monthStart": month_start.isoformat()
         }
 
@@ -406,16 +475,16 @@ class PointService:
         return {
             "userId": user_id,
             "weeklyTransactions": stats.weekly_transactions or 0,
-            "weeklyEarned": int(stats.weekly_earned or 0),
-            "weeklySpent": int(stats.weekly_spent or 0),
+            "weeklyEarned": PointConverter.format_for_api(stats.weekly_earned or 0),
+            "weeklySpent": PointConverter.format_for_api(stats.weekly_spent or 0),
             "weekStart": week_start.isoformat()
         }
 
     async def get_user_statistics(self, user_id: int) -> Dict[str, Any]:
-        """获取用户积分统计信息"""
+        """获取用户积分统计信息（返回前端展示格式）"""
         try:
-            # 获取当前余额
-            current_balance = await self.get_user_balance(user_id)
+            # 获取当前余额（后端存储格式）
+            current_balance_storage = await self.get_user_balance(user_id)
 
             # 获取交易统计
             result = await self.db.execute(
@@ -429,22 +498,23 @@ class PointService:
             )
             stats = result.first()
 
+            # 转换为前端展示格式
             return {
-                "currentBalance": current_balance,
+                "currentBalance": PointConverter.format_for_api(current_balance_storage),
                 "totalTransactions": stats.total_transactions or 0,
-                "totalEarned": int(stats.total_earned or 0),
-                "totalSpent": int(stats.total_spent or 0),
+                "totalEarned": PointConverter.format_for_api(stats.total_earned or 0),
+                "totalSpent": PointConverter.format_for_api(stats.total_spent or 0),
                 "lastTransactionDate": stats.last_transaction_date.isoformat() if stats.last_transaction_date else None
             }
         except Exception as e:
             print(f"获取用户积分统计错误: {e}")
             # 返回默认值
-            current_balance = await self.get_user_balance(user_id)
+            current_balance_storage = await self.get_user_balance(user_id)
             return {
-                "currentBalance": current_balance,
+                "currentBalance": PointConverter.format_for_api(current_balance_storage),
                 "totalTransactions": 0,
-                "totalEarned": 0,
-                "totalSpent": 0,
+                "totalEarned": 0.0,
+                "totalSpent": 0.0,
                 "lastTransactionDate": None
             }
     
@@ -525,19 +595,27 @@ class PointService:
         item_id: str,
         item_name: str,
         item_description: str,
-        points_cost: int,
+        points_cost: Union[int, float],
         delivery_info: Optional[Dict] = None,
         redemption_code: Optional[str] = None
     ) -> PointPurchase:
-        """创建购买记录"""
-        # 先扣除积分
+        """创建购买记录
+
+        Args:
+            points_cost: 前端展示格式的积分成本
+        """
+        # 先扣除积分（points_cost是前端展示格式，需要转换）
         transaction = await self.spend_points(
             user_id=user_id,
             amount=points_cost,
             reference_id=item_id,
             reference_type='purchase',
-            description=f"购买商品: {item_name}"
+            description=f"购买商品: {item_name}",
+            is_display_amount=True  # 明确指定这是前端展示格式
         )
+
+        # 转换积分成本为后端存储格式用于记录
+        storage_cost = PointConverter.to_storage(points_cost)
 
         # 创建购买记录
         purchase = PointPurchase(
@@ -546,7 +624,7 @@ class PointService:
             item_id=item_id,
             item_name=item_name,
             item_description=item_description,
-            points_cost=points_cost,
+            points_cost=storage_cost,  # 存储后端格式
             transaction_id=transaction.id,
             status=PurchaseStatus.COMPLETED,  # 直接设为已完成
             redemption_code=redemption_code,
@@ -559,54 +637,7 @@ class PointService:
         await self.db.commit()
         await self.db.refresh(purchase)
 
-        logger.info(f"用户 {user_id} 购买商品 {item_name}，消费 {points_cost} 积分")
+        logger.info(f"用户 {user_id} 购买商品 {item_name}，消费 {points_cost} 积分（存储: {storage_cost}）")
         return purchase
 
-    async def adjust_points(
-        self,
-        user_id: int,
-        amount: int,
-        reference_id: Optional[str] = None,
-        reference_type: Optional[str] = None,
-        description: Optional[str] = None,
-        extra_data: Optional[Dict[str, Any]] = None
-    ) -> PointTransaction:
-        """管理员积分调整"""
-        if amount == 0:
-            raise ValueError("调整积分数量不能为0")
 
-        # 获取当前余额
-        current_balance = await self.get_user_balance(user_id)
-        new_balance = current_balance + amount
-
-        # 确保余额不会变为负数
-        if new_balance < 0:
-            raise ValueError(f"积分调整后余额不能为负数，当前余额: {current_balance}，调整数量: {amount}")
-
-        # 创建交易记录
-        transaction = PointTransaction(
-            id=str(uuid.uuid4()),
-            user_id=user_id,
-            transaction_type=TransactionType.ADJUSTMENT,
-            amount=amount,
-            balance_after=new_balance,
-            reference_id=reference_id,
-            reference_type=reference_type,
-            description=description or f"管理员积分调整: {'+' if amount > 0 else ''}{amount}",
-            extra_data=extra_data,
-            created_at=datetime.utcnow().replace(microsecond=0)
-        )
-
-        self.db.add(transaction)
-
-        # 更新用户积分
-        await self._update_user_points(user_id, new_balance)
-
-        # 检查用户等级变化
-        await self._check_level_upgrade(user_id, new_balance)
-
-        await self.db.commit()
-        await self.db.refresh(transaction)
-
-        logger.info(f"管理员调整用户 {user_id} 积分 {amount}，当前余额: {new_balance}")
-        return transaction

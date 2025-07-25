@@ -5,6 +5,12 @@
 
 import { getApiUrl } from "./config/api-config";
 
+// Helper function to get current user ID from localStorage
+function getCurrentUserId(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('token');
+}
+
 // API Response types
 export interface ApiResponse<T = any> {
   data: T;

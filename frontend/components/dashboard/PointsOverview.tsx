@@ -14,6 +14,11 @@ import {
 } from 'lucide-react';
 import { PointTransaction, UserPointsSummary } from '@/lib/types/points';
 
+// 格式化积分显示：始终保留1位小数
+const formatPoints = (points: number) => {
+  return points.toFixed(1);
+};
+
 interface PointsOverviewProps {
   pointsSummary?: UserPointsSummary;
   pointsSummaryLoading: boolean;
@@ -62,7 +67,7 @@ export function PointsOverview({
             <Coins className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{currentBalance}</div>
+            <div className="text-2xl font-bold text-yellow-600">{formatPoints(currentBalance)}</div>
             <p className="text-xs text-muted-foreground">
               可用于兑换奖励
             </p>
@@ -75,7 +80,7 @@ export function PointsOverview({
             <TrendingUp className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{totalEarned}</div>
+            <div className="text-2xl font-bold text-green-600">{formatPoints(totalEarned)}</div>
             <p className="text-xs text-muted-foreground">
               历史总获得积分
             </p>
@@ -88,7 +93,7 @@ export function PointsOverview({
             <Gift className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{totalSpent}</div>
+            <div className="text-2xl font-bold text-blue-600">{formatPoints(totalSpent)}</div>
             <p className="text-xs text-muted-foreground">
               历史总消费积分
             </p>
@@ -155,10 +160,10 @@ export function PointsOverview({
                     <p className={`font-bold ${
                       transaction.amount > 0 ? 'text-green-600' : 'text-red-600'
                     }`}>
-                      {transaction.amount > 0 ? '+' : ''}{transaction.amount}
+                      {transaction.amount > 0 ? '+' : ''}{formatPoints(Math.abs(transaction.amount))}
                     </p>
                     <p className="text-sm text-gray-500">
-                      余额: {transaction.balanceAfter}
+                      余额: {formatPoints(transaction.balanceAfter)}
                     </p>
                   </div>
                 </div>

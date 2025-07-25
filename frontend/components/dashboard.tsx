@@ -123,6 +123,10 @@ interface UserPointsSummary {
   progressPercentage: number;
 }
 
+// 格式化积分显示：始终保留1位小数
+const formatPoints = (points: number) => {
+  return points.toFixed(1);
+};
 
 // 添加自定义动画
 const fadeInAnimation = `@keyframes fadeIn {
@@ -639,7 +643,7 @@ export default function Dashboard() {
             <div className="grid gap-6 md:gap-8 md:grid-cols-2 lg:grid-cols-4 max-w-7xl mx-auto px-2">
               <GovernanceCard value={89.5} trend="+2.5%" />
               <WeeklyGoalsCard value={145} trend="+24" />
-              <PointsCard points={userData?.points || 0} />
+              <PointsCard points={parseFloat(formatPoints(userData?.points || 0))} />
               <ComplianceCard percentage={98.2} trend="+1.2%" />
             </div>
             <div className={cn("grid gap-8 md:gap-8 lg:grid-cols-7 px-2 mb-8 pb-8")}>
@@ -797,7 +801,7 @@ export default function Dashboard() {
                       <h4 className="text-sm font-medium">积分等级</h4>
                       <div className="flex items-center gap-2">
                         <Award className="h-5 w-5 text-primary" />
-                        <div className="text-lg font-bold">{userData.points}</div>
+                        <div className="text-lg font-bold">{formatPoints(userData.points)}</div>
                         <Badge className="ml-auto bg-primary/10 text-primary">{mounted ? `Lv.${userData.level}` : null}</Badge>
                       </div>
                       <Progress
@@ -806,7 +810,7 @@ export default function Dashboard() {
                         indicatorClassName="progress-indicator"
                       />
                       <p className="text-xs text-muted-foreground text-right">
-                        距离下一级别还需 <span className="text-primary">{2000 - userData.points}</span> 积分
+                        距离下一级别还需 <span className="text-primary">{formatPoints(2000 - userData.points)}</span> 积分
                       </p>
                     </div>
 
@@ -1084,7 +1088,7 @@ export default function Dashboard() {
                   <h4 className="text-sm font-medium">积分等级</h4>
                   <div className="flex items-center gap-2">
                     <Award className="h-5 w-5 text-primary" />
-                    <div className="text-lg font-bold">{selectedColleague.points}</div>
+                    <div className="text-lg font-bold">{formatPoints(selectedColleague.points)}</div>
                     <Badge className="ml-auto bg-primary/10 text-primary">{mounted ? `Lv.${selectedColleague.level}` : null}</Badge>
                   </div>
                   <Progress
@@ -1251,7 +1255,7 @@ function PointsHistoryWithPagination({ userId }: { userId?: string | number }) {
                 <div className={`font-semibold ${
                   record.type === "earn" ? "text-green-600" : "text-red-600"
                 }`}>
-                  {record.type === "earn" ? "+" : ""}{record.amount}
+                  {record.type === "earn" ? "+" : ""}{formatPoints(Math.abs(record.amount))}
                 </div>
               </div>
             ))
@@ -1423,7 +1427,7 @@ function DashboardPointsOverview({
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">
-              {pointsSummaryLoading ? '...' : userData.currentPoints}
+              {pointsSummaryLoading ? '...' : formatPoints(userData.currentPoints)}
             </div>
           </CardContent>
         </Card>
@@ -1533,7 +1537,7 @@ function DashboardPointsOverview({
                       </div>
                     </div>
                     <div className="flex items-center space-x-3">
-                      <span className="font-semibold text-blue-600">-{record.points}</span>
+                      <span className="font-semibold text-blue-600">-{formatPoints(record.points)}</span>
                       <Badge variant={record.status === "completed" ? "default" : "secondary"}>
                         {record.status === "completed" ? (
                           <CheckCircle className="h-3 w-3 mr-1" />
@@ -1681,7 +1685,7 @@ function DashboardPointsMall({ currentPoints }: { currentPoints: number }) {
     if (currentPoints < reward.points) {
       toast({
         title: "积分不足",
-        description: `您需要 ${reward.points} 积分，当前只有 ${currentPoints} 积分`,
+        description: `您需要 ${formatPoints(reward.points)} 积分，当前只有 ${formatPoints(currentPoints)} 积分`,
         variant: "destructive",
       })
       return
@@ -1706,7 +1710,7 @@ function DashboardPointsMall({ currentPoints }: { currentPoints: number }) {
     // 模拟兑换成功
     toast({
       title: "兑换成功",
-      description: `成功兑换 ${selectedRedeemReward.title}，消耗 ${selectedRedeemReward.points} 积分。订单已提交，请等待核销。`,
+      description: `成功兑换 ${selectedRedeemReward.title}，消耗 ${formatPoints(selectedRedeemReward.points)} 积分。订单已提交，请等待核销。`,
       variant: "default",
     })
 
@@ -1762,7 +1766,7 @@ function DashboardPointsMall({ currentPoints }: { currentPoints: number }) {
                       <div className="flex items-center space-x-2">
                         <div className="font-semibold flex items-center text-primary">
                           <Coins className="h-4 w-4 mr-1" />
-                          {reward.points}
+                          {formatPoints(reward.points)}
                         </div>
                         <div className="flex items-center text-xs text-muted-foreground">
                           <Heart className="h-3 w-3 mr-1 text-red-500" />
@@ -1815,7 +1819,7 @@ function DashboardPointsMall({ currentPoints }: { currentPoints: number }) {
                 <div className="flex items-center justify-between text-sm">
                   <span>消耗积分:</span>
                   <span className="font-semibold text-primary">
-                    {selectedRedeemReward.points} 积分
+                    {formatPoints(selectedRedeemReward.points)} 积分
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm mt-1">

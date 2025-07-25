@@ -128,10 +128,15 @@ class MallService:
         if item["stock"] <= 0:
             return False, "商品库存不足"
         
-        # 检查用户积分余额
-        user_balance = await self.point_service.get_user_balance(user_id)
-        if user_balance < item["pointsCost"]:
-            return False, f"积分余额不足，需要 {item['pointsCost']} 积分，当前余额 {user_balance}"
+        # 检查用户积分余额（使用后端存储格式进行比较）
+        from app.services.point_service import PointConverter
+
+        user_balance_storage = await self.point_service.get_user_balance(user_id)
+        item_cost_storage = PointConverter.to_storage(item["pointsCost"])
+
+        if user_balance_storage < item_cost_storage:
+            user_balance_display = PointConverter.to_display(user_balance_storage)
+            return False, f"积分余额不足，需要 {item['pointsCost']} 积分，当前余额 {user_balance_display}"
         
         return True, "可以购买"
     

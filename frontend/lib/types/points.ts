@@ -23,10 +23,34 @@ export interface UserPointsSummary {
   totalTransactions: number;
   totalEarned: number;
   totalSpent: number;
-  lastTransactionDate: string;
-  averageMonthlyEarning: number;
-  pointsRank: number;
-  totalUsers: number;
+  lastTransactionDate?: string;
+  currentLevel?: {
+    id: number;
+    level: number;
+    name: string;
+    minPoints: number;
+    maxPoints?: number;
+    benefits?: string;
+    icon?: string;
+    color?: string;
+  };
+  nextLevel?: {
+    id: number;
+    level: number;
+    name: string;
+    minPoints: number;
+    maxPoints?: number;
+    benefits?: string;
+    icon?: string;
+    color?: string;
+  };
+  pointsToNext?: number;
+  progressPercentage: number;
+  // 兑换相关统计
+  totalRedemptions: number;
+  totalPointsSpentOnRedemptions: number;
+  monthlyRedemptions: number;
+  monthlyPointsSpentOnRedemptions: number;
 }
 
 /**

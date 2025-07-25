@@ -265,7 +265,7 @@ export default function ActivityDetailPage() {
               </div>
               <div className="flex items-center">
                 <Award className="w-4 h-4 mr-1" />
-                +{activity.points} 积分
+                +{parsedAiAnalysis.points.total_points} 积分
               </div>
             </div>
           </div>

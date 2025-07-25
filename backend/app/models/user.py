@@ -129,6 +129,13 @@ class User(Base):
         except:
             level_info = None
 
+        # 转换积分为前端展示格式
+        try:
+            from app.services.point_service import PointConverter
+            display_points = PointConverter.format_for_api(self.points or 0)
+        except:
+            display_points = 0.0
+
         return {
             "id": self.id,
             "name": self.name,
@@ -140,7 +147,7 @@ class User(Base):
             "position": self.position,
             "phone": self.phone,
             "joinDate": self.join_date.isoformat() if isinstance(self.join_date, datetime) else self.join_date,
-            "points": self.points,
+            "points": display_points,
             "level": self.level,
             "levelId": self.level_id,
             "levelInfo": level_info,

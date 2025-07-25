@@ -153,23 +153,24 @@ class GitHubDataSyncer:
         
         return None
     
-    async def calculate_pr_points(self, pr_data: Dict[str, Any]) -> int:
-        """计算PR积分"""
+    async def calculate_pr_points(self, pr_data: Dict[str, Any]) -> float:
+        """计算PR积分（返回前端展示格式）"""
         # 简单的积分计算逻辑
-        base_points = 5
-        
+        base_points = 5.0
+
         # 根据代码变更量调整积分
         additions = pr_data.get("additions", 0)
         deletions = pr_data.get("deletions", 0)
         changed_files = pr_data.get("changed_files", 0)
-        
+
         # 积分计算公式
         points = base_points
         points += min(additions // 10, 5)  # 每10行新增代码+1分，最多+5分
         points += min(deletions // 20, 3)  # 每20行删除代码+1分，最多+3分
         points += min(changed_files, 3)    # 每个修改文件+1分，最多+3分
-        
-        return min(points, 15)  # 单个PR最多15分
+
+        # 返回前端展示格式的积分（支持小数）
+        return min(points, 15.0)  # 单个PR最多15分
     
     async def sync_pr_data(self, repo_url: str, github_token: Optional[str] = None, dry_run: bool = True) -> Dict[str, Any]:
         """同步PR数据"""
@@ -261,6 +262,9 @@ class GitHubDataSyncer:
         """重新生成积分交易记录"""
         print("🔄 开始重新生成积分交易记录...")
 
+        # 导入积分转换器
+        from app.services.point_service import PointConverter
+
         # 1. 清除现有积分交易记录
         from sqlalchemy import delete
         await self.db.execute(delete(PointTransaction))
@@ -276,25 +280,29 @@ class GitHubDataSyncer:
         activities = activities_result.scalars().all()
 
         # 3. 为每个活动创建积分交易记录
-        user_balances = {}  # 跟踪每个用户的余额
+        user_balances = {}  # 跟踪每个用户的余额（后端存储格式）
         created_count = 0
 
         for activity in activities:
             if not activity.user_id or not activity.points:
                 continue
 
-            # 计算用户当前余额
+            # 将活动积分转换为后端存储格式
+            # 假设activity.points存储的是前端展示格式
+            points_storage = PointConverter.to_storage(activity.points)
+
+            # 计算用户当前余额（后端存储格式）
             if activity.user_id not in user_balances:
                 user_balances[activity.user_id] = 0
 
-            user_balances[activity.user_id] += activity.points
+            user_balances[activity.user_id] += points_storage
 
-            # 创建积分交易记录
+            # 创建积分交易记录（使用后端存储格式）
             transaction = PointTransaction(
                 id=str(uuid.uuid4()),
                 user_id=activity.user_id,
                 transaction_type=TransactionType.EARN,
-                amount=activity.points,
+                amount=points_storage,
                 balance_after=user_balances[activity.user_id],
                 reference_id=activity.id,
                 reference_type="ACTIVITY",
@@ -305,18 +313,23 @@ class GitHubDataSyncer:
             self.db.add(transaction)
             created_count += 1
 
-        # 4. 更新用户表中的积分余额
-        for user_id, balance in user_balances.items():
+        # 4. 更新用户表中的积分余额（使用后端存储格式）
+        for user_id, balance_storage in user_balances.items():
             user_result = await self.db.execute(
                 select(User).filter(User.id == user_id)
             )
             user = user_result.scalars().first()
             if user:
-                user.points = balance
+                user.points = balance_storage
 
         await self.db.commit()
         print(f"✅ 重新生成了 {created_count} 条积分交易记录")
         print(f"👥 更新了 {len(user_balances)} 个用户的积分余额")
+
+        # 打印转换信息
+        total_display = sum(PointConverter.to_display(balance) for balance in user_balances.values())
+        total_storage = sum(user_balances.values())
+        print(f"📊 积分统计 - 展示格式总计: {total_display}, 存储格式总计: {total_storage}")
 
 async def main():
     """主函数"""

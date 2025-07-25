@@ -52,8 +52,11 @@ class LevelService:
         return result.scalar()
     
     async def get_user_level_info(self, user_id: int) -> Dict[str, Any]:
-        """获取用户等级详细信息"""
+        """获取用户等级详细信息（返回前端展示格式）"""
         try:
+            # 导入转换器
+            from app.services.point_service import PointConverter
+
             # 获取用户信息
             user_result = await self.db.execute(
                 select(User).options(joinedload(User.user_level)).filter(User.id == user_id)
@@ -63,32 +66,36 @@ class LevelService:
             if not user:
                 raise ValueError(f"用户 {user_id} 不存在")
 
-            current_points = user.points or 0
+            # 使用后端存储格式的积分进行计算
+            current_points_storage = user.points or 0
             current_level = user.user_level
-            next_level = await self.get_next_level(current_points)
+            next_level = await self.get_next_level(current_points_storage)
 
             # 计算到下一等级所需积分
-            points_to_next = None
+            points_to_next_storage = None
+            points_to_next_display = None
             progress_percentage = 0
 
             if next_level:
-                points_to_next = max(0, next_level.min_points - current_points)
+                points_to_next_storage = max(0, next_level.min_points - current_points_storage)
+                points_to_next_display = PointConverter.format_for_api(points_to_next_storage)
+
                 if current_level:
                     level_range = next_level.min_points - current_level.min_points
-                    current_progress = current_points - current_level.min_points
+                    current_progress = current_points_storage - current_level.min_points
                     progress_percentage = (current_progress / level_range) * 100 if level_range > 0 else 100
                 else:
-                    progress_percentage = (current_points / next_level.min_points) * 100 if next_level.min_points > 0 else 0
+                    progress_percentage = (current_points_storage / next_level.min_points) * 100 if next_level.min_points > 0 else 0
             else:
                 # 已达到最高等级
                 progress_percentage = 100
 
             return {
                 "userId": user_id,
-                "currentPoints": current_points,
+                "currentPoints": PointConverter.format_for_api(current_points_storage),
                 "currentLevel": current_level.to_dict() if current_level else None,
                 "nextLevel": next_level.to_dict() if next_level else None,
-                "pointsToNext": points_to_next,
+                "pointsToNext": points_to_next_display,
                 "progressPercentage": min(100, max(0, progress_percentage)),
                 "isMaxLevel": next_level is None
             }
@@ -97,7 +104,7 @@ class LevelService:
             # 返回默认值而不是抛出异常
             return {
                 "userId": user_id,
-                "currentPoints": 0,
+                "currentPoints": 0.0,
                 "currentLevel": None,
                 "nextLevel": None,
                 "pointsToNext": None,

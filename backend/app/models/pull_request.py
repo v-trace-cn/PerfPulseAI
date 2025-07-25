@@ -31,6 +31,18 @@ class PullRequest(Base):
     events = relationship('PullRequestEvent', back_populates='pull_request', lazy='dynamic')
 
     def to_dict(self):
+        # 处理events，优先使用手动设置的_events_list，否则使用关系属性
+        events_data = []
+        if hasattr(self, '_events_list') and self._events_list is not None:
+            events_data = [event.to_dict() for event in self._events_list]
+        else:
+            # 如果没有手动设置的events列表，尝试使用关系属性
+            try:
+                events_data = [event.to_dict() for event in self.events]
+            except:
+                # 如果关系属性有问题，返回空列表
+                events_data = []
+
         return {
             "id": self.id,
             "pr_node_id": self.pr_node_id,
@@ -46,5 +58,5 @@ class PullRequest(Base):
             "diff_url": self.diff_url,
             "score": self.score,
             "analysis": self.analysis,
-            "events": [event.to_dict() for event in self.events]
-        } 
+            "events": events_data
+        }

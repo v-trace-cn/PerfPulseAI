@@ -497,31 +497,33 @@ async def perform_pr_analysis(pr: PullRequest) -> dict:
 @timeit
 async def calculate_points_from_analysis(analysis_score_result: dict) -> dict:
     """
-    根据 AI 评分结果，除以10，来进行计算。
+    根据 AI 评分结果来进行计算积分。
 
+    注意：这里计算的积分是前端展示格式，会在后续的积分服务中自动转换为后端存储格式。
     """
-    total_points = 0
+    # 导入积分转换器
+    from app.services.point_service import PointConverter
+
+    overall_score = analysis_score_result.get("overall_score", 0)
+    innovation_score = analysis_score_result.get("innovation_score", 0)
+    bonus_display = overall_score * 0.1
+    innovation_bonus_display = innovation_score * 1.0
+
+    total_points_display = bonus_display + innovation_bonus_display
+
     detailed_points = [
-        {"bonus": 0, "text": "基础积分"},
-        {"innovation_bonus": 0, "text": "创新加分"},
+        {"bonus": round(bonus_display, 1), "text": "基础积分"},
+        {"innovation_bonus": round(innovation_bonus_display, 1), "text": "创新加分"},
     ]
-    # 计算基础积分和创新加分
-    bonus = analysis_score_result.get("overall_score", 0)
-    bonus = bonus * 0.1
-    innovation_bonus = analysis_score_result.get("innovation_score", 0)
-    # 计算总积分
-    total_points = bonus + innovation_bonus
-    detailed_points = [
-        {"bonus": bonus, "text": "基础积分"},
-        {"innovation_bonus": innovation_bonus, "text": "创新加分"},
-    ]
+
+    logger.info(f"[calculate_points_from_analysis] 积分计算完成 - 总分: {overall_score}, 创新分: {innovation_score}, 基础积分: {bonus_display}, 创新加分: {innovation_bonus_display}, 总积分: {total_points_display}")
 
     return {
-        "total_points": total_points,
+        "total_points": round(total_points_display, 1),  # 前端展示格式，保留1位小数
         "detailed_points": detailed_points,
+        "innovation_bonus": round(innovation_bonus_display, 1)  # 前端展示格式
     }
 
-# ------------------------ 建议过滤辅助 ------------------------
 def _select_top_suggestions(suggestions: list[dict], max_count: int = 15) -> list[dict]:
     """根据类型优先级挑选最重要的前 max_count 条建议。"""
     def priority(s: dict):

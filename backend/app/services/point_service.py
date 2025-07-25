@@ -3,7 +3,8 @@
 """
 import uuid
 from datetime import datetime, timedelta
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any, Tuple, Union
+from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, desc, text, case
 from sqlalchemy.orm import joinedload
@@ -64,7 +65,7 @@ class PointService:
         self.db = db
 
     @cache_user_balance
-    async def get_user_balance(self, user_id: int) -> int:
+    async def get_user_balance(self, user_id: int) -> Union[int, Decimal]:
         """获取用户当前积分余额（带缓存）"""
         # 优先从用户表获取，作为缓存
         user_result = await self.db.execute(
@@ -78,7 +79,7 @@ class PointService:
         # 如果用户表没有数据，从交易记录计算
         return await self.calculate_user_balance(user_id)
 
-    async def calculate_user_balance(self, user_id: int) -> int:
+    async def calculate_user_balance(self, user_id: int) -> float:
         """通过交易记录计算用户积分余额（用于一致性检查）"""
         result = await self.db.execute(
             select(func.sum(PointTransaction.amount))
@@ -97,7 +98,7 @@ class PointService:
     async def earn_points(
         self,
         user_id: int,
-        amount: int,
+        amount: Union[int, float],
         reference_id: Optional[str] = None,
         reference_type: Optional[str] = None,
         description: Optional[str] = None,

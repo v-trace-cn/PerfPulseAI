@@ -64,9 +64,12 @@ class ActivityService:
         """根据show_id获取活动"""
         try:
             from app.models.activity import Activity
+            from sqlalchemy.orm import joinedload
 
             result = await self.db.execute(
-                select(Activity).filter(Activity.show_id == show_id)
+                select(Activity)
+                .options(joinedload(Activity.pull_request_result), joinedload(Activity.user))
+                .filter(Activity.show_id == show_id)
             )
             return result.scalar_one_or_none()
         except Exception as e:
@@ -107,9 +110,12 @@ class ActivityService:
         """根据ID获取活动"""
         try:
             from app.models.activity import Activity
+            from sqlalchemy.orm import joinedload
 
             result = await self.db.execute(
-                select(Activity).filter(Activity.id == activity_id)
+                select(Activity)
+                .options(joinedload(Activity.pull_request_result), joinedload(Activity.user))
+                .filter(Activity.id == activity_id)
             )
             return result.scalar_one_or_none()
         except Exception as e:

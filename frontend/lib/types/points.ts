@@ -46,6 +46,8 @@ export interface UserPointsSummary {
   };
   pointsToNext?: number;
   progressPercentage: number;
+  pointsRank?: number;
+  totalUsers?: number;
   // 兑换相关统计
   totalRedemptions: number;
   totalPointsSpentOnRedemptions: number;
@@ -142,3 +144,42 @@ export interface PointsActivity {
   participantCount: number;
   maxParticipants?: number;
 }
+
+/**
+ * 月度统计接口
+ */
+export interface MonthlyStats {
+  userId: number;
+  monthlyTransactions: number;
+  monthlyEarned: number;
+  monthlySpent: number;
+  monthStart: string;
+}
+
+/**
+ * 周度统计接口
+ */
+export interface WeeklyStats {
+  userId: number;
+  weeklyTransactions: number;
+  weeklyEarned: number;
+  weeklySpent: number;
+  weekStart: string;
+}
+
+/**
+ * 兑换统计接口
+ */
+export interface RedemptionStats {
+  userId: number;
+  totalRedemptions: number;
+  totalPointsSpent: number;
+  monthlyRedemptions: number;
+  monthlyPointsSpent: number;
+  monthStart: string;
+}
+
+// 格式化积分显示：始终保留1位小数
+export const formatPoints = (points: number) => {
+  return points.toFixed(1);
+};

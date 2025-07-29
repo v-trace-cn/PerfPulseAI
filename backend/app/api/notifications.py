@@ -12,7 +12,7 @@ from app.models.notification import NotificationType, NotificationStatus
 from app.api.auth import get_current_user
 from app.models.user import User
 
-router = APIRouter()
+router = APIRouter(prefix="/api", tags=["notifications"])
 
 
 # Pydantic 模型

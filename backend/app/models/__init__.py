@@ -8,6 +8,7 @@ from .role import Role
 from .permission import Permission
 from .pull_request import PullRequest
 from .pull_request_event import PullRequestEvent
+from .notification import Notification
 
 
 __all__ = [
@@ -24,4 +25,5 @@ __all__ = [
     'Permission',
     'PullRequest',
     'PullRequestEvent',
+    'Notification',
 ]

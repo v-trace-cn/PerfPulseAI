@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +18,7 @@ interface PointsMallProps {
   currentPoints: number;
 }
 
-export function PointsMall({ currentPoints }: PointsMallProps) {
+export const PointsMall = memo<PointsMallProps>(({ currentPoints }) => {
   const { toast } = useToast();
   const [selectedCategory, setSelectedCategory] = useState('all');
 
@@ -297,4 +297,6 @@ export function PointsMall({ currentPoints }: PointsMallProps) {
       )}
     </div>
   );
-}
+});
+
+PointsMall.displayName = 'PointsMall';

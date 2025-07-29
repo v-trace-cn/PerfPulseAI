@@ -357,6 +357,51 @@ export const unifiedApi = {
       }),
   },
 
+  // Points API
+  points: {
+    getUserPointsSummary: (userId: string): Promise<ApiResponse<any>> =>
+      fetchUnifiedApi(`/api/points/summary`, {
+        headers: {
+          'X-User-Id': userId,
+        },
+      }),
+
+    getPointsTransactions: (userId: string, page: number = 1, pageSize: number = 20): Promise<ApiResponse<any>> =>
+      fetchUnifiedApi(`/api/points/transactions?page=${page}&page_size=${pageSize}`, {
+        headers: {
+          'X-User-Id': userId,
+        },
+      }),
+
+    getMonthlyStats: (userId: string): Promise<ApiResponse<any>> =>
+      fetchUnifiedApi(`/api/points/monthly-stats`, {
+        headers: {
+          'X-User-Id': userId,
+        },
+      }),
+
+    getWeeklyStats: (userId: string): Promise<ApiResponse<any>> =>
+      fetchUnifiedApi(`/api/points/weekly-stats`, {
+        headers: {
+          'X-User-Id': userId,
+        },
+      }),
+
+    getRedemptionStats: (userId: string): Promise<ApiResponse<any>> =>
+      fetchUnifiedApi(`/api/points/redemption-stats`, {
+        headers: {
+          'X-User-Id': userId,
+        },
+      }),
+
+    getUserPoints: (userId: string): Promise<ApiResponse<any>> =>
+      fetchUnifiedApi(`/api/points/balance`, {
+        headers: {
+          'X-User-Id': userId,
+        },
+      }),
+  },
+
   // Scoring API
   scoring: {
     getDimensions: (): Promise<ApiResponse<{ [key: string]: string }>> =>
@@ -487,6 +532,7 @@ export const {
   activity: activityApi,
   pr: prApi,
   department: departmentApi,
+  points: pointsApi,
   scoring: scoringApi,
   company: companyApi,
   permission: permissionApi

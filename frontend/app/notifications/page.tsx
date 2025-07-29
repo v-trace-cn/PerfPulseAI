@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useMemo } from "react"
 import { Bell, X, Check, AlertCircle, Gift, TrendingUp, Megaphone, User, Briefcase, Filter, Search, MoreVertical, Trash2, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -228,41 +228,47 @@ export default function NotificationsPage() {
   const [readFilter, setReadFilter] = useState('all')
   const { toast } = useToast()
 
-  // 计算未读通知数量
-  const unreadCount = notifications.filter(n => !n.read).length
+  // 计算未读通知数量 - 使用 useMemo 优化
+  const unreadCount = useMemo(() =>
+    notifications.filter(n => !n.read).length,
+    [notifications]
+  );
 
-  // 过滤通知
-  const getFilteredNotifications = (type: string) => {
-    let filtered = notifications
+  // 过滤通知 - 使用 useMemo 优化
+  const getFilteredNotifications = useMemo(() => {
+    return (type: string) => {
+      let filtered = notifications
 
-    // 按类型过滤
-    if (type !== 'all') {
-      filtered = filtered.filter(n => n.type === type)
+      // 按类型过滤
+      if (type !== 'all') {
+        filtered = filtered.filter(n => n.type === type)
+      }
+
+      // 按搜索关键词过滤
+      if (searchQuery) {
+        const lowerSearchQuery = searchQuery.toLowerCase();
+        filtered = filtered.filter(n =>
+          n.title.toLowerCase().includes(lowerSearchQuery) ||
+          n.message.toLowerCase().includes(lowerSearchQuery)
+        )
+      }
+
+      // 按优先级过滤
+      if (priorityFilter !== 'all') {
+        filtered = filtered.filter(n => n.priority === priorityFilter)
+      }
+
+      // 按已读状态过滤
+      if (readFilter === 'unread') {
+        filtered = filtered.filter(n => !n.read)
+      } else if (readFilter === 'read') {
+        filtered = filtered.filter(n => n.read)
+      }
+
+      // 按时间排序（最新的在前）
+      return filtered.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     }
-
-    // 按搜索关键词过滤
-    if (searchQuery) {
-      filtered = filtered.filter(n => 
-        n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        n.message.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    }
-
-    // 按优先级过滤
-    if (priorityFilter !== 'all') {
-      filtered = filtered.filter(n => n.priority === priorityFilter)
-    }
-
-    // 按已读状态过滤
-    if (readFilter === 'unread') {
-      filtered = filtered.filter(n => !n.read)
-    } else if (readFilter === 'read') {
-      filtered = filtered.filter(n => n.read)
-    }
-
-    // 按时间排序（最新的在前）
-    return filtered.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-  }
+  }, [notifications, searchQuery, priorityFilter, readFilter]);
 
   // 标记通知为已读
   const markAsRead = (id: string) => {

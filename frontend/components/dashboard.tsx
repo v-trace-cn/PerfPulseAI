@@ -2,69 +2,13 @@
 
 import * as React from "react"
 
-import { useState, useEffect, useRef } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Overview } from "@/components/overview"
 import { RecentActivities } from "@/components/recent-activities"
-import { ScoringSystem } from "@/components/scoring-system"
-import {
-  Award,
-  Gauge,
-  Shield,
-  Pencil,
-  Trophy,
-  Mail,
-  Phone,
-  CheckCircle2,
-  GitPullRequest,
-  Activity,
-  Eye,
-  EyeOff,
-  Plus,
-  Search,
-  Github,
-  Building2,
-  Building,
-  Calendar,
-  Camera,
-  BarChart3 as ChartBar,
-  User as UserIcon,
-  Cpu,
-  Code,
-  Coins,
-  ShoppingCart,
-  History,
-  TrendingUp,
-  Gift,
-  Star,
-  ArrowUp,
-  ArrowDown,
-  Package,
-  Clock,
-  CheckCircle,
-  XCircle,
-  Zap,
-  Sparkles,
-  ThumbsUp,
-  Heart
-} from "lucide-react"
-import { useRouter, useSearchParams } from "next/navigation"
-import { ProfileAvatar, UnifiedAvatar } from "@/components/ui/unified-avatar"
-import { Badge } from "@/components/ui/badge"
+import { LazyScoringSystemWithSuspense } from "@/components/lazy/LazyComponents"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
-import { Progress } from "@/components/ui/progress"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { useAuth } from "@/lib/auth-context"
 import { cn, getRelativeDate } from "@/lib/utils"
 import { unifiedApi } from "@/lib/unified-api"
@@ -72,305 +16,49 @@ import { User } from "@/lib/types"
 import { GovernanceCard, WeeklyGoalsCard, PointsCard, ComplianceCard } from "@/components/ui/metric-card"
 import { useToast } from "@/components/ui/use-toast"
 import { useApi } from "@/hooks/useApi"
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Tabs as PointsTabs, TabsContent as PointsTabsContent, TabsList as PointsTabsList, TabsTrigger as PointsTabsTrigger } from "@/components/ui/tabs"
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
 
 // 积分相关类型定义 - 移动到 @/lib/types/points
-import { PointTransaction, UserPointsSummary, MonthlyStats, WeeklyStats, RedemptionStats, formatPoints } from '@/lib/types/points';
+import { formatPoints } from '@/lib/types/points';
 
 // 拆分后的组件导入
-import { PointsOverview } from '@/components/dashboard/PointsOverview';
 import { PointsOverviewWithStats } from '@/components/dashboard/PointsOverviewWithStats';
-import { PointsHistory } from '@/components/dashboard/PointsHistory';
-import { PointsMall } from '@/components/dashboard/PointsMall';
 import { ProfileCard } from '@/components/dashboard/ProfileCard';
 import { ProfileEditDialog } from '@/components/dashboard/ProfileEditDialog';
 import { ProfileAchievements } from '@/components/dashboard/ProfileAchievements';
 import { ColleagueDialog } from '@/components/dashboard/ColleagueDialog';
 import { DashboardTabs } from '@/components/dashboard/DashboardTabs';
 
-// 添加自定义动画
-const fadeInAnimation = `@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}`
 
-const fadeInSlideUpAnimation = `@keyframes fadeInSlideUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}`
 
-const pulseAnimation = `@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
-}`
+// 动画延迟工具函数
+const getAnimationDelay = (index: number) => ({
+  style: { animationDelay: `${index * 100}ms` }
+});
 
-// 添加全局样式
-const globalStyles = `
-  .animate-fadeIn {
-    animation: fadeIn 0.5s ease-out forwards;
-  }
-  
-  .animate-fadeInSlideUp {
-    animation: fadeInSlideUp 0.6s ease-out forwards;
-  }
-  
-  .animate-pulse-subtle {
-    animation: pulse 3s infinite;
-  }
-  
-  .card-transition-delay-1 {
-    animation-delay: 0.1s;
-  }
-  
-  .card-transition-delay-2 {
-    animation-delay: 0.2s;
-  }
-  
-  .card-transition-delay-3 {
-    animation-delay: 0.3s;
-  }
-  
-  .card-transition-delay-4 {
-    animation-delay: 0.4s;
-  }
-
-  .data-pill {
-    display: inline-flex;
-    padding: 0.25rem 0.5rem;
-    border-radius: 9999px;
-    font-size: 0.75rem;
-    line-height: 1rem;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .toggle {
-    --width: 32px;
-    --height: calc(var(--width) / 2);
-    --radius: var(--height);
-    --handle-bg: #fff;
-    --handle-offset: 2px;
-    --bg: theme(colors.primary.DEFAULT);
-    --bg-empty: theme(colors.muted.DEFAULT);
-    --transition: 0.2s ease;
-    
-    position: relative;
-    display: inline-block;
-    width: var(--width);
-    height: var(--height);
-    cursor: pointer;
-    
-    &:after {
-      content: '';
-      position: absolute;
-      top: var(--handle-offset);
-      left: var(--handle-offset);
-      width: calc(var(--height) - (var(--handle-offset) * 2));
-      height: calc(var(--height) - (var(--handle-offset) * 2));
-      border-radius: 50%;
-      background: var(--handle-bg);
-      transition: left var(--transition);
-      box-shadow: 0 0 2px rgba(0, 0, 0, 0.2);
-    }
-    
-    &:before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      border-radius: var(--radius);
-      background: var(--bg-empty);
-      transition: background var(--transition);
-    }
-    
-    &:checked {
-      &:before {
-        background: var(--bg);
-      }
-      
-      &:after {
-        left: calc(100% - var(--height) + var(--handle-offset) + 2px);
-      }
-    }
-  }
-
-  .select {
-    appearance: none;
-    background-color: transparent;
-    border: 1px solid theme(colors.muted.DEFAULT);
-    border-radius: theme(borderRadius.md);
-    padding: 0.5rem 1rem;
-    font-size: 0.875rem;
-    line-height: 1.25rem;
-    color: theme(colors.foreground.DEFAULT);
-    transition: border-color 0.2s ease;
-    
-    &:focus {
-      outline: none;
-      border-color: theme(colors.primary.DEFAULT);
-      box-shadow: 0 0 0 2px rgba(theme(colors.primary.DEFAULT), 0.2);
-    }
-    
-    &[disabled] {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-  }
-  
-  .select-sm {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-  }
-`
+// 卡片动画类名生成器
+const getCardAnimationClass = (index: number) =>
+  `animate-in slide-in-from-bottom-2 fade-in duration-500 ${index > 0 ? `delay-${index * 100}` : ''}`;
 
 
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("overview")
-  const router = useRouter()
   const searchParams = useSearchParams()
   const { user, refreshUser } = useAuth()
   const queryClient = useQueryClient(); // 初始化 queryClient
 
-  // 获取积分摘要数据
-  const { data: pointsSummary, isLoading: pointsSummaryLoading } = useQuery<UserPointsSummary>({
-    queryKey: ['points-summary', user?.id],
-    queryFn: async () => {
-      const response = await fetch(`/api/points/summary?userId=${user?.id}`, {
-        headers: {
-          'X-User-Id': user?.id?.toString() || '',
-        }
-      })
-      if (!response.ok) throw new Error('Failed to fetch points summary')
-      return response.json()
-    },
-    staleTime: 30000, // 30秒缓存
-    enabled: !!user?.id, // 只有在用户登录且有ID时才执行
-  })
-
-  // 获取积分交易记录（最近5条）
-  const { data: pointsTransactions, isLoading: pointsTransactionsLoading, error: pointsTransactionsError } = useQuery<{
-    transactions: PointTransaction[];
-    totalCount: number;
-  }>({
-    queryKey: ['points-transactions-recent', user?.id],
-    queryFn: async () => {
-      const response = await fetch(`/api/points/transactions?page=1&page_size=5`, {
-        headers: {
-          'X-User-Id': user?.id?.toString() || '',
-        }
-      })
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to fetch points transactions: ${response.status}`);
-      }
-      const data = await response.json();
-      return data;
-    },
-    staleTime: 10000, // 10秒缓存
-    enabled: !!user?.id, // 只有在用户登录且有ID时才执行
-  })
-
-  // 获取月度积分统计
-  const { data: monthlyStats, isLoading: monthlyStatsLoading } = useQuery<{
-    userId: number;
-    monthlyTransactions: number;
-    monthlyEarned: number;
-    monthlySpent: number;
-    monthStart: string;
-  }>({
-    queryKey: ['points-monthly-stats', user?.id],
-    queryFn: async () => {
-      const response = await fetch(`/api/points/monthly-stats`, {
-        headers: {
-          'X-User-Id': user?.id?.toString() || '',
-        },
-      })
-      if (!response.ok) {
-        throw new Error('Failed to fetch monthly stats')
-      }
-      return response.json()
-    },
-    staleTime: 60000, // 1分钟缓存
-    enabled: !!user?.id, // 只有在用户登录且有ID时才执行
-  })
-
-  // 获取兑换统计
-  const { data: redemptionStats, isLoading: redemptionStatsLoading } = useQuery<{
-    userId: number;
-    totalRedemptions: number;
-    totalPointsSpent: number;
-    monthlyRedemptions: number;
-    monthlyPointsSpent: number;
-    monthStart: string;
-  }>({
-    queryKey: ['points-redemption-stats', user?.id],
-    queryFn: async () => {
-      const response = await fetch(`/api/points/redemption-stats`, {
-        headers: {
-          'X-User-Id': user?.id?.toString() || '',
-        },
-      })
-      if (!response.ok) {
-        throw new Error('Failed to fetch redemption stats')
-      }
-      return response.json()
-    },
-    staleTime: 60000, // 1分钟缓存
-    enabled: !!user?.id, // 只有在用户登录且有ID时才执行
-  })
-
-  // 获取周度积分统计
-  const { data: weeklyStats, isLoading: weeklyStatsLoading } = useQuery<{
-    userId: number;
-    weeklyTransactions: number;
-    weeklyEarned: number;
-    weeklySpent: number;
-    weekStart: string;
-  }>({
-    queryKey: ['points-weekly-stats', user?.id],
-    queryFn: async () => {
-      const response = await fetch(`/api/points/weekly-stats`, {
-        headers: {
-          'X-User-Id': user?.id?.toString() || '',
-        },
-      })
-      if (!response.ok) {
-        throw new Error('Failed to fetch weekly stats')
-      }
-      return response.json()
-    },
-    staleTime: 60000, // 1分钟缓存
-    enabled: !!user?.id, // 只有在用户登录且有ID时才执行
-  })
+  // Points data is now handled in individual components
 
   const { toast } = useToast()
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [userData, setUserData] = useState<any>({
-    name: "",
-    email: "",
-    position: "",
-    phone: "",
-    githubUrl: "",
-    departmentId: null,
-    avatar: "/placeholder-user.jpg",
-    total_points: 0, // 初始化总积分
-    level: 1,
-    achievements: [],
-    companyId: null,
-    companyName: "",
-  })
 
-  const [showPhone, setShowPhone] = useState(false)
+  // Simplified state management - only keep what's not in useAuth
   const [editProfileOpen, setEditProfileOpen] = useState(false)
   const [viewColleagueOpen, setViewColleagueOpen] = useState(false)
   const [selectedColleague, setSelectedColleague] = useState<User | null>(null)
   const [selectedDepartment, setSelectedDepartment] = useState<string | undefined>(undefined)
+  const [recentActivities, setRecentActivities] = useState<any[]>([])
+  const [achievements] = useState<any[]>([]) // Placeholder for achievements
 
   // 使用 useQuery 获取部门列表 - 只有在用户有公司ID时才执行
   const { data: departmentsData, isLoading: isLoadingDepartments } = useQuery({
@@ -389,7 +77,7 @@ export default function Dashboard() {
 
   const handleEditProfile = () => {
     // 在打开编辑对话框时，设置当前用户的组织
-    const currentDepartment = departments.find(d => d.name === userData.department);
+    const currentDepartment = departments.find(d => d.name === user?.department);
     setSelectedDepartment(currentDepartment?.id.toString());
     setEditProfileOpen(true)
   }
@@ -398,7 +86,7 @@ export default function Dashboard() {
     e.preventDefault()
 
     // 只有当手机号不为空时才进行验证
-    if (userData.phone && !isValidPhone(userData.phone)) {
+    if (user?.phone && !isValidPhone(user.phone)) {
       toast({
         title: "错误",
         description: "请输入有效的11位手机号码。",
@@ -406,12 +94,12 @@ export default function Dashboard() {
       })
       return
     }
-    
+
     try {
       const updatedInfo = {
-        name: userData.name,
-        phone: userData.phone,
-        githubUrl: userData.githubUrl,
+        name: user?.name || "",
+        phone: user?.phone || "",
+        githubUrl: user?.githubUrl || "",
         departmentId: selectedDepartment ? parseInt(selectedDepartment) : undefined, // 使用状态中的组织ID
       };
 
@@ -453,29 +141,7 @@ export default function Dashboard() {
     }
   }, [searchParams])
 
-  // 当获取到最新 user 时，同步基本信息
-  useEffect(() => {
-    if (user) {
-      setUserData({
-        name: user.name || "",
-        department: user.department || "",
-        position: user.position || "",
-        email: user.email || "",
-        phone: user.phone || "",
-        githubUrl: user.githubUrl || "",
-        joinDate: user.joinDate || "",
-        points: user.total_points ?? user.points ?? 0,
-        level: user.level ?? 0,
-        avatar: user.avatar || "/placeholder-logo.png",
-        skills: user.skills || [],
-        achievements: userData.achievements,
-        recentActivities: userData.recentActivities,
-        companyId: user.companyId,
-        companyName: user.companyName,
-      });
-
-    }
-  }, [user]);
+  // No longer needed - using user data directly from auth context
 
   // Fetch recent personal activities when user changes
   useEffect(() => {
@@ -491,7 +157,7 @@ export default function Dashboard() {
               date: getRelativeDate(act.createdAt || act.created_at),
               points: act.points,
             }));
-            setUserData((prev: any) => ({ ...prev, recentActivities: formattedActivities }));
+            setRecentActivities(formattedActivities);
           } else {
           }
         })
@@ -499,7 +165,7 @@ export default function Dashboard() {
           // 静默处理错误，避免控制台日志
         });
     }
-  }, [user, fetchRecentActivities]);
+  }, [user?.id]); // 只依赖 user.id，移除函数依赖
 
 
 
@@ -513,40 +179,7 @@ export default function Dashboard() {
     return /^1[3-9]\d{9}$/.test(phone)
   }
 
-  const handleAvatarClick = () => {
-    fileInputRef.current?.click()
-  }
-
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files
-    if (files && files.length > 0 && user?.id) {
-      const file = files[0]
-      try {
-        const result = await unifiedApi.user.uploadAvatar(String(user.id), file)
-        if (result.success && result.data.avatar) {
-          setUserData((prev: any) => ({ ...prev, avatar: result.data.avatar }))
-          toast({
-            title: "头像上传成功",
-            description: "您的头像已更新。",
-            variant: "default",
-          })
-        } else {
-          toast({
-            title: "头像上传失败",
-            description: result.message || "请稍后再试。",
-            variant: "destructive",
-          })
-        }
-      } catch (error) {
-        // 静默处理错误
-        toast({
-          title: "上传错误",
-          description: "上传头像时发生错误，请重试。",
-          variant: "destructive",
-        })
-      }
-    }
-  }
+  // Avatar upload functionality moved to ProfileCard component
 
   if (isLoadingDepartments) {
     return <div className="flex justify-center items-center h-screen">加载中...</div>;
@@ -555,7 +188,6 @@ export default function Dashboard() {
   // 组件渲染
   return (
     <div className="h-full px-4 pt-0 pb-6 lg:px-8 lg:pb-10">
-      <style>{globalStyles}</style>
 
       <div className="flex items-center justify-between space-y-2 mb-6">
         <div className="flex items-center space-x-2 group">
@@ -571,15 +203,23 @@ export default function Dashboard() {
       <main className="space-y-8 max-w-7xl mx-auto flex-grow w-full pb-16">
 
         {activeTab === "overview" && (
-          <section className="space-y-8 pt-4 animate-fadeIn transition-opacity duration-300">
+          <section className="space-y-8 pt-4 animate-in fade-in duration-300">
             <div className="grid gap-6 md:gap-8 md:grid-cols-2 lg:grid-cols-4 max-w-7xl mx-auto px-2">
-              <GovernanceCard value={89.5} trend="+2.5%" />
-              <WeeklyGoalsCard value={145} trend="+24" />
-              <PointsCard points={parseFloat(formatPoints(userData?.points || 0))} />
-              <ComplianceCard percentage={98.2} trend="+1.2%" />
+              <div {...getAnimationDelay(0)}>
+                <GovernanceCard value={89.5} trend="+2.5%" />
+              </div>
+              <div {...getAnimationDelay(1)}>
+                <WeeklyGoalsCard value={145} trend="+24" />
+              </div>
+              <div {...getAnimationDelay(2)}>
+                <PointsCard points={parseFloat(formatPoints(user?.total_points || user?.points || 0))} />
+              </div>
+              <div {...getAnimationDelay(3)}>
+                <ComplianceCard percentage={98.2} trend="+1.2%" />
+              </div>
             </div>
             <div className={cn("grid gap-8 md:gap-8 lg:grid-cols-7 px-2 mb-8 pb-8")}>
-              <Card className="col-span-4 tech-card shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp">
+              <Card className="col-span-4 tech-card shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-in slide-in-from-bottom-2 fade-in duration-500">
                 <CardHeader>
                   <CardTitle>多维度治理分析</CardTitle>
                 </CardHeader>
@@ -587,7 +227,7 @@ export default function Dashboard() {
                   <Overview />
                 </CardContent>
               </Card>
-              <Card className="col-span-3 tech-card shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp">
+              <Card className="col-span-3 tech-card shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-in slide-in-from-bottom-2 fade-in duration-500">
                 <CardHeader>
                   <CardTitle>最近活动</CardTitle>
                 </CardHeader>
@@ -600,7 +240,7 @@ export default function Dashboard() {
         )}
 
         {activeTab === "rewards" && (
-          <section className="animate-fadeIn transition-opacity duration-300 p-4">
+          <section className="animate-in fade-in duration-300 p-4">
             <div className="bg-card rounded-xl border border-border shadow-lg p-6">
               <PointsOverviewWithStats />
             </div>
@@ -608,21 +248,33 @@ export default function Dashboard() {
         )}
 
         {activeTab === "scoring" && (
-          <section className="animate-fadeIn transition-opacity duration-300 p-2 md:p-3 lg:p-4">
+          <section className="animate-in fade-in duration-300 p-2 md:p-3 lg:p-4">
             <div className="bg-card rounded-xl border border-border shadow-lg p-4 md:p-5 lg:p-6 w-full max-w-[1400px] mx-auto">
-              <ScoringSystem />
+              <LazyScoringSystemWithSuspense />
             </div>
           </section>
         )}
 
         {activeTab === "profile" && (
-          <div className="space-y-6 pt-4 animate-fadeIn transition-opacity duration-300 max-w-7xl mx-auto px-2">
+          <div className="space-y-6 pt-4 animate-in fade-in duration-300 max-w-7xl mx-auto px-2">
             <div className="grid gap-8 md:grid-cols-3 mb-8">
               {/* 个人信息卡片 */}
               <div className="md:col-span-1">
                 <ProfileCard
-                  userData={userData}
-                  setUserData={setUserData}
+                  userData={{
+                    name: user?.name || "",
+                    department: user?.department || "",
+                    position: user?.position || "",
+                    email: user?.email || "",
+                    phone: user?.phone || "",
+                    githubUrl: user?.githubUrl || "",
+                    joinDate: user?.joinDate || "",
+                    points: user?.total_points ?? user?.points ?? 0,
+                    level: user?.level ?? 0,
+                    companyName: user?.companyName || "",
+                    skills: user?.skills || []
+                  }}
+                  setUserData={() => {}} // No longer needed
                   mounted={mounted}
                 />
 
@@ -637,8 +289,20 @@ export default function Dashboard() {
                 <ProfileEditDialog
                   open={editProfileOpen}
                   onOpenChange={setEditProfileOpen}
-                  userData={userData}
-                  setUserData={setUserData}
+                  userData={{
+                    name: user?.name || "",
+                    department: user?.department || "",
+                    position: user?.position || "",
+                    email: user?.email || "",
+                    phone: user?.phone || "",
+                    githubUrl: user?.githubUrl || "",
+                    joinDate: user?.joinDate || "",
+                    points: user?.total_points ?? user?.points ?? 0,
+                    level: user?.level ?? 0,
+                    companyName: user?.companyName || "",
+                    skills: user?.skills || []
+                  }}
+                  setUserData={() => {}} // No longer needed
                   selectedDepartment={selectedDepartment}
                   setSelectedDepartment={setSelectedDepartment}
                   departments={departments}
@@ -649,7 +313,21 @@ export default function Dashboard() {
               </div>
 
               {/* 成就和活动卡片 */}
-              <ProfileAchievements userData={userData} />
+              <ProfileAchievements userData={{
+                name: user?.name || "",
+                department: user?.department || "",
+                position: user?.position || "",
+                email: user?.email || "",
+                phone: user?.phone || "",
+                githubUrl: user?.githubUrl || "",
+                joinDate: user?.joinDate || "",
+                points: user?.total_points ?? user?.points ?? 0,
+                level: user?.level ?? 0,
+                companyName: user?.companyName || "",
+                skills: user?.skills || [],
+                achievements,
+                recentActivities
+              }} />
             </div>
           </div>
         )}

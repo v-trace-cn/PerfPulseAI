@@ -13,6 +13,7 @@ type AuthContextType = {
   register: (email: string, password: string, name?: string) => Promise<boolean>;
   logout: () => void;
   refreshUser: () => Promise<void>;
+  updateUser: (userData: Partial<User>) => void; // 新增：更新用户数据
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -121,6 +122,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  // 新增：更新用户数据的方法
+  const updateUser = (userData: Partial<User>) => {
+    if (user) {
+      setUser({ ...user, ...userData });
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -132,6 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         register,
         logout,
         refreshUser,
+        updateUser,
       }}
     >
       {children}

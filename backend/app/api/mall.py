@@ -12,7 +12,7 @@ from app.models.scoring import PurchaseStatus
 from app.api.auth import get_current_user
 from app.models.user import User
 
-router = APIRouter()
+router = APIRouter(prefix="/api", tags=["mall"])
 
 
 # Pydantic 模型

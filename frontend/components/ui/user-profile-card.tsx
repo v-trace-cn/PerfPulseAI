@@ -18,7 +18,6 @@ import {
   Github,
   Building2,
   Building,
-  Calendar,
   Pencil,
   Camera,
   LucideIcon

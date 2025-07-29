@@ -3,7 +3,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { CheckCircle2, Code, FileText, GitCommit, MessageSquare } from "lucide-react"
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useEffect, useState, memo } from "react"
 import { useApi } from "@/hooks/useApi"
 import { useAuth } from "@/lib/auth-context"
 import { getRelativeDate, cn } from "@/lib/utils"
@@ -49,7 +49,7 @@ const getActivityIcon = (type: string) => {
   }
 }
 
-export function RecentActivities() {
+export const RecentActivities = memo(() => {
   const { data: fetchedData, isLoading: apiLoading, error: apiError, execute: fetchActivitiesApi } = useApi(unifiedApi.activity.getRecentActivities);
   
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -69,7 +69,7 @@ export function RecentActivities() {
     };
 
     fetchActivities();
-  }, [fetchActivitiesApi, user?.id, userLoading, currentPage, perPage]);
+  }, [user?.id, userLoading, currentPage, perPage]); // 移除 fetchActivitiesApi 依赖
 
   useEffect(() => {
     if (fetchedData && fetchedData.success && fetchedData.data) {
@@ -207,5 +207,7 @@ export function RecentActivities() {
       )}
     </div>
   )
-}
+});
+
+RecentActivities.displayName = 'RecentActivities';
 

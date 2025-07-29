@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import AuthGuard from "@/components/guards/AuthGuard"
 import CompanyGuard from "@/components/guards/CompanyGuard"
 import { Button } from "@/components/ui/button"
@@ -354,24 +354,33 @@ export default function RedemptionPage() {
     }
   };
 
-  // 过滤和分页逻辑
-  const filteredData = redemptionData.filter((record) => {
-    const matchesSearch =
-      record.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.rewardName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.redeemCode.toLowerCase().includes(searchTerm.toLowerCase());
+  // 过滤和分页逻辑 - 使用 useMemo 优化
+  const filteredData = useMemo(() => {
+    const lowerSearchTerm = searchTerm.toLowerCase();
+    return redemptionData.filter((record) => {
+      const matchesSearch =
+        record.userName.toLowerCase().includes(lowerSearchTerm) ||
+        record.rewardName.toLowerCase().includes(lowerSearchTerm) ||
+        record.redeemCode.toLowerCase().includes(lowerSearchTerm);
 
-    const matchesStatus = statusFilter === "all" || record.status === statusFilter;
-    const matchesType = rewardTypeFilter === "all" || record.rewardType === rewardTypeFilter;
+      const matchesStatus = statusFilter === "all" || record.status === statusFilter;
+      const matchesType = rewardTypeFilter === "all" || record.rewardType === rewardTypeFilter;
 
-    return matchesSearch && matchesStatus && matchesType;
-  });
+      return matchesSearch && matchesStatus && matchesType;
+    });
+  }, [redemptionData, searchTerm, statusFilter, rewardTypeFilter]);
 
-  // 分页计算
-  const totalPages = Math.ceil(filteredData.length / pageSize);
-  const startIndex = (currentPage - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const paginatedData = filteredData.slice(startIndex, endIndex);
+  // 分页计算 - 使用 useMemo 优化
+  const paginationData = useMemo(() => {
+    const totalPages = Math.ceil(filteredData.length / pageSize);
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const paginatedData = filteredData.slice(startIndex, endIndex);
+
+    return { totalPages, paginatedData };
+  }, [filteredData, currentPage, pageSize]);
+
+  const { totalPages, paginatedData } = paginationData;
 
   // 分页控制
   const goToPage = (page: number) => {

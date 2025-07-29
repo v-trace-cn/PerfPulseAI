@@ -81,26 +81,10 @@ const config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
-        pulse: {
-          "0%, 100%": { opacity: "1" },
-          "50%": { opacity: "0.5" },
-        },
-        float: {
-          "0%, 100%": { transform: "translateY(0)" },
-          "50%": { transform: "translateY(-10px)" },
-        },
-        glow: {
-          "0%, 100%": { boxShadow: "0 0 5px rgba(79, 70, 229, 0.5)" },
-          "50%": { boxShadow: "0 0 20px rgba(79, 70, 229, 0.8)" },
-        },
-      },
+              },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        "pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
-        float: "float 6s ease-in-out infinite",
-        glow: "glow 2s ease-in-out infinite",
-        "slide-in": "slide-in 0.3s ease-out",
       },
       backgroundImage: {
         "tech-gradient": "linear-gradient(to right, #4f46e5, #8b5cf6, #ec4899)",

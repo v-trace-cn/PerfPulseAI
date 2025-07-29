@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { 
@@ -37,14 +37,14 @@ interface CompanyTableProps {
   showActions?: boolean;
 }
 
-export function CompanyTable({
+export const CompanyTable = memo<CompanyTableProps>(({
   companies,
   currentUserCompanyId,
   onJoinCompany,
   onEditCompany,
   onDeleteCompany,
   showActions = true,
-}: CompanyTableProps) {
+}) => {
   const formatDate = (dateString: string) => {
     try {
       return format(new Date(dateString), 'yyyy年MM月dd日', { locale: zhCN });
@@ -163,4 +163,6 @@ export function CompanyTable({
       </TableBody>
     </Table>
   );
-}
+});
+
+CompanyTable.displayName = 'CompanyTable';

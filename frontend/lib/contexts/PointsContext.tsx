@@ -54,7 +54,7 @@ const initialState: PointsState = {
   },
   error: null,
   currentPage: 1,
-  pageSize: 10,
+  pageSize: 5,
   totalPages: 0,
 };
 

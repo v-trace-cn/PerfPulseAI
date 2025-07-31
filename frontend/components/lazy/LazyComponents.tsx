@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { LoadingSpinner } from '@/components/ui/loading-skeleton';
+import { LoadingSpinner } from '@/components/ui/data-loader';
 
 // 懒加载非关键组件
 export const LazyScoringSystem = lazy(() => 

@@ -251,7 +251,7 @@ export const unifiedApi = {
       fetchUnifiedApi(`/api/activities/${activityId}/reset-points`, {
         method: 'POST',
         headers: {
-          'X-User-ID': getCurrentUserId()?.toString() || '',
+          'X-User-Id': getCurrentUserId()?.toString() || '',
         }
       }),
   },
@@ -366,7 +366,7 @@ export const unifiedApi = {
         },
       }),
 
-    getPointsTransactions: (userId: string, page: number = 1, pageSize: number = 20): Promise<ApiResponse<any>> =>
+    getPointsTransactions: (userId: string, page: number = 1, pageSize: number = 5): Promise<ApiResponse<any>> =>
       fetchUnifiedApi(`/api/points/transactions?page=${page}&page_size=${pageSize}`, {
         headers: {
           'X-User-Id': userId,
@@ -396,6 +396,14 @@ export const unifiedApi = {
 
     getUserPoints: (userId: string): Promise<ApiResponse<any>> =>
       fetchUnifiedApi(`/api/points/balance`, {
+        headers: {
+          'X-User-Id': userId,
+        },
+      }),
+
+    // 统一积分数据接口（推荐使用）
+    getUnifiedPointsData: (userId: string): Promise<ApiResponse<any>> =>
+      fetchUnifiedApi(`/api/points/unified-data`, {
         headers: {
           'X-User-Id': userId,
         },
@@ -516,7 +524,7 @@ export const unifiedApi = {
     checkUserPermissions: (targetUserId: number, permissions: string, userId: string): Promise<ApiResponse<any>> =>
       fetchUnifiedApi(`/api/permissions/check/${targetUserId}?permissions=${encodeURIComponent(permissions)}`, {
         headers: {
-          'X-User-ID': userId,
+          'X-User-Id': userId,
         },
       }),
 

@@ -36,156 +36,11 @@ import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 
 // 积分商品数据
-const pointsProducts = [
-  {
-    id: 1,
-    name: "MacBook Pro 16寸",
-    description: "最新款 MacBook Pro，适合开发工作",
-    points: 5000,
-    category: "实物奖励",
-    image: "/placeholder.svg?height=200&width=200",
-    stock: 5,
-    isAvailable: true,
-  },
-  {
-    id: 2,
-    name: "iPad Air",
-    description: "轻薄便携的平板电脑",
-    points: 3500,
-    category: "实物奖励",
-    image: "/placeholder.svg?height=200&width=200",
-    stock: 10,
-    isAvailable: true,
-  },
-  {
-    id: 3,
-    name: "年度会员",
-    description: "各种软件服务的年度会员",
-    points: 1200,
-    category: "虚拟奖励",
-    image: "/placeholder.svg?height=200&width=200",
-    stock: 999,
-    isAvailable: true,
-  },
-  {
-    id: 4,
-    name: "现金红包",
-    description: "直接现金奖励",
-    points: 800,
-    category: "现金奖励",
-    image: "/placeholder.svg?height=200&width=200",
-    stock: 999,
-    isAvailable: true,
-  },
-  {
-    id: 5,
-    name: "在线课程",
-    description: "技能提升在线课程",
-    points: 600,
-    category: "虚拟奖励",
-    image: "/placeholder.svg?height=200&width=200",
-    stock: 999,
-    isAvailable: true,
-  },
-];
 
-// 兑换记录数据结构
-const redemptionData = [
-  {
-    id: 1,
-    userId: 1,
-    userName: "关键先生",
-    userAvatar: "/placeholder.svg?height=32&width=32",
-    department: "研发部",
-    redeemCode: "GIFT2024001",
-    rewardType: "实物奖励",
-    rewardName: "MacBook Pro 16寸",
-    pointsCost: 5000,
-    status: "已发放",
-    redeemTime: "2024-06-15 14:30:00",
-    processTime: "2024-06-16 09:15:00",
-  },
-  {
-    id: 2,
-    userId: 2,
-    userName: "增长黑客",
-    userAvatar: "/placeholder.svg?height=32&width=32",
-    department: "产品部",
-    redeemCode: "GIFT2024002",
-    rewardType: "虚拟奖励",
-    rewardName: "年度会员",
-    pointsCost: 1200,
-    status: "处理中",
-    redeemTime: "2024-06-14 16:45:00",
-    processTime: null,
-  },
-  {
-    id: 3,
-    userId: 3,
-    userName: "像素魔术师",
-    userAvatar: "/placeholder.svg?height=32&width=32",
-    department: "设计部",
-    redeemCode: "GIFT2024003",
-    rewardType: "实物奖励",
-    rewardName: "iPad Air",
-    pointsCost: 3500,
-    status: "已发放",
-    redeemTime: "2024-06-13 11:20:00",
-    processTime: "2024-06-14 10:30:00",
-  },
-  {
-    id: 4,
-    userId: 4,
-    userName: "数据分析师",
-    userAvatar: "/placeholder.svg?height=32&width=32",
-    department: "数据部",
-    redeemCode: "GIFT2024004",
-    rewardType: "现金奖励",
-    rewardName: "现金红包",
-    pointsCost: 800,
-    status: "已发放",
-    redeemTime: "2024-06-12 09:10:00",
-    processTime: "2024-06-12 15:20:00",
-  },
-  {
-    id: 5,
-    userId: 5,
-    userName: "全栈工程师",
-    userAvatar: "/placeholder.svg?height=32&width=32",
-    department: "研发部",
-    redeemCode: "GIFT2024005",
-    rewardType: "虚拟奖励",
-    rewardName: "在线课程",
-    pointsCost: 600,
-    status: "已取消",
-    redeemTime: "2024-06-11 13:45:00",
-    processTime: "2024-06-11 14:00:00",
-  },
-  {
-    id: 6,
-    userId: 6,
-    userName: "运维专家",
-    userAvatar: "/placeholder.svg?height=32&width=32",
-    department: "运维部",
-    redeemCode: "GIFT2024006",
-    rewardType: "实物奖励",
-    rewardName: "机械键盘",
-    pointsCost: 1500,
-    status: "处理中",
-    redeemTime: "2024-06-10 17:30:00",
-    processTime: null,
-  },
-]
 
-// 时间段统计数据
-const timeRangeStats = {
-  "2024-01": { month: "2024年1月", totalRedemptions: 12, totalPoints: 18500, totalUsers: 8 },
-  "2024-02": { month: "2024年2月", totalRedemptions: 15, totalPoints: 22300, totalUsers: 10 },
-  "2024-03": { month: "2024年3月", totalRedemptions: 18, totalPoints: 26800, totalUsers: 12 },
-  "2024-04": { month: "2024年4月", totalRedemptions: 22, totalPoints: 31200, totalUsers: 14 },
-  "2024-05": { month: "2024年5月", totalRedemptions: 25, totalPoints: 35600, totalUsers: 16 },
-  "2024-06": { month: "2024年6月", totalRedemptions: 28, totalPoints: 42100, totalUsers: 18 },
-}
+
+
+
 
 export default function RedemptionPage() {
   const { user } = useAuth();
@@ -203,8 +58,7 @@ export default function RedemptionPage() {
   // 积分商城状态
   const [showPointsMall, setShowPointsMall] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<any>(null)
-  const [isRedeeming, setIsRedeeming] = useState(false)
-  const [userPoints, setUserPoints] = useState(8500) // 模拟用户积分
+  const [userPoints, setUserPoints] = useState(0) // 从后端获取用户积分
 
   // 处理时间范围变化
   const handleTimeRangeChange = (value: string) => {
@@ -260,6 +114,164 @@ export default function RedemptionPage() {
     message: string
     rewardInfo?: any
   }>({ isValid: null, message: "" })
+  const [isRedeeming, setIsRedeeming] = useState(false)
+
+  // 清除任何可能的缓存错误状态
+  useEffect(() => {
+    setKeyValidation({ isValid: null, message: "" })
+  }, [])
+
+  // 真实兑换数据状态
+  const [redemptionRecords, setRedemptionRecords] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [totalRecords, setTotalRecords] = useState(0)
+
+  // 积分商品数据状态
+  const [pointsProducts, setPointsProducts] = useState<any[]>([])
+  const [productsLoading, setProductsLoading] = useState(false)
+
+  // 统计数据状态
+  const [timeRangeStats, setTimeRangeStats] = useState<any>({})
+  const [statsLoading, setStatsLoading] = useState(false)
+
+  // 获取兑换记录
+  const fetchRedemptionRecords = async () => {
+    if (!user?.id) return
+
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/mall/purchases?page=${currentPage}&page_size=${pageSize}`, {
+        headers: {
+          'X-User-Id': String(user.id),
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        // 转换后端数据格式为前端格式
+        const formattedRecords = data.purchases.map((item: any) => ({
+          id: item.id,
+          userId: item.userId,
+          userName: user.name || "当前用户",
+          userAvatar: user.avatar || "/placeholder.svg?height=32&width=32",
+          department: user.department || "未知部门",
+          redeemCode: item.redemptionCode || "无",
+          rewardType: "积分商品",
+          rewardName: item.itemName,
+          pointsCost: item.pointsCost,
+          status: getStatusText(item.status),
+          redeemTime: new Date(item.createdAt).toLocaleString(),
+          processTime: item.completedAt ? new Date(item.completedAt).toLocaleString() : "-"
+        }))
+
+        setRedemptionRecords(formattedRecords)
+        setTotalRecords(data.totalCount)
+      } else {
+        console.error('获取兑换记录失败')
+      }
+    } catch (error) {
+      console.error('获取兑换记录错误:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 转换状态文本
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'PENDING':
+        return '处理中'
+      case 'COMPLETED':
+        return '已发放'
+      case 'CANCELLED':
+        return '已取消'
+      default:
+        return '未知'
+    }
+  }
+
+  // 获取用户积分
+  const fetchUserPoints = async () => {
+    if (!user?.id) return
+
+    try {
+      const response = await fetch('/api/points/summary', {
+        headers: {
+          'X-User-Id': String(user.id),
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setUserPoints(data.currentBalance || data.points || 0)
+      } else {
+        console.error('获取用户积分失败')
+      }
+    } catch (error) {
+      console.error('获取用户积分错误:', error)
+    }
+  }
+
+  // 获取积分商品
+  const fetchPointsProducts = async () => {
+    try {
+      setProductsLoading(true)
+      const response = await fetch('/api/mall/items')
+
+      if (response.ok) {
+        const data = await response.json()
+        const products = Array.isArray(data) ? data : (data.items || [])
+        setPointsProducts(products.map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          description: item.description || '',
+          points: item.pointsCost || item.points || 0,
+          category: item.category || '其他',
+          image: item.image || "/placeholder.svg?height=200&width=200",
+          stock: item.stock || 0,
+          isAvailable: item.isAvailable !== false && item.stock > 0,
+        })))
+      } else {
+        // 获取积分商品失败，设置为空数组
+        setPointsProducts([])
+      }
+    } catch (error) {
+      console.error('获取积分商品错误:', error)
+      setPointsProducts([])
+    } finally {
+      setProductsLoading(false)
+    }
+  }
+
+  // 获取统计数据
+  const fetchStatsData = async () => {
+    try {
+      setStatsLoading(true)
+      // 这里可以调用后端统计API，暂时使用默认数据
+      const defaultStats = {
+        "2024-01": { month: "2024年1月", totalRedemptions: 12, totalPoints: 18500, totalUsers: 8 },
+        "2024-02": { month: "2024年2月", totalRedemptions: 15, totalPoints: 22300, totalUsers: 10 },
+        "2024-03": { month: "2024年3月", totalRedemptions: 18, totalPoints: 26800, totalUsers: 12 },
+        "2024-04": { month: "2024年4月", totalRedemptions: 22, totalPoints: 31200, totalUsers: 14 },
+        "2024-05": { month: "2024年5月", totalRedemptions: 25, totalPoints: 35600, totalUsers: 16 },
+        "2024-06": { month: "2024年6月", totalRedemptions: 28, totalPoints: 42100, totalUsers: 18 },
+      }
+      setTimeRangeStats(defaultStats)
+    } catch (error) {
+      console.error('获取统计数据错误:', error)
+      setTimeRangeStats({})
+    } finally {
+      setStatsLoading(false)
+    }
+  }
+
+  // 页面加载时获取数据
+  useEffect(() => {
+    fetchRedemptionRecords()
+    fetchUserPoints()
+    fetchPointsProducts()
+    fetchStatsData()
+  }, [user?.id, currentPage, pageSize])
 
   // 兑换功能
   const handleRedeem = async (product: any) => {
@@ -274,44 +286,47 @@ export default function RedemptionPage() {
 
     setIsRedeeming(true);
     try {
-      // 模拟API调用
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // 生成兑换密钥
-      const redeemCode = `GIFT${Date.now()}`;
-
-      // 创建兑换记录
-      const newRedemption = {
-        id: Date.now(),
-        userId: user?.id || 1,
-        userName: user?.name || "当前用户",
-        userAvatar: user?.avatar || "/placeholder.svg?height=32&width=32",
-        department: user?.department || "研发部",
-        redeemCode,
-        rewardType: product.category,
-        rewardName: product.name,
-        pointsCost: product.points,
-        status: "已发放",
-        redeemTime: new Date().toLocaleString(),
-        processTime: new Date().toLocaleString(),
-      };
-
-      // 更新用户积分
-      setUserPoints(prev => prev - product.points);
-
-      // 添加到兑换记录
-      redemptionData.unshift(newRedemption);
-
-      // 发送通知
-      sendRedemptionNotification(redeemCode, product.name);
-
-      toast({
-        title: "兑换成功！",
-        description: `您已成功兑换 ${product.name}，兑换密钥：${redeemCode}`,
+      // 调用后端购买API
+      const response = await fetch('/api/mall/purchase', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': String(user?.id || ''),
+        },
+        body: JSON.stringify({
+          itemId: product.id,
+          quantity: 1
+        }),
       });
 
-      setSelectedProduct(null);
-      setShowPointsMall(false);
+      if (response.ok) {
+        const data = await response.json();
+        const redeemCode = data.redemptionCode || `GIFT${Date.now()}`;
+
+        // 更新用户积分
+        setUserPoints(prev => prev - product.points);
+
+        // 刷新兑换记录（从后端获取最新数据）
+        fetchRedemptionRecords();
+
+        // 发送通知
+        sendRedemptionNotification(redeemCode, product.name);
+
+        toast({
+          title: "兑换成功！",
+          description: `您已成功兑换 ${product.name}，兑换密钥：${redeemCode}`,
+        });
+
+        setSelectedProduct(null);
+        setShowPointsMall(false);
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "兑换失败",
+          description: errorData.error || "兑换失败，请稍后重试",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       toast({
         title: "兑换失败",
@@ -334,7 +349,7 @@ export default function RedemptionPage() {
         body: JSON.stringify({
           type: "redemption_success",
           title: "兑换成功",
-          message: `您已成功兑换 ${productName}，兑换密钥：${redeemCode}`,
+          message: `您已成功兑换 ${productName}`,
           userId: user?.id || 1,
           data: {
             redeemCode,
@@ -344,20 +359,16 @@ export default function RedemptionPage() {
         }),
       });
 
-      if (response.ok) {
-        console.log("通知发送成功");
-      } else {
-        console.error("通知发送失败");
-      }
+      // 通知发送完成
     } catch (error) {
-      console.error("发送通知时出错:", error);
+      // 通知发送失败，但不影响主流程
     }
   };
 
-  // 过滤和分页逻辑 - 使用 useMemo 优化
+  // 过滤和分页逻辑 - 使用真实数据
   const filteredData = useMemo(() => {
     const lowerSearchTerm = searchTerm.toLowerCase();
-    return redemptionData.filter((record) => {
+    return redemptionRecords.filter((record) => {
       const matchesSearch =
         record.userName.toLowerCase().includes(lowerSearchTerm) ||
         record.rewardName.toLowerCase().includes(lowerSearchTerm) ||
@@ -368,19 +379,23 @@ export default function RedemptionPage() {
 
       return matchesSearch && matchesStatus && matchesType;
     });
-  }, [redemptionData, searchTerm, statusFilter, rewardTypeFilter]);
+  }, [redemptionRecords, searchTerm, statusFilter, rewardTypeFilter]);
 
   // 分页计算 - 使用 useMemo 优化
   const paginationData = useMemo(() => {
-    const totalPages = Math.ceil(filteredData.length / pageSize);
+    const totalPages = Math.ceil(totalRecords / pageSize);
     const startIndex = (currentPage - 1) * pageSize;
     const endIndex = startIndex + pageSize;
-    const paginatedData = filteredData.slice(startIndex, endIndex);
 
-    return { totalPages, paginatedData };
-  }, [filteredData, currentPage, pageSize]);
+    return {
+      totalPages,
+      paginatedData: filteredData,
+      startIndex,
+      endIndex
+    };
+  }, [filteredData, currentPage, pageSize, totalRecords]);
 
-  const { totalPages, paginatedData } = paginationData;
+  const { totalPages, paginatedData, startIndex, endIndex } = paginationData;
 
   // 分页控制
   const goToPage = (page: number) => {
@@ -395,15 +410,7 @@ export default function RedemptionPage() {
     setCurrentPage(prev => Math.min(totalPages, prev + 1));
   };
 
-  const filteredRedemptions = redemptionData.filter((record) => {
-    const matchesSearch =
-      record.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.redeemCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.rewardName.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === "all" || record.status === statusFilter
-    const matchesType = rewardTypeFilter === "all" || record.rewardType === rewardTypeFilter
-    return matchesSearch && matchesStatus && matchesType
-  })
+
 
   const handleSelectAll = () => {
     if (selectedRecords.length === filteredData.length) {
@@ -417,41 +424,86 @@ export default function RedemptionPage() {
     setSelectedRecords((prev) => (prev.includes(recordId) ? prev.filter((id) => id !== recordId) : [...prev, recordId]))
   }
 
-  // 验证密钥
-  const validateRedeemKey = () => {
+  // 验证并兑换密钥（合并功能）
+  const handleRedeemKey = async () => {
     if (!redeemKey.trim()) {
       setKeyValidation({ isValid: false, message: "请输入兑换密钥" })
       return
     }
 
-    // 模拟密钥验证逻辑
-    const validKeys = {
-      SUMMER2024: { reward: "夏日大礼包", points: 1000, type: "实物奖励" },
-      WELCOME2024: { reward: "新人礼包", points: 500, type: "虚拟奖励" },
-      PREMIUM2024: { reward: "高级会员", points: 2000, type: "虚拟奖励" },
-    }
+    if (isRedeeming) return // 防止重复点击
 
-    if (validKeys[redeemKey]) {
-      setKeyValidation({
-        isValid: true,
-        message: "密钥验证成功！",
-        rewardInfo: validKeys[redeemKey],
+    try {
+      setIsRedeeming(true)
+      setKeyValidation({ isValid: null, message: "" })
+      // 先验证密钥
+      const verifyResponse = await fetch('/api/mall/verify-redemption-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': String(user?.id || ''),
+        },
+        body: JSON.stringify({
+          redemption_code: redeemKey.trim()
+        }),
       })
-    } else {
+
+      if (!verifyResponse.ok) {
+        const error = await verifyResponse.json()
+        setKeyValidation({
+          isValid: false,
+          message: error.error || "验证失败，请稍后重试",
+        })
+        return
+      }
+
+      const verifyData = await verifyResponse.json()
+      if (!verifyData.valid) {
+        setKeyValidation({
+          isValid: false,
+          message: verifyData.message || "密钥无效"
+        })
+        return
+      }
+
+      // 验证成功，直接执行兑换
+      const redeemResponse = await fetch('/api/mall/redeem-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': String(user?.id || ''),
+        },
+        body: JSON.stringify({
+          redemption_code: redeemKey.trim()
+        }),
+      })
+
+      if (redeemResponse.ok) {
+        const redeemData = await redeemResponse.json()
+        toast({
+          title: "兑换成功！",
+          description: `成功兑换 ${verifyData.purchase_info?.itemName || "奖励"}`,
+        })
+        setRedeemKey("")
+        setKeyValidation({ isValid: null, message: "" })
+        // 刷新兑换记录
+        fetchRedemptionRecords()
+      } else {
+        const error = await redeemResponse.json()
+        toast({
+          title: "兑换失败",
+          description: error.error || "兑换失败，请稍后重试",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error('兑换密钥失败:', error)
       setKeyValidation({
         isValid: false,
-        message: "无效的兑换密钥，请检查后重试",
+        message: "网络错误，请稍后重试",
       })
-    }
-  }
-
-  // 执行密钥兑换
-  const handleKeyRedeem = () => {
-    if (keyValidation.isValid && keyValidation.rewardInfo) {
-      // 这里可以调用API执行兑换逻辑
-      alert(`兑换成功！获得：${keyValidation.rewardInfo.reward}`)
-      setRedeemKey("")
-      setKeyValidation({ isValid: null, message: "" })
+    } finally {
+      setIsRedeeming(false)
     }
   }
 
@@ -461,33 +513,45 @@ export default function RedemptionPage() {
 
   const getCurrentTimeRangeData = () => {
     const currentKey = getTimeRangeKey(new Date())
-    return timeRangeStats[currentKey] || timeRangeStats["2024-06"]
+    return timeRangeStats[currentKey] || timeRangeStats["2024-06"] || {
+      month: "当前月",
+      totalRedemptions: 0,
+      totalPoints: 0,
+      totalUsers: 0
+    }
   }
 
   const getTimeRangeStatsData = () => {
     const currentData = getCurrentTimeRangeData()
     const lastMonthKey = getTimeRangeKey(new Date(new Date().setMonth(new Date().getMonth() - 1)))
-    const lastMonthData = timeRangeStats[lastMonthKey] || timeRangeStats["2024-05"]
+    const lastMonthData = timeRangeStats[lastMonthKey] || timeRangeStats["2024-05"] || {
+      month: "上个月",
+      totalRedemptions: 0,
+      totalPoints: 0,
+      totalUsers: 0
+    }
 
     return {
       current: currentData,
       lastMonth: lastMonthData,
       growth: {
-        totalRedemptions: (
+        totalRedemptions: lastMonthData.totalRedemptions > 0 ? (
           ((currentData.totalRedemptions - lastMonthData.totalRedemptions) / lastMonthData.totalRedemptions) *
           100
-        ).toFixed(1),
-        totalPoints: (
+        ).toFixed(1) : currentData.totalRedemptions > 0 ? '100' : '0',
+        totalPoints: lastMonthData.totalPoints > 0 ? (
           ((currentData.totalPoints - lastMonthData.totalPoints) / lastMonthData.totalPoints) *
           100
-        ).toFixed(1),
-        totalUsers: (((currentData.totalUsers - lastMonthData.totalUsers) / lastMonthData.totalUsers) * 100).toFixed(1),
+        ).toFixed(1) : currentData.totalPoints > 0 ? '100' : '0',
+        totalUsers: lastMonthData.totalUsers > 0 ? (
+          ((currentData.totalUsers - lastMonthData.totalUsers) / lastMonthData.totalUsers) * 100
+        ).toFixed(1) : currentData.totalUsers > 0 ? '100' : '0',
       },
     }
   }
 
   const handleExport = () => {
-    const selectedData = redemptionData.filter((record) => selectedRecords.includes(record.id))
+    const selectedData = redemptionRecords.filter((record) => selectedRecords.includes(record.id))
     const timeRangeText =
       selectedTimeRange === "current"
         ? "本月"
@@ -581,21 +645,7 @@ export default function RedemptionPage() {
                   <Gift className="h-6 w-6" style={{ color: "#B4A2FA" }} />
                   兑奖管理
                 </h1>
-                <p className="text-gray-600 mt-1">管理积分兑换和奖励发放</p>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-200">
-                  <Trophy className="h-5 w-5 text-yellow-600" />
-                  <span className="text-sm font-medium text-gray-700">我的积分:</span>
-                  <span className="text-lg font-bold text-yellow-600">{userPoints}</span>
-                </div>
-                <Button
-                  onClick={() => setShowPointsMall(true)}
-                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                >
-                  <ShoppingCart className="h-4 w-4 mr-2" />
-                  积分商城
-                </Button>
+
               </div>
             </div>
 
@@ -609,7 +659,6 @@ export default function RedemptionPage() {
                   <Key className="h-5 w-5" style={{ color: "#B4A2FA" }} />
                   密钥兑换
                 </CardTitle>
-                <CardDescription className="text-gray-600">输入兑换密钥来获取奖励</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col md:flex-row gap-4">
@@ -625,21 +674,14 @@ export default function RedemptionPage() {
                       className="mt-1 border-gray-200 focus:border-indigo-300 focus:ring-indigo-200"
                     />
                   </div>
-                  <div className="flex items-end gap-2">
+                  <div className="flex items-end">
                     <Button
-                      onClick={validateRedeemKey}
-                      variant="outline"
-                      className="border-gray-300 hover:bg-gray-50 bg-transparent"
-                    >
-                      验证密钥
-                    </Button>
-                    <Button
-                      onClick={handleKeyRedeem}
-                      disabled={!keyValidation.isValid}
+                      onClick={handleRedeemKey}
+                      disabled={isRedeeming || !redeemKey.trim()}
                       className="text-white disabled:opacity-50"
                       style={{ backgroundColor: "#B4A2FA" }}
                     >
-                      立即兑换
+                      {isRedeeming ? "兑换中..." : "兑换密钥"}
                     </Button>
                   </div>
                 </div>
@@ -824,14 +866,14 @@ export default function RedemptionPage() {
                       月度兑换趋势
                     </h4>
                     <div className="grid grid-cols-6 gap-4">
-                      {Object.entries(timeRangeStats).map(([key, data]) => (
+                      {Object.entries(timeRangeStats).map(([key, data]: [string, any]) => (
                         <div key={key} className="text-center">
                           <div className="mb-2">
                             <div
                               className="rounded-t"
                               style={{
                                 backgroundColor: "#B4A2FA",
-                                height: `${(data.totalRedemptions / 30) * 60}px`,
+                                height: `${((data?.totalRedemptions || 0) / 30) * 60}px`,
                                 minHeight: "4px",
                               }}
                             ></div>
@@ -839,13 +881,13 @@ export default function RedemptionPage() {
                               className="rounded-b"
                               style={{
                                 backgroundColor: "#A2E4FA",
-                                height: `${(data.totalPoints / 45000) * 40}px`,
+                                height: `${((data?.totalPoints || 0) / 45000) * 40}px`,
                                 minHeight: "4px",
                               }}
                             ></div>
                           </div>
-                          <p className="text-xs text-gray-600">{data.month.split("年")[1]}</p>
-                          <p className="text-xs font-medium">{data.totalRedemptions}</p>
+                          <p className="text-xs text-gray-600">{data?.month?.split("年")[1] || key}</p>
+                          <p className="text-xs font-medium">{data?.totalRedemptions || 0}</p>
                         </div>
                       ))}
                     </div>
@@ -932,13 +974,25 @@ export default function RedemptionPage() {
                       onClick={handleSelectAll}
                       className="border-gray-300 hover:bg-gray-50 bg-transparent"
                     >
-                      {selectedRecords.length === filteredRedemptions.length ? "取消全选" : "全选"}
+                      {selectedRecords.length === filteredData.length ? "取消全选" : "全选"}
                     </Button>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  {paginatedData.map((record) => (
+                  {loading ? (
+                    <div className="text-center py-8">
+                      <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                      <p className="mt-2 text-gray-600">加载兑换记录中...</p>
+                    </div>
+                  ) : paginatedData.length === 0 ? (
+                    <div className="text-center py-8 text-gray-600">
+                      <Gift className="mx-auto h-12 w-12 mb-4 opacity-50" />
+                      <p className="text-lg font-medium mb-2">暂无兑换记录</p>
+                      <p className="text-sm">当前筛选条件下没有找到相关记录</p>
+                    </div>
+                  ) : (
+                    paginatedData.map((record) => (
                     <div
                       key={record.id}
                       className={`flex items-center space-x-4 p-4 rounded-lg border transition-all duration-200 ${
@@ -1000,7 +1054,8 @@ export default function RedemptionPage() {
                         <p className="text-xs text-gray-500">{record.redeemTime}</p>
                       </div>
                     </div>
-                  ))}
+                    ))
+                  )}
                 </div>
 
                 {/* 分页控件 */}

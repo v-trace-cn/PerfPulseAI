@@ -10,12 +10,12 @@ import { COMPONENT_STYLES, COMMON_CLASSES } from '@/lib/constants/styles';
 export const METRIC_CARD_STYLES = {
   base: cn(COMPONENT_STYLES.card.base, COMMON_CLASSES.transition, "hover:shadow-md"),
   gradients: {
-    orange: "absolute inset-0 bg-gradient-to-br from-orange-500/10 to-orange-600/5",
-    green: "absolute inset-0 bg-gradient-to-br from-green-500/10 to-green-600/5",
-    purple: "absolute inset-0 bg-gradient-to-br from-purple-500/10 to-purple-600/5",
-    blue: "absolute inset-0 bg-gradient-to-br from-blue-500/10 to-blue-600/5",
-    red: "absolute inset-0 bg-gradient-to-br from-red-500/10 to-red-600/5",
-    yellow: "absolute inset-0 bg-gradient-to-br from-yellow-500/10 to-yellow-600/5",
+    orange: "absolute inset-0 bg-gradient-to-br from-orange-500/10 to-orange-600/5 pointer-events-none",
+    green: "absolute inset-0 bg-gradient-to-br from-green-500/10 to-green-600/5 pointer-events-none",
+    purple: "absolute inset-0 bg-gradient-to-br from-purple-500/10 to-purple-600/5 pointer-events-none",
+    blue: "absolute inset-0 bg-gradient-to-br from-blue-500/10 to-blue-600/5 pointer-events-none",
+    red: "absolute inset-0 bg-gradient-to-br from-red-500/10 to-red-600/5 pointer-events-none",
+    yellow: "absolute inset-0 bg-gradient-to-br from-yellow-500/10 to-yellow-600/5 pointer-events-none",
   },
   icons: {
     orange: cn(COMMON_CLASSES.center, "w-8 h-8 bg-orange-100 rounded-full"),
@@ -68,9 +68,10 @@ export const BaseMetricCard = memo<BaseMetricCardProps>(({
   onClick
 }) => {
   return (
-    <Card 
+    <Card
       className={cn(
         METRIC_CARD_STYLES.base,
+        "relative", // 确保绝对定位的渐变层正确定位
         onClick && "cursor-pointer hover:scale-105",
         className
       )}
@@ -118,9 +119,10 @@ export const ProgressMetricCard = memo<ProgressMetricCardProps>(({
   onClick
 }) => {
   return (
-    <Card 
+    <Card
       className={cn(
         METRIC_CARD_STYLES.base,
+        "relative", // 确保绝对定位的渐变层正确定位
         onClick && "cursor-pointer hover:scale-105",
         className
       )}
@@ -177,9 +179,10 @@ export const BadgeMetricCard = memo<BadgeMetricCardProps>(({
   onClick
 }) => {
   return (
-    <Card 
+    <Card
       className={cn(
         METRIC_CARD_STYLES.base,
+        "relative", // 确保绝对定位的渐变层正确定位
         onClick && "cursor-pointer hover:scale-105",
         className
       )}

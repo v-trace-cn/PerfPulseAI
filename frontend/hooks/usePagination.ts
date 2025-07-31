@@ -34,8 +34,8 @@ export interface PaginationActions {
 export function usePagination(options: UsePaginationOptions = {}) {
   const {
     initialPage = 1,
-    initialPageSize = 10,
-    pageSizeOptions = [10, 20, 50, 100],
+    initialPageSize = 5,
+    pageSizeOptions = [5, 10, 20, 50],
     syncWithUrl = false,
   } = options;
   

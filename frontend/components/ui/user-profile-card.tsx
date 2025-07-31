@@ -82,7 +82,7 @@ export function UserProfileCard({
 
   return (
     <Card className={cn(
-      "tech-card shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp",
+      "shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp border border-border bg-card rounded-xl",
       className
     )}>
       <CardHeader className="flex flex-col items-center text-center pb-2 bg-gradient-to-r from-primary/10 to-transparent rounded-t-xl overflow-hidden">
@@ -124,7 +124,7 @@ export function UserProfileCard({
           <Button
             size="sm"
             variant="outline"
-            className="mt-2 bg-background/50 backdrop-blur-sm"
+            className="mt-2 bg-background/50"
             onClick={onEdit}
           >
             <Pencil className="mr-2 h-4 w-4" />
@@ -243,7 +243,7 @@ export function ColleagueCard({
   return (
     <Card 
       className={cn(
-        "tech-card cursor-pointer hover:shadow-lg transition-all duration-300 hover:translate-y-[-2px]",
+        "cursor-pointer hover:shadow-lg transition-all duration-300 hover:translate-y-[-2px] border border-border bg-card rounded-xl",
         onSelect && "hover:border-primary/50"
       )}
       onClick={() => onSelect?.(user)}

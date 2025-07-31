@@ -2,7 +2,7 @@ import React, { memo, useMemo, useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { PointsSummaryCards } from './PointsSummaryCards';
 import { PointsTabs } from './PointsTabs';
-import { DEFAULT_POINTS_SUMMARY } from '@/lib/types/dashboard';
+
 import { useAllPointsData, usePrefetchPointsData } from '@/hooks/usePointsData';
 
 interface PointsOverviewWithStatsProps {
@@ -14,7 +14,7 @@ interface PointsOverviewWithStatsProps {
 export const PointsOverviewWithStats = memo<PointsOverviewWithStatsProps>(({
   userId,
   page = 1,
-  pageSize = 10
+  pageSize = 5
 }) => {
   const { user } = useAuth();
   const targetUserId = userId || user?.id;
@@ -55,12 +55,8 @@ export const PointsOverviewWithStats = memo<PointsOverviewWithStatsProps>(({
     redemptionStats.data
   ]);
 
-  // 模拟兑换历史数据 - 使用 useMemo 缓存
-  const redemptionHistory = useMemo(() => [
-    { id: 1, item: "星巴克咖啡券", points: 200, status: "completed" as const, date: "2024-01-13", category: "福利" },
-    { id: 2, item: "技术书籍《Clean Code》", points: 150, status: "completed" as const, date: "2024-01-11", category: "学习" },
-    { id: 3, item: "午餐券", points: 100, status: "pending" as const, date: "2024-01-10", category: "福利" },
-  ], []);
+  // 使用真实的兑换历史数据
+  const redemptionHistory = useMemo(() => [], []);
 
   if (isError) {
     return (
@@ -72,12 +68,14 @@ export const PointsOverviewWithStats = memo<PointsOverviewWithStatsProps>(({
     );
   }
 
+
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
       {/* 积分概览卡片 */}
       <PointsSummaryCards
         data={summaryData}
-        isLoading={summary.isLoading}
+        isLoading={false} // 临时禁用加载状态
       />
 
       {/* 详细信息标签页 */}
@@ -85,7 +83,7 @@ export const PointsOverviewWithStats = memo<PointsOverviewWithStatsProps>(({
         currentPoints={summaryData.currentPoints}
         userId={targetUserId}
         redemptionHistory={redemptionHistory}
-        isLoading={redemptionStats.isLoading}
+        isLoading={false} // 临时禁用加载状态
       />
     </div>
   );

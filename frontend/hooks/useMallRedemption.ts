@@ -3,6 +3,8 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useToast } from '@/components/ui/use-toast'
+import { useAuth } from '@/lib/auth-context'
+import { POINTS_QUERY_KEYS } from './usePointsData'
 
 // 类型定义
 export interface MallItem {
@@ -47,7 +49,7 @@ const mallApi = {
   getItems: async (category?: string): Promise<MallItem[]> => {
     const params = new URLSearchParams()
     if (category) params.append('category', category)
-    
+
     const response = await fetch(`/api/mall/items?${params}`)
     if (!response.ok) {
       throw new Error('获取商品列表失败')
@@ -55,26 +57,27 @@ const mallApi = {
     return response.json()
   },
 
-  // 兑换商品
-  redeemItem: async (request: RedemptionRequest): Promise<RedemptionResponse> => {
+  // 兑换商品 - 直接调用后端API
+  redeemItem: async (request: RedemptionRequest, userId: string): Promise<RedemptionResponse> => {
     const response = await fetch('/api/mall/purchase', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-User-Id': userId,
       },
       body: JSON.stringify(request),
     })
-    
+
     if (!response.ok) {
       const error = await response.json()
       throw new Error(error.detail || '兑换失败')
     }
-    
+
     return response.json()
   },
 
-  // 获取用户兑换记录
-  getUserRedemptions: async (page = 1, pageSize = 10): Promise<{
+  // 获取用户兑换记录 - 直接调用后端API
+  getUserRedemptions: async (page = 1, pageSize = 10, userId: string): Promise<{
     purchases: RedemptionResponse[]
     totalCount: number
     page: number
@@ -83,10 +86,16 @@ const mallApi = {
     hasNext: boolean
     hasPrev: boolean
   }> => {
-    const response = await fetch(`/api/mall/purchases?page=${page}&page_size=${pageSize}`)
+    const response = await fetch(`/api/mall/purchases?page=${page}&page_size=${pageSize}`, {
+      headers: {
+        'X-User-Id': userId,
+      },
+    })
+
     if (!response.ok) {
       throw new Error('获取兑换记录失败')
     }
+
     return response.json()
   }
 }
@@ -103,16 +112,31 @@ export function useMallItems(category?: string) {
 export function useRedeemItem() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
+  const { user, refreshUser } = useAuth()
 
   return useMutation({
-    mutationFn: mallApi.redeemItem,
-    onSuccess: (data) => {
-      // 刷新相关数据
+    mutationFn: (request: RedemptionRequest) => {
+      if (!user?.id) {
+        throw new Error('用户未登录')
+      }
+      return mallApi.redeemItem(request, String(user.id))
+    },
+    onSuccess: async (data) => {
+      // 刷新相关数据 - 使用标准化的查询键
       queryClient.invalidateQueries({ queryKey: ['mall-items'] })
-      queryClient.invalidateQueries({ queryKey: ['points-summary'] })
-      queryClient.invalidateQueries({ queryKey: ['points-transactions'] })
       queryClient.invalidateQueries({ queryKey: ['user-redemptions'] })
-      
+
+      // 刷新积分相关数据 - 使用标准化查询键
+      if (user?.id) {
+        queryClient.invalidateQueries({ queryKey: POINTS_QUERY_KEYS.summary(String(user.id)) })
+        queryClient.invalidateQueries({ queryKey: POINTS_QUERY_KEYS.transactions(String(user.id)) })
+        queryClient.invalidateQueries({ queryKey: POINTS_QUERY_KEYS.redemptionStats(String(user.id)) })
+        queryClient.invalidateQueries({ queryKey: POINTS_QUERY_KEYS.monthlyStats(String(user.id)) })
+      }
+
+      // 刷新用户数据以更新积分信息
+      await refreshUser()
+
       toast({
         title: "兑换成功！",
         description: `成功兑换 ${data.itemName}，兑换码：${data.redemptionCode}`,
@@ -130,9 +154,17 @@ export function useRedeemItem() {
 }
 
 export function useUserRedemptions(page = 1, pageSize = 10) {
+  const { user } = useAuth()
+
   return useQuery({
-    queryKey: ['user-redemptions', page, pageSize],
-    queryFn: () => mallApi.getUserRedemptions(page, pageSize),
+    queryKey: ['user-redemptions', page, pageSize, user?.id],
+    queryFn: () => {
+      if (!user?.id) {
+        throw new Error('用户未登录')
+      }
+      return mallApi.getUserRedemptions(page, pageSize, String(user.id))
+    },
+    enabled: !!user?.id,
     staleTime: 30 * 1000, // 30秒缓存
   })
 }

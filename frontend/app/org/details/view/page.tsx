@@ -182,7 +182,6 @@ function DepartmentDetailsViewContent() {
         } else {
           // 如果令牌过期且需要新令牌，尝试重定向到组织管理页面
           if (data.needsNewToken) {
-            console.log('令牌已过期，重定向到组织管理页面');
             // 延迟重定向，给用户看到错误信息的时间
             setTimeout(() => {
               window.location.href = '/org';
@@ -191,8 +190,7 @@ function DepartmentDetailsViewContent() {
           setIsValidToken(false);
         }
       })
-      .catch((error) => {
-        console.error('令牌验证失败:', error);
+      .catch(() => {
         setIsValidToken(false);
       });
   }, [searchParams]);

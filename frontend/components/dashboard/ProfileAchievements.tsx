@@ -21,13 +21,13 @@ interface ProfileAchievementsProps {
 
 export function ProfileAchievements({ userData }: ProfileAchievementsProps) {
   return (
-    <Card className="tech-card shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp md:col-span-2 pb-6">
+    <Card className="shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp md:col-span-2 pb-6 border border-border bg-card rounded-xl">
       <CardHeader>
         <CardTitle>个人成就与活动</CardTitle>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="activities" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted/30 backdrop-blur-sm rounded-lg shadow-sm">
+          <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted/30 rounded-lg shadow-sm">
             <TabsTrigger
               value="achievements"
               className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary h-8 rounded-md"

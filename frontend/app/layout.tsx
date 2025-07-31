@@ -46,7 +46,9 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
           <main className="flex min-h-screen flex-col">
             <QueryClientProvider client={queryClient}>
               {children}
-              <ReactQueryDevtools initialIsOpen={false} />
+              {process.env.NODE_ENV === 'development' && (
+                <ReactQueryDevtools initialIsOpen={false} />
+              )}
             </QueryClientProvider>
           </main>
           <ClientPage />

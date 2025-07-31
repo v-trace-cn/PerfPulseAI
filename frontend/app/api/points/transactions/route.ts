@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     const transactionType = searchParams.get('transaction_type') || ''
 
     // 从请求头或查询参数中获取用户ID
-    const userId = request.headers.get('X-User-ID') ||
+    const userId = request.headers.get('X-User-Id') ||
                    searchParams.get('userId') ||
                    request.cookies.get('userId')?.value;
 

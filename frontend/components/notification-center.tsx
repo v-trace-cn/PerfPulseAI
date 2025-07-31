@@ -1,8 +1,9 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState } from "react"
 import { Bell, X, Check, AlertCircle, Gift, TrendingUp, Megaphone, User, Briefcase, ExternalLink } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -15,88 +16,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/lib/auth-context"
+import { useNotifications, type Notification } from "@/hooks/useNotifications"
 
-// 通知类型定义
-export interface Notification {
-  id: string
-  type: 'announcement' | 'personal' | 'business'
-  category: 'pr_score' | 'points_earned' | 'system_announcement' | 'mall_exchange' | 'mall_verification' | 'verification_staff'
-  title: string
-  message: string
-  timestamp: string
-  read: boolean
-  priority: 'low' | 'medium' | 'high'
-  data?: any
-}
 
-// 模拟通知数据
-const mockNotifications: Notification[] = [
-  {
-    id: '1',
-    type: 'business',
-    category: 'pr_score',
-    title: 'PR 评分完成',
-    message: '您的 PR #123 "优化用户登录流程" 已完成评分，获得 85 分',
-    timestamp: '2024-01-15T10:30:00Z',
-    read: false,
-    priority: 'medium',
-    data: { prId: '123', score: 85 }
-  },
-  {
-    id: '2',
-    type: 'personal',
-    category: 'points_earned',
-    title: '积分到账',
-    message: '恭喜您获得 50 积分！来源：完成代码审查',
-    timestamp: '2024-01-15T09:15:00Z',
-    read: false,
-    priority: 'medium',
-    data: { points: 50, source: '完成代码审查' }
-  },
-  {
-    id: '3',
-    type: 'announcement',
-    category: 'system_announcement',
-    title: '系统维护通知',
-    message: '系统将于今晚 22:00-24:00 进行维护升级，期间可能影响部分功能使用',
-    timestamp: '2024-01-15T08:00:00Z',
-    read: true,
-    priority: 'high'
-  },
-  {
-    id: '4',
-    type: 'business',
-    category: 'mall_exchange',
-    title: '积分兑换成功',
-    message: '您已成功兑换"星巴克咖啡券"，消耗 200 积分，请等待核销',
-    timestamp: '2024-01-14T16:45:00Z',
-    read: false,
-    priority: 'low',
-    data: { item: '星巴克咖啡券', points: 200 }
-  },
-  {
-    id: '5',
-    type: 'business',
-    category: 'mall_verification',
-    title: '兑换核销完成',
-    message: '您的"技术书籍补贴"已核销完成，请查收相关资源',
-    timestamp: '2024-01-14T14:20:00Z',
-    read: true,
-    priority: 'medium',
-    data: { item: '技术书籍补贴' }
-  },
-  {
-    id: '6',
-    type: 'business',
-    category: 'verification_staff',
-    title: '待核销商品',
-    message: '有 3 个积分商品兑换订单待您核销处理',
-    timestamp: '2024-01-14T11:30:00Z',
-    read: false,
-    priority: 'high',
-    data: { count: 3 }
-  }
-]
+
+
 
 // 获取通知图标
 const getNotificationIcon = (category: string) => {
@@ -147,35 +72,57 @@ const formatTime = (timestamp: string) => {
   return date.toLocaleDateString()
 }
 
+// 转换后端通知类型为前端类型
+
+
 export default function NotificationCenter() {
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications)
+  const { user } = useAuth()
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState('all')
   const [isOpen, setIsOpen] = useState(false)
+
+  // 使用统一的通知数据 hook（现在包含 SSE 支持）
+  const {
+    notifications,
+    loading,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification
+  } = useNotifications()
+
+
+
+
 
   // 计算未读通知数量
   const unreadCount = notifications.filter(n => !n.read).length
 
+  // 处理通知点击，跳转到通知中心页面
+  const handleNotificationClick = (notification: Notification) => {
+    // 关闭下拉菜单
+    setIsOpen(false)
+
+    // 如果未读，先标记为已读
+    if (!notification.read) {
+      markAsRead(notification.id)
+    }
+
+    // 跳转到通知中心页面，并通过 URL 参数传递通知 ID
+    router.push(`/notifications?highlight=${notification.id}`)
+  }
+
+  // 如果用户未登录，不显示通知中心
+  if (!user?.id) {
+    return null
+  }
+
   // 按类型过滤通知
   const getFilteredNotifications = (type: string) => {
     if (type === 'all') return notifications
+    if (type === 'unread') return notifications.filter(n => !n.read)
+    if (type === 'announcement') return notifications.filter(n => n.type === 'announcement')
+    if (type === 'personal') return notifications.filter(n => n.type === 'personal_data' || n.type === 'personal_business')
     return notifications.filter(n => n.type === type)
-  }
-
-  // 标记通知为已读
-  const markAsRead = (id: string) => {
-    setNotifications(prev => 
-      prev.map(n => n.id === id ? { ...n, read: true } : n)
-    )
-  }
-
-  // 删除通知
-  const deleteNotification = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id))
-  }
-
-  // 全部标记为已读
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
   }
 
   return (
@@ -222,18 +169,18 @@ export default function NotificationCenter() {
                 <TabsTrigger value="all" className="text-xs">
                   全部 {notifications.length > 0 && `(${notifications.length})`}
                 </TabsTrigger>
+                <TabsTrigger value="unread" className="text-xs">
+                  未读 {getFilteredNotifications('unread').length > 0 && `(${getFilteredNotifications('unread').length})`}
+                </TabsTrigger>
                 <TabsTrigger value="announcement" className="text-xs">
                   公告 {getFilteredNotifications('announcement').length > 0 && `(${getFilteredNotifications('announcement').length})`}
                 </TabsTrigger>
                 <TabsTrigger value="personal" className="text-xs">
                   个人 {getFilteredNotifications('personal').length > 0 && `(${getFilteredNotifications('personal').length})`}
                 </TabsTrigger>
-                <TabsTrigger value="business" className="text-xs">
-                  业务 {getFilteredNotifications('business').length > 0 && `(${getFilteredNotifications('business').length})`}
-                </TabsTrigger>
               </TabsList>
 
-              {['all', 'announcement', 'personal', 'business'].map(tab => (
+              {['all', 'unread', 'announcement', 'personal'].map(tab => (
                 <TabsContent key={tab} value={tab} className="mt-0">
                   <ScrollArea className="h-96">
                     <div className="space-y-1 px-4 pb-4">
@@ -248,6 +195,7 @@ export default function NotificationCenter() {
                               notification={notification}
                               onMarkAsRead={markAsRead}
                               onDelete={deleteNotification}
+                              onClick={handleNotificationClick}
                             />
                             {index < getFilteredNotifications(tab).length - 1 && (
                               <Separator className="my-2" />
@@ -268,22 +216,32 @@ export default function NotificationCenter() {
 }
 
 // 通知项组件
-function NotificationItem({ 
-  notification, 
-  onMarkAsRead, 
-  onDelete 
-}: { 
+function NotificationItem({
+  notification,
+  onMarkAsRead,
+  onDelete,
+  onClick
+}: {
   notification: Notification
   onMarkAsRead: (id: string) => void
   onDelete: (id: string) => void
+  onClick?: (notification: Notification) => void
 }) {
+  const handleClick = () => {
+    if (onClick) {
+      onClick(notification)
+    } else if (!notification.read) {
+      onMarkAsRead(notification.id)
+    }
+  }
+
   return (
-    <div 
+    <div
       className={cn(
         "flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer",
         !notification.read && "bg-primary/5"
       )}
-      onClick={() => !notification.read && onMarkAsRead(notification.id)}
+      onClick={handleClick}
     >
       <div className={cn(
         "mt-1 p-1 rounded-full",
@@ -301,6 +259,35 @@ function NotificationItem({
         <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
           {notification.message}
         </p>
+
+        {/* 显示额外数据 */}
+        {notification.data && (
+          <div className="mt-2 p-2 bg-muted/50 rounded text-xs">
+            {notification.category === 'pr_score' && (
+              <span>PR #{notification.data.prId} - 评分: {notification.data.score}</span>
+            )}
+            {notification.category === 'points_earned' && (
+              <span>获得积分: +{notification.data.points} ({notification.data.source})</span>
+            )}
+            {notification.category === 'mall_exchange' && notification.data.redeemCode && (
+              <div className="space-y-1">
+                <span>兑换商品: {notification.data.item} - 消耗积分: {notification.data.points}</span>
+                <div className="font-mono bg-primary/10 px-2 py-1 rounded border">
+                  兑换密钥: <span className="font-bold text-primary">{notification.data.redeemCode}</span>
+                </div>
+              </div>
+            )}
+            {notification.category === 'mall_exchange' && !notification.data.redeemCode && (
+              <span>兑换商品: {notification.data.item} - 消耗积分: {notification.data.points}</span>
+            )}
+            {notification.category === 'mall_verification' && (
+              <span>核销商品: {notification.data.item}</span>
+            )}
+            {notification.category === 'verification_staff' && (
+              <span>待处理订单: {notification.data.count} 个</span>
+            )}
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <span className="text-xs text-muted-foreground">
             {formatTime(notification.timestamp)}

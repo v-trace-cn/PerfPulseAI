@@ -23,7 +23,7 @@ class PermissionChecker:
     async def __call__(self, request: Request, db: AsyncSession = Depends(get_db)):
         """检查用户权限"""
         # 从请求中获取用户ID（这里简化处理，实际应该从JWT token中获取）
-        user_id = request.headers.get("X-User-ID")
+        user_id = request.headers.get("X-User-Id")
         if not user_id:
             # 尝试从查询参数或请求体中获取
             user_id = request.query_params.get("userId")
@@ -233,7 +233,7 @@ class SimpleUserChecker:
     async def __call__(self, request: Request, db: AsyncSession = Depends(get_db)):
         """只检查用户身份，不验证权限"""
         # 从请求中获取用户ID
-        user_id = request.headers.get("X-User-ID")
+        user_id = request.headers.get("X-User-Id")
         if not user_id:
             user_id = request.query_params.get("userId")
             if not user_id and request.method in ['POST', 'PUT', 'PATCH']:

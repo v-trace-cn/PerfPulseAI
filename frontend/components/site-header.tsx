@@ -33,8 +33,8 @@ export default function SiteHeader({ onHelpClick, onSettingsClick }: SiteHeaderP
   const { openLoginDialog, openRegisterDialog } = useAuthDialog()
 
   return (
-    <header className="border-b backdrop-blur-sm bg-background/70 sticky top-0 z-50 transition-colors duration-300 dark:border-primary/10 border-black/5">
-      <div className="container flex h-16 items-center justify-between py-4 dark:bg-background/40 dark:backdrop-blur-md dark:border-primary/5 dark:shadow-[0_4px_20px_rgba(79,70,229,0.1)] rounded-b-lg">
+    <header className="border-b bg-background/95 backdrop-blur-sm sticky top-0 z-50 transition-colors duration-300 dark:border-primary/10 border-black/5">
+      <div className="container flex h-16 items-center justify-between py-4 dark:bg-background/60 dark:border-primary/5 dark:shadow-[0_4px_20px_rgba(79,70,229,0.1)] rounded-b-lg">
         <div className="flex items-center gap-2">
           <Link href="/" className="flex items-center gap-2 cursor-pointer">
             <Image src="/logo.ico" alt="Logo" width={24} height={24} className="animate-pulse-slow" />

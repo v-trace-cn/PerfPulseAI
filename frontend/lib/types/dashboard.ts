@@ -221,7 +221,7 @@ export const DEFAULT_POINTS_SUMMARY: PointsSummaryData = {
 
 export const DEFAULT_PAGINATION: PaginationState = {
   currentPage: 1,
-  pageSize: 10,
+  pageSize: 5,
   totalPages: 0,
   totalCount: 0,
 };

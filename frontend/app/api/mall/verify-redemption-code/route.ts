@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getBackendApiUrl } from '@/lib/config/api-config'
 
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    // 从请求头或查询参数中获取用户ID
-    const userId = request.headers.get('X-User-Id') ||
-                   request.nextUrl.searchParams.get('userId') ||
-                   request.cookies.get('userId')?.value;
+    const body = await request.json()
+
+    // 从请求头获取用户ID
+    const userId = request.headers.get('X-User-Id')
 
     if (!userId) {
       return NextResponse.json(
@@ -15,19 +15,20 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const response = await fetch(`${getBackendApiUrl()}/api/points/summary`, {
-      method: 'GET',
+    const response = await fetch(`${getBackendApiUrl()}/api/mall/verify-redemption-code`, {
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
         'X-User-Id': userId,
       },
+      body: JSON.stringify(body),
     })
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
       return NextResponse.json(
-        { error: errorData.message || errorData.detail || '获取积分摘要失败' },
+        { error: errorData.message || errorData.detail || '验证兑换密钥失败' },
         { status: response.status }
       )
     }
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
     const data = await response.json()
     return NextResponse.json(data)
   } catch (error) {
-    console.error('Points summary API error:', error)
+    console.error('Verify redemption code API error:', error)
     return NextResponse.json(
       { error: '服务器内部错误' },
       { status: 500 }

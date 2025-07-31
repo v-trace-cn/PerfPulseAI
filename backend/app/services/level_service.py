@@ -15,18 +15,171 @@ from app.models.user import User
 logger = logging.getLogger(__name__)
 
 
+class LevelRuleEngine:
+    """等级规则引擎"""
+
+    @staticmethod
+    def calculate_level_benefits(level: UserLevel, user_points: int) -> Dict[str, Any]:
+        """计算等级福利"""
+        benefits = level.benefits or {}
+
+        # 基础福利
+        base_benefits = {
+            "pointsMultiplier": benefits.get("pointsMultiplier", 1.0),
+            "specialAccess": benefits.get("specialAccess", []),
+            "discountRate": benefits.get("discountRate", 0),
+            "prioritySupport": benefits.get("prioritySupport", False)
+        }
+
+        # 根据积分动态计算额外福利
+        if user_points >= level.min_points * 1.5:  # 超过等级最低要求50%
+            base_benefits["bonusMultiplier"] = 1.1
+
+        return base_benefits
+
+    @staticmethod
+    def validate_level_progression(levels: List[UserLevel]) -> List[str]:
+        """验证等级设置的合理性"""
+        issues = []
+
+        if not levels:
+            issues.append("没有设置任何等级")
+            return issues
+
+        # 检查等级间隔是否合理
+        for i in range(len(levels) - 1):
+            current = levels[i]
+            next_level = levels[i + 1]
+
+            if current.max_points and next_level.min_points <= current.max_points:
+                issues.append(f"等级 {current.name} 和 {next_level.name} 积分范围重叠")
+
+            # 检查积分间隔是否过大或过小
+            gap = next_level.min_points - current.min_points
+            if gap < 100:  # 存储格式，相当于10积分
+                issues.append(f"等级 {current.name} 到 {next_level.name} 积分间隔过小")
+            elif gap > 10000:  # 存储格式，相当于1000积分
+                issues.append(f"等级 {current.name} 到 {next_level.name} 积分间隔过大")
+
+        return issues
+
+
 class LevelService:
     """等级服务类"""
-    
+
     def __init__(self, db: AsyncSession):
         self.db = db
+        self.rule_engine = LevelRuleEngine()
     
     async def get_all_levels(self) -> List[UserLevel]:
         """获取所有等级"""
         result = await self.db.execute(
             select(UserLevel).order_by(asc(UserLevel.min_points))
         )
-        return result.scalars().all()
+        levels = result.scalars().all()
+
+        # 如果没有等级，自动初始化默认等级
+        if not levels:
+            await self.initialize_default_levels()
+            result = await self.db.execute(
+                select(UserLevel).order_by(asc(UserLevel.min_points))
+            )
+            levels = result.scalars().all()
+
+        return levels
+
+    async def initialize_default_levels(self) -> List[UserLevel]:
+        """初始化默认等级系统"""
+        default_levels = [
+            {
+                "id": "level_1",
+                "name": "新手",
+                "min_points": 0,
+                "max_points": 500,  # 存储格式，相当于50积分
+                "benefits": {
+                    "pointsMultiplier": 1.0,
+                    "specialAccess": [],
+                    "discountRate": 0,
+                    "prioritySupport": False
+                },
+                "icon": "🌱",
+                "color": "#10B981"
+            },
+            {
+                "id": "level_2",
+                "name": "进阶",
+                "min_points": 500,
+                "max_points": 1500,  # 存储格式，相当于150积分
+                "benefits": {
+                    "pointsMultiplier": 1.1,
+                    "specialAccess": ["beta_features"],
+                    "discountRate": 5,
+                    "prioritySupport": False
+                },
+                "icon": "🚀",
+                "color": "#3B82F6"
+            },
+            {
+                "id": "level_3",
+                "name": "专家",
+                "min_points": 1500,
+                "max_points": 5000,  # 存储格式，相当于500积分
+                "benefits": {
+                    "pointsMultiplier": 1.2,
+                    "specialAccess": ["beta_features", "expert_tools"],
+                    "discountRate": 10,
+                    "prioritySupport": True
+                },
+                "icon": "⭐",
+                "color": "#F59E0B"
+            },
+            {
+                "id": "level_4",
+                "name": "大师",
+                "min_points": 5000,
+                "max_points": 15000,  # 存储格式，相当于1500积分
+                "benefits": {
+                    "pointsMultiplier": 1.3,
+                    "specialAccess": ["beta_features", "expert_tools", "master_privileges"],
+                    "discountRate": 15,
+                    "prioritySupport": True
+                },
+                "icon": "👑",
+                "color": "#8B5CF6"
+            },
+            {
+                "id": "level_5",
+                "name": "传奇",
+                "min_points": 15000,
+                "max_points": None,  # 无上限
+                "benefits": {
+                    "pointsMultiplier": 1.5,
+                    "specialAccess": ["beta_features", "expert_tools", "master_privileges", "legendary_access"],
+                    "discountRate": 20,
+                    "prioritySupport": True
+                },
+                "icon": "🏆",
+                "color": "#EF4444"
+            }
+        ]
+
+        created_levels = []
+        for level_data in default_levels:
+            level = UserLevel(
+                id=level_data["id"],
+                name=level_data["name"],
+                min_points=level_data["min_points"],
+                max_points=level_data["max_points"],
+                benefits=level_data["benefits"],
+                icon=level_data["icon"],
+                color=level_data["color"]
+            )
+            self.db.add(level)
+            created_levels.append(level)
+
+        await self.db.commit()
+        logger.info(f"初始化了 {len(created_levels)} 个默认等级")
+        return created_levels
     
     async def get_level_by_points(self, points: int) -> Optional[UserLevel]:
         """根据积分获取对应等级"""
@@ -112,6 +265,45 @@ class LevelService:
                 "isMaxLevel": False
             }
     
+    async def validate_level_system(self) -> Dict[str, Any]:
+        """验证等级系统的完整性"""
+        levels = await self.get_all_levels()
+        issues = self.rule_engine.validate_level_progression(levels)
+
+        return {
+            "isValid": len(issues) == 0,
+            "issues": issues,
+            "levelCount": len(levels),
+            "levels": [level.to_dict() for level in levels]
+        }
+
+    async def auto_upgrade_all_users(self) -> Dict[str, Any]:
+        """自动为所有用户检查并升级等级"""
+        # 获取所有用户
+        result = await self.db.execute(select(User))
+        users = result.scalars().all()
+
+        upgrade_results = []
+        for user in users:
+            try:
+                level_changed, old_level, new_level = await self.check_level_upgrade(user.id, user.points or 0)
+                if level_changed:
+                    upgrade_results.append({
+                        "userId": user.id,
+                        "userName": user.name,
+                        "oldLevel": old_level.name if old_level else "无",
+                        "newLevel": new_level.name if new_level else "无",
+                        "points": user.points or 0
+                    })
+            except Exception as e:
+                logger.error(f"用户 {user.id} 等级升级检查失败: {e}")
+
+        return {
+            "totalUsers": len(users),
+            "upgradedUsers": len(upgrade_results),
+            "upgrades": upgrade_results
+        }
+
     async def check_level_upgrade(self, user_id: int, new_points: int) -> Tuple[bool, Optional[UserLevel], Optional[UserLevel]]:
         """检查用户是否升级"""
         # 获取用户当前等级

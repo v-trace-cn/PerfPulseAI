@@ -10,12 +10,11 @@ import { LazyScoringSystemWithSuspense } from "@/components/lazy/LazyComponents"
 import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
-import { cn, getRelativeDate } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 import { unifiedApi } from "@/lib/unified-api"
 import { User } from "@/lib/types"
 import { GovernanceCard, WeeklyGoalsCard, PointsCard, ComplianceCard } from "@/components/ui/metric-card"
 import { useToast } from "@/components/ui/use-toast"
-import { useApi } from "@/hooks/useApi"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 
 // 积分相关类型定义 - 移动到 @/lib/types/points
@@ -57,7 +56,6 @@ export default function Dashboard() {
   const [viewColleagueOpen, setViewColleagueOpen] = useState(false)
   const [selectedColleague, setSelectedColleague] = useState<User | null>(null)
   const [selectedDepartment, setSelectedDepartment] = useState<string | undefined>(undefined)
-  const [recentActivities, setRecentActivities] = useState<any[]>([])
   const [achievements] = useState<any[]>([]) // Placeholder for achievements
 
   // 使用 useQuery 获取部门列表 - 只有在用户有公司ID时才执行
@@ -72,8 +70,7 @@ export default function Dashboard() {
   });
   const departments = Array.isArray(departmentsData) ? departmentsData : [];
 
-  // Activity API for fetching recent personal activities
-  const { execute: fetchRecentActivities } = useApi(unifiedApi.activity.getRecentActivities);
+  // Activity API removed - now handled by RecentActivities component
 
   const handleEditProfile = () => {
     // 在打开编辑对话框时，设置当前用户的组织
@@ -141,31 +138,7 @@ export default function Dashboard() {
     }
   }, [searchParams])
 
-  // No longer needed - using user data directly from auth context
-
-  // Fetch recent personal activities when user changes
-  useEffect(() => {
-    if (user?.id) {
-      fetchRecentActivities(user.id, 1, 5)
-        .then((response: any) => {
-          if (response && response.success && response.data && response.data.activities) {
-            const formattedActivities = response.data.activities.map((act: any) => ({
-              id: act.id,
-              show_id: act.showId || act.show_id,
-              type: act.status,
-              title: act.title,
-              date: getRelativeDate(act.createdAt || act.created_at),
-              points: act.points,
-            }));
-            setRecentActivities(formattedActivities);
-          } else {
-          }
-        })
-        .catch(() => {
-          // 静默处理错误，避免控制台日志
-        });
-    }
-  }, [user?.id]); // 只依赖 user.id，移除函数依赖
+  // Recent activities are now handled by RecentActivities component
 
 
 
@@ -187,7 +160,7 @@ export default function Dashboard() {
 
   // 组件渲染
   return (
-    <div className="h-full px-4 pt-0 pb-6 lg:px-8 lg:pb-10">
+    <div className="h-full px-4 pt-4 pb-6 lg:px-8 lg:pb-10">
 
       <div className="flex items-center justify-between space-y-2 mb-6">
         <div className="flex items-center space-x-2 group">
@@ -212,14 +185,14 @@ export default function Dashboard() {
                 <WeeklyGoalsCard value={145} trend="+24" />
               </div>
               <div {...getAnimationDelay(2)}>
-                <PointsCard points={parseFloat(formatPoints(user?.total_points || user?.points || 0))} />
+                <PointsCard points={parseFloat(formatPoints(user?.total_points || user?.points || 0))} trend="+15" />
               </div>
               <div {...getAnimationDelay(3)}>
                 <ComplianceCard percentage={98.2} trend="+1.2%" />
               </div>
             </div>
             <div className={cn("grid gap-8 md:gap-8 lg:grid-cols-7 px-2 mb-8 pb-8")}>
-              <Card className="col-span-4 tech-card shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-in slide-in-from-bottom-2 fade-in duration-500">
+              <Card className="col-span-4 shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-in slide-in-from-bottom-2 fade-in duration-500">
                 <CardHeader>
                   <CardTitle>多维度治理分析</CardTitle>
                 </CardHeader>
@@ -227,7 +200,7 @@ export default function Dashboard() {
                   <Overview />
                 </CardContent>
               </Card>
-              <Card className="col-span-3 tech-card shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-in slide-in-from-bottom-2 fade-in duration-500">
+              <Card className="col-span-3 shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-in slide-in-from-bottom-2 fade-in duration-500">
                 <CardHeader>
                   <CardTitle>最近活动</CardTitle>
                 </CardHeader>
@@ -240,8 +213,8 @@ export default function Dashboard() {
         )}
 
         {activeTab === "rewards" && (
-          <section className="animate-in fade-in duration-300 p-4">
-            <div className="bg-card rounded-xl border border-border shadow-lg p-6">
+          <section className="p-4">
+            <div className="bg-card rounded-xl border border-border shadow-lg p-6 relative">
               <PointsOverviewWithStats />
             </div>
           </section>
@@ -326,7 +299,7 @@ export default function Dashboard() {
                 companyName: user?.companyName || "",
                 skills: user?.skills || [],
                 achievements,
-                recentActivities
+                recentActivities: []
               }} />
             </div>
           </div>

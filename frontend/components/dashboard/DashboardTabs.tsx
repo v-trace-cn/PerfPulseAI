@@ -34,7 +34,7 @@ export const DashboardTabs = memo<DashboardTabsProps>(({ activeTab, onTabChange 
   );
   return (
     <Tabs defaultValue="overview" onValueChange={onTabChange} value={activeTab} className="flex-1 ml-8">
-      <TabsList className="flex justify-center bg-muted/10 backdrop-blur-sm rounded-full border border-primary/5 p-1 shadow-inner">
+      <TabsList className="flex justify-center bg-muted/10 rounded-full border border-primary/5 p-1 shadow-inner">
         {tabTriggers}
       </TabsList>
     </Tabs>

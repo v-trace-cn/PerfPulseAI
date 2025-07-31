@@ -1,4 +1,4 @@
-import React, { useState, memo, useMemo } from 'react';
+import React, { useState, memo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,78 +23,10 @@ export const PointsMall = memo<PointsMallProps>(({ currentPoints }) => {
   const [selectedCategory, setSelectedCategory] = useState('all');
 
   // 使用真实API获取商品数据
-  const { data: mallItems, isLoading, error } = useMallItems(selectedCategory === 'all' ? undefined : selectedCategory);
+  const { data: mallItems, error } = useMallItems(selectedCategory === 'all' ? undefined : selectedCategory);
   const redeemMutation = useRedeemItem();
 
-  // 奖励数据 - 作为fallback数据
-  const rewards: Reward[] = [
-    {
-      id: '1',
-      name: '咖啡券',
-      description: '星巴克中杯咖啡券一张',
-      cost: 25,
-      icon: '☕',
-      category: 'food',
-      available: true,
-      stock: 20,
-      popularity: 85
-    },
-    {
-      id: '2',
-      name: '电影票',
-      description: '万达影城电影票一张',
-      cost: 35,
-      icon: '🎬',
-      category: 'entertainment',
-      available: true,
-      stock: 15,
-      popularity: 92
-    },
-    {
-      id: '3',
-      name: '购物卡',
-      description: '京东购物卡100元',
-      cost: 50,
-      icon: '🛒',
-      category: 'shopping',
-      available: true,
-      stock: 10,
-      popularity: 78
-    },
-    {
-      id: '4',
-      name: '健身卡',
-      description: '健身房月卡一张',
-      cost: 45,
-      icon: '💪',
-      category: 'health',
-      available: true,
-      stock: 5,
-      popularity: 65
-    },
-    {
-      id: '5',
-      name: '图书券',
-      description: '当当网图书券50元',
-      cost: 20,
-      icon: '📚',
-      category: 'education',
-      available: true,
-      stock: 30,
-      popularity: 70
-    },
-    {
-      id: '6',
-      name: '数码配件',
-      description: '无线鼠标一个',
-      cost: 40,
-      icon: '🖱️',
-      category: 'tech',
-      available: true,
-      stock: 5,
-      popularity: 88
-    }
-  ];
+  const isLoading = !mallItems && !error;
 
   const categories = [
     { id: 'all', name: '全部', icon: Package },
@@ -130,10 +62,8 @@ export const PointsMall = memo<PointsMallProps>(({ currentPoints }) => {
     return iconMap[category] || '🎁';
   };
 
-  // 使用API数据或fallback数据
-  const displayRewards = mallItems && mallItems.length > 0
-    ? mallItems.map(convertMallItemToReward)
-    : rewards;
+  // 使用API数据
+  const displayRewards = mallItems ? mallItems.map(convertMallItemToReward) : [];
 
   const filteredRewards = selectedCategory === 'all'
     ? displayRewards
@@ -197,22 +127,10 @@ export const PointsMall = memo<PointsMallProps>(({ currentPoints }) => {
     );
   }
 
+
+
   return (
     <div className="space-y-6">
-      {/* 当前积分显示 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Coins className="mr-2 h-5 w-5 text-yellow-600" />
-            我的积分
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-3xl font-bold text-yellow-600">{currentPoints}</div>
-          <p className="text-sm text-gray-500">可用于兑换以下奖励</p>
-        </CardContent>
-      </Card>
-
       {/* 分类筛选 */}
       <div className="flex flex-wrap gap-2">
         {categories.map((category) => {
@@ -235,7 +153,7 @@ export const PointsMall = memo<PointsMallProps>(({ currentPoints }) => {
       {/* 奖励商品网格 */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filteredRewards.map((reward) => (
-          <Card key={reward.id} className={`relative ${!reward.available ? 'opacity-60' : ''}`}>
+          <Card key={reward.id} className={`${!reward.available ? 'opacity-60' : ''}`}>
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="flex items-center space-x-2">
@@ -278,13 +196,6 @@ export const PointsMall = memo<PointsMallProps>(({ currentPoints }) => {
               </div>
             </CardContent>
             
-            {!reward.available && (
-              <div className="absolute inset-0 bg-gray-500 bg-opacity-20 flex items-center justify-center rounded-lg">
-                <Badge variant="secondary" className="bg-gray-600 text-white">
-                  暂时缺货
-                </Badge>
-              </div>
-            )}
           </Card>
         ))}
       </div>

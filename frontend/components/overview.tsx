@@ -108,7 +108,7 @@ export function Overview() {
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row justify-between gap-4">
         <Tabs defaultValue="nodes" className="w-full sm:w-[400px]" onValueChange={setViewMode}>
-          <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted/30 backdrop-blur-sm rounded-lg">
+          <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted/30 rounded-lg">
             <TabsTrigger
               value="nodes"
               className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary h-8 rounded-md"
@@ -141,7 +141,7 @@ export function Overview() {
       </div>
 
       {viewMode === "nodes" && metricType === "governance" && (
-        <div className="glass-panel p-4 chart-container">
+        <div className="rounded-xl p-4 chart-container border border-border bg-card shadow-lg">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-medium">部门治理指标</h3>
             <Badge variant="outline" className="border-primary/30 text-primary bg-primary/10 shadow-sm">
@@ -171,7 +171,7 @@ export function Overview() {
       )}
 
       {viewMode === "nodes" && metricType === "performance" && (
-        <div className="glass-panel p-4 chart-container">
+        <div className="rounded-xl p-4 chart-container border border-border bg-card shadow-lg">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-medium">部门绩效指标</h3>
             <Badge variant="outline" className="border-primary/30 text-primary bg-primary/10 shadow-sm">
@@ -199,7 +199,7 @@ export function Overview() {
       )}
 
       {viewMode === "nodes" && metricType === "distribution" && (
-        <div className="glass-panel p-4 chart-container">
+        <div className="rounded-xl p-4 chart-container border border-border bg-card shadow-lg">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-medium">部门分布情况</h3>
             <Badge variant="outline" className="border-primary/30 text-primary bg-primary/10 shadow-sm">
@@ -238,7 +238,7 @@ export function Overview() {
 
       {viewMode === "network" && (
         <div className="space-y-4">
-          <div className="glass-panel p-4 chart-container">
+          <div className="rounded-xl p-4 chart-container border border-border bg-card shadow-lg">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium">治理趋势</h3>
               <Badge variant="outline" className="border-primary/30 text-primary bg-primary/10 shadow-sm">
@@ -269,7 +269,7 @@ export function Overview() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="glass-panel p-4 chart-container">
+            <div className="rounded-xl p-4 chart-container border border-border bg-card shadow-lg">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-medium">任务完成趋势</h3>
                 <Badge variant="outline" className="border-secondary/30 text-secondary bg-secondary/10 shadow-sm">
@@ -292,7 +292,7 @@ export function Overview() {
               </ResponsiveContainer>
             </div>
 
-            <div className="glass-panel p-4 chart-container">
+            <div className="rounded-xl p-4 chart-container border border-border bg-card shadow-lg">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-medium">积分分配趋势</h3>
                 <Badge variant="outline" className="border-accent/30 text-accent bg-accent/10 shadow-sm">

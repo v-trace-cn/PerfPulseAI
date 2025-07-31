@@ -44,7 +44,7 @@ export function MetricCard({
   return (
     <Card 
       className={cn(
-        "tech-card overflow-hidden shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp",
+        "overflow-hidden shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp",
         className
       )}
       style={{ animationDelay: `${animationDelay}ms` }}
@@ -136,7 +136,7 @@ export function WeeklyGoalsCard({ value, trend }: { value: number; trend?: strin
   );
 }
 
-export function PointsCard({ points, maxPoints = 2000 }: { points: number; maxPoints?: number }) {
+export function PointsCard({ points, maxPoints = 2000, trend }: { points: number; maxPoints?: number; trend?: string }) {
   return (
     <MetricCard
       title="积分总数"
@@ -146,9 +146,9 @@ export function PointsCard({ points, maxPoints = 2000 }: { points: number; maxPo
       bgGradient="from-accent/10 to-transparent"
       progress={{
         value: (points / maxPoints) * 100,
-        showPercentage: true,
+        showPercentage: false,
       }}
-      subtitle="本周新增"
+      trend={trend ? { value: trend, isPositive: true } : undefined}
       animationDelay={300}
     />
   );
@@ -167,7 +167,6 @@ export function ComplianceCard({ percentage, trend }: { percentage: number; tren
         showPercentage: false,
       }}
       trend={trend ? { value: trend, isPositive: true } : undefined}
-      subtitle="今日"
       animationDelay={400}
     />
   );

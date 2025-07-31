@@ -312,7 +312,98 @@ class Redemption(Base):
 - **AI推荐**: 基于用户行为推荐合适的奖励
 - **管理审核**: 管理员审核奖励建议
 
-## 7. 安全机制
+## 7. 积分商城模块
+
+### 7.1 模块概述
+积分商城是新一代的积分兑换系统，提供更完善的商品管理、购买流程和核销机制。相比传统奖励系统，商城支持兑换码机制和双向通知系统。
+
+### 7.2 核心功能
+
+#### 7.2.1 商品管理
+- **商品展示**: 支持商品图片、描述、分类、标签
+- **库存管理**: 商品库存数量和可用性控制
+- **分类筛选**: 按分类浏览商品
+- **价格管理**: 灵活的积分定价机制
+
+#### 7.2.2 购买流程
+- **积分验证**: 购买前验证用户积分余额
+- **兑换码生成**: 购买成功后生成唯一兑换码
+- **订单管理**: 完整的购买记录和状态管理
+- **配送信息**: 支持配送地址和联系方式
+
+#### 7.2.3 核销机制
+- **兑换码验证**: 管理员验证兑换码有效性
+- **一键核销**: 管理员一键完成商品核销
+- **状态更新**: 自动更新购买状态和完成时间
+- **双向通知**: 用户和管理员都收到核销通知
+
+### 7.3 业务流程
+
+#### 7.3.1 完整兑换流程
+1. **用户购买**: 用户在商城选择商品并使用积分购买
+2. **生成兑换码**: 系统生成唯一兑换码
+3. **私发管理员**: 用户将兑换码私发给管理员
+4. **管理员核销**: 管理员验证并核销兑换码
+5. **通知发送**: 系统向双方发送核销通知
+
+#### 7.3.2 通知机制
+- **用户通知**: "兑换码核销成功 - 您的兑换码已被管理员核销，商品：{商品名称}"
+- **管理员通知**: "核销操作完成 - 您已成功核销用户 {用户名} 的兑换码，商品：{商品名称}"
+- **实时推送**: 通过 SSE 实时推送通知
+- **持久化存储**: 通知保存到数据库供后续查看
+
+### 7.4 数据模型
+
+#### 7.4.1 购买记录
+```python
+class PointPurchase(Base):
+    __tablename__ = 'point_purchases'
+
+    id = Column(String(36), primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    item_id = Column(String(50), nullable=False)
+    item_name = Column(String(200), nullable=False)
+    points_cost = Column(Integer, nullable=False)  # 后端存储格式
+    status = Column(Enum(PurchaseStatus), default=PurchaseStatus.PENDING)
+    redemption_code = Column(String(50), unique=True, nullable=False)
+    created_at = Column(DateTime, nullable=False)
+    completed_at = Column(DateTime, nullable=True)
+```
+
+#### 7.4.2 通知记录
+```python
+class Notification(Base):
+    __tablename__ = 'notifications'
+
+    id = Column(String(36), primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    type = Column(Enum(NotificationType), nullable=False)
+    title = Column(String(200), nullable=False)
+    content = Column(Text, nullable=False)
+    status = Column(Enum(NotificationStatus), default=NotificationStatus.UNREAD)
+    extra_data = Column(JSON, nullable=True)
+    created_at = Column(DateTime, nullable=False)
+```
+
+### 7.5 状态管理
+
+#### 7.5.1 购买状态
+- **PENDING**: 待核销（用户已购买，等待管理员核销）
+- **COMPLETED**: 已完成（管理员已核销）
+- **CANCELLED**: 已取消（取消购买并退还积分）
+
+#### 7.5.2 通知状态
+- **UNREAD**: 未读
+- **READ**: 已读
+- **ARCHIVED**: 已归档
+
+### 7.6 安全特性
+- **兑换码唯一性**: 使用 UUID 确保兑换码唯一性
+- **一次性使用**: 兑换码核销后立即失效
+- **权限控制**: 只有管理员可以核销兑换码
+- **事务安全**: 积分扣除和退还都有完整事务记录
+
+## 8. 安全机制
 
 ### 7.1 数据加密
 - **传输加密**: RSA公钥加密敏感数据传输
@@ -329,19 +420,19 @@ class Redemption(Base):
 - **SQL注入防护**: 使用ORM防止SQL注入
 - **XSS防护**: 输出数据进行适当转义
 
-## 8. 异步处理
+## 9. 异步处理
 
-### 8.1 数据库操作
+### 9.1 数据库操作
 - **异步查询**: 所有数据库操作使用异步方式
 - **连接池**: 使用连接池提高性能
 - **事务管理**: 支持异步事务处理
 
-### 8.2 文件操作
+### 9.2 文件操作
 - **异步上传**: 文件上传使用异步处理
 - **流式处理**: 大文件使用流式处理
 - **错误处理**: 完善的异步错误处理机制
 
-### 8.3 外部API调用
+### 9.3 外部API调用
 - **HTTP客户端**: 使用异步HTTP客户端
 - **超时控制**: 设置合理的超时时间
 - **重试机制**: 失败请求的重试机制

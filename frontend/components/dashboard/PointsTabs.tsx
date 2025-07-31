@@ -106,52 +106,24 @@ export const PointsTabs = memo<PointsTabsProps>(({
   redemptionHistory = [],
   isLoading = false
 }) => {
-  // 默认兑换历史数据
-  const defaultRedemptionHistory: RedemptionRecord[] = useMemo(() => [
-    { 
-      id: 1, 
-      item: "星巴克咖啡券", 
-      points: 200, 
-      status: "completed", 
-      date: "2024-01-13", 
-      category: "福利" 
-    },
-    { 
-      id: 2, 
-      item: "技术书籍《Clean Code》", 
-      points: 150, 
-      status: "completed", 
-      date: "2024-01-11", 
-      category: "学习" 
-    },
-    { 
-      id: 3, 
-      item: "午餐券", 
-      points: 100, 
-      status: "pending", 
-      date: "2024-01-10", 
-      category: "福利" 
-    },
-  ], []);
-
-  const displayHistory = redemptionHistory.length > 0 ? redemptionHistory : defaultRedemptionHistory;
+  const displayHistory = redemptionHistory;
 
   return (
-    <Tabs defaultValue="overview" className="space-y-4">
+    <Tabs defaultValue="history" className="space-y-4">
       <TabsList className="grid w-full grid-cols-3">
-        <TabsTrigger value="overview">积分商城</TabsTrigger>
         <TabsTrigger value="history">积分明细</TabsTrigger>
+        <TabsTrigger value="overview">积分商城</TabsTrigger>
         <TabsTrigger value="redeem">兑换明细</TabsTrigger>
       </TabsList>
-
-      {/* 积分商城 */}
-      <TabsContent value="overview" className="space-y-4">
-        <PointsMall currentPoints={currentPoints} />
-      </TabsContent>
 
       {/* 积分明细 */}
       <TabsContent value="history" className="space-y-4">
         <PointsHistory userId={userId} />
+      </TabsContent>
+
+      {/* 积分商城 */}
+      <TabsContent value="overview" className="space-y-4">
+        <PointsMall currentPoints={currentPoints} />
       </TabsContent>
 
       {/* 兑换明细 */}

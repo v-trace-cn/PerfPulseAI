@@ -4,7 +4,7 @@
 import uuid
 import random
 import string
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict, Any, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, desc, or_
@@ -36,7 +36,7 @@ class MallService:
                 "id": "gift_card_50",
                 "name": "50元礼品卡",
                 "description": "可在指定商店使用的50元礼品卡",
-                "pointsCost": 45,
+                "pointsCost": 0,
                 "category": "gift_card",
                 "image": "/images/gift-card-50.png",
                 "stock": 100,
@@ -47,7 +47,7 @@ class MallService:
                 "id": "gift_card_100",
                 "name": "100元礼品卡",
                 "description": "可在指定商店使用的100元礼品卡",
-                "pointsCost": 50,
+                "pointsCost": 0.1,
                 "category": "gift_card",
                 "image": "/images/gift-card-100.png",
                 "stock": 50,
@@ -129,14 +129,16 @@ class MallService:
             return False, "商品库存不足"
         
         # 检查用户积分余额（使用后端存储格式进行比较）
-        from app.services.point_service import PointConverter
+        # 当商品成本为0时，跳过积分余额检查
+        if item["pointsCost"] > 0:
+            from app.services.point_service import PointConverter
 
-        user_balance_storage = await self.point_service.get_user_balance(user_id)
-        item_cost_storage = PointConverter.to_storage(item["pointsCost"])
+            user_balance_storage = await self.point_service.get_user_balance(user_id)
+            item_cost_storage = PointConverter.to_storage(item["pointsCost"])
 
-        if user_balance_storage < item_cost_storage:
-            user_balance_display = PointConverter.to_display(user_balance_storage)
-            return False, f"积分余额不足，需要 {item['pointsCost']} 积分，当前余额 {user_balance_display}"
+            if user_balance_storage < item_cost_storage:
+                user_balance_display = PointConverter.to_display(user_balance_storage)
+                return False, f"积分余额不足，需要 {item['pointsCost']} 积分，当前余额 {user_balance_display}"
         
         return True, "可以购买"
     
@@ -379,3 +381,133 @@ class MallService:
             "totalPointsSpent": int(stats.total_spent or 0),
             "recentPurchases": [purchase.to_dict() for purchase in recent_purchases]
         }
+
+    async def verify_redemption_code(self, redemption_code: str) -> Optional[PointPurchase]:
+        """验证兑换密钥"""
+        query = select(PointPurchase).where(
+            PointPurchase.redemption_code == redemption_code
+        )
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
+
+    async def redeem_with_code(self, redemption_code: str, user_id: int) -> PointPurchase:
+        """使用兑换密钥核销商品"""
+        purchase = await self.verify_redemption_code(redemption_code)
+        if not purchase:
+            raise ValueError("无效的兑换密钥")
+
+        if purchase.status == PurchaseStatus.COMPLETED:
+            raise ValueError("该兑换密钥已经使用过")
+
+        if purchase.status == PurchaseStatus.CANCELLED:
+            raise ValueError("该兑换密钥已被取消")
+
+        purchase.status = PurchaseStatus.COMPLETED
+        purchase.completed_at = datetime.now(timezone.utc).replace(microsecond=0)
+
+        await self.db.commit()
+        await self.db.refresh(purchase)
+
+        # 获取购买用户和管理员信息
+        from sqlalchemy import select
+        from app.models.user import User
+
+        # 获取购买用户信息
+        buyer_result = await self.db.execute(
+            select(User).filter(User.id == purchase.user_id)
+        )
+        buyer = buyer_result.scalar()
+
+        # 获取管理员信息
+        admin_result = await self.db.execute(
+            select(User).filter(User.id == user_id)
+        )
+        admin = admin_result.scalar()
+
+        # 发送核销成功通知给购买用户
+        from app.models.notification import NotificationType
+        if buyer:
+            await self.notification_service.create_notification(
+                user_id=purchase.user_id,  # 发送给购买用户
+                notification_type=NotificationType.REDEMPTION,
+                title="兑换码核销成功",
+                content=f"您的兑换码已被管理员核销，商品：{purchase.item_name}",
+                extra_data={
+                    "type": "redemption_verified",
+                    "item": purchase.item_name,
+                    "redemptionCode": purchase.redemption_code,
+                    "adminName": admin.name if admin else "管理员",
+                    "verifiedAt": purchase.completed_at.isoformat() if purchase.completed_at else None
+                }
+            )
+
+        # 发送核销确认通知给管理员
+        if admin:
+            await self.notification_service.create_notification(
+                user_id=user_id,  # 发送给管理员
+                notification_type=NotificationType.REDEMPTION,
+                title="核销操作完成",
+                content=f"您已成功核销用户 {buyer.name if buyer else '未知用户'} 的兑换码，商品：{purchase.item_name}",
+                extra_data={
+                    "type": "redemption_admin_confirmed",
+                    "item": purchase.item_name,
+                    "redemptionCode": purchase.redemption_code,
+                    "buyerName": buyer.name if buyer else "未知用户",
+                    "buyerEmail": buyer.email if buyer else None,
+                    "verifiedAt": purchase.completed_at.isoformat() if purchase.completed_at else None
+                }
+            )
+
+        logger.info(f"用户 {user_id} 核销兑换码 {redemption_code}，商品: {purchase.item_name}")
+        return purchase
+
+    async def get_user_purchases(
+        self,
+        user_id: int,
+        limit: int = 20,
+        offset: int = 0,
+        status: Optional[str] = None
+    ) -> List[PointPurchase]:
+        """获取用户的购买记录"""
+        from sqlalchemy import select
+
+        query = select(PointPurchase).filter(PointPurchase.user_id == user_id)
+
+        if status:
+            try:
+                status_enum = PurchaseStatus(status.upper())
+                query = query.filter(PointPurchase.status == status_enum)
+            except ValueError:
+                pass  # 忽略无效的状态值
+
+        query = query.order_by(PointPurchase.created_at.desc()).limit(limit).offset(offset)
+
+        result = await self.db.execute(query)
+        return result.scalars().all()
+
+    async def get_all_purchases(
+        self,
+        limit: int = 20,
+        offset: int = 0,
+        status: Optional[str] = None,
+        user_id: Optional[int] = None
+    ) -> List[PointPurchase]:
+        """获取所有购买记录（管理员）"""
+        from sqlalchemy import select
+
+        query = select(PointPurchase)
+
+        if user_id:
+            query = query.filter(PointPurchase.user_id == user_id)
+
+        if status:
+            try:
+                status_enum = PurchaseStatus(status.upper())
+                query = query.filter(PointPurchase.status == status_enum)
+            except ValueError:
+                pass  # 忽略无效的状态值
+
+        query = query.order_by(PointPurchase.created_at.desc()).limit(limit).offset(offset)
+
+        result = await self.db.execute(query)
+        return result.scalars().all()

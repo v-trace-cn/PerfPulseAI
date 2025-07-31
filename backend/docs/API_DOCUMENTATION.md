@@ -626,7 +626,196 @@
 - `page`: 页码
 - `limit`: 每页数量
 
-## 9. 健康检查 API
+## 9. 积分商城 API
+
+### 9.1 获取商品列表
+**接口**: `GET /api/mall/items`
+**描述**: 获取积分商城商品列表
+**查询参数**:
+- `category`: 商品分类过滤
+
+**响应示例**:
+```json
+[
+  {
+    "id": "item-001",
+    "name": "星巴克咖啡券",
+    "description": "星巴克任意饮品券一张",
+    "points_cost": 50.0,
+    "category": "餐饮",
+    "image": "https://example.com/coffee.jpg",
+    "stock": 100,
+    "is_available": true,
+    "tags": ["热门", "餐饮"]
+  }
+]
+```
+
+### 9.2 获取单个商品详情
+**接口**: `GET /api/mall/items/{item_id}`
+**描述**: 获取指定商品的详细信息
+**路径参数**:
+- `item_id`: 商品ID
+
+### 9.3 购买商品
+**接口**: `POST /api/mall/purchase`
+**描述**: 使用积分购买商品
+**请求头**:
+- `X-User-Id`: 用户ID（认证）
+
+**请求参数**:
+```json
+{
+  "item_id": "item-001",
+  "delivery_info": {
+    "address": "配送地址",
+    "phone": "联系电话",
+    "notes": "备注信息"
+  }
+}
+```
+
+**响应示例**:
+```json
+{
+  "id": "purchase-123",
+  "item_name": "星巴克咖啡券",
+  "points_cost": 50.0,
+  "status": "PENDING",
+  "redemption_code": "COFFEE-ABC123",
+  "created_at": "2024-01-01T10:00:00Z"
+}
+```
+
+### 9.4 获取我的购买记录
+**接口**: `GET /api/mall/purchases/my`
+**描述**: 获取当前用户的购买记录
+**请求头**:
+- `X-User-Id`: 用户ID（认证）
+
+**查询参数**:
+- `limit`: 每页数量（默认20）
+- `offset`: 偏移量（默认0）
+- `status`: 状态过滤（PENDING/COMPLETED/CANCELLED）
+
+### 9.5 验证兑换码
+**接口**: `POST /api/mall/verify-redemption-code`
+**描述**: 验证兑换码的有效性（管理员功能）
+**请求头**:
+- `X-User-Id`: 管理员用户ID
+
+**请求参数**:
+```json
+{
+  "redemption_code": "COFFEE-ABC123"
+}
+```
+
+**响应示例**:
+```json
+{
+  "valid": true,
+  "message": "兑换密钥验证成功",
+  "purchase_info": {
+    "id": "purchase-123",
+    "itemName": "星巴克咖啡券",
+    "itemDescription": "星巴克任意饮品券一张",
+    "pointsCost": 50.0,
+    "status": "PENDING",
+    "createdAt": "2024-01-01T10:00:00Z"
+  }
+}
+```
+
+### 9.6 核销兑换码
+**接口**: `POST /api/mall/redeem-code`
+**描述**: 使用兑换码核销商品（管理员功能）
+**请求头**:
+- `X-User-Id`: 管理员用户ID
+
+**请求参数**:
+```json
+{
+  "redemption_code": "COFFEE-ABC123"
+}
+```
+
+**响应示例**:
+```json
+{
+  "id": "purchase-123",
+  "item_name": "星巴克咖啡券",
+  "status": "COMPLETED",
+  "completed_at": "2024-01-01T11:00:00Z"
+}
+```
+
+**核销通知机制**:
+核销成功后，系统会自动发送通知：
+1. **给购买用户**: "兑换码核销成功 - 您的兑换码已被管理员核销，商品：{商品名称}"
+2. **给管理员**: "核销操作完成 - 您已成功核销用户 {用户名} 的兑换码，商品：{商品名称}"
+
+通知包含以下额外信息：
+- 商品名称和描述
+- 兑换码
+- 核销时间
+- 相关用户信息（买家/管理员姓名）
+
+### 9.7 获取所有购买记录（管理员）
+**接口**: `GET /api/mall/purchases`
+**描述**: 获取所有用户的购买记录（管理员功能）
+**请求头**:
+- `X-User-Id`: 管理员用户ID
+
+**查询参数**:
+- `limit`: 每页数量（默认20）
+- `offset`: 偏移量（默认0）
+- `status`: 状态过滤
+- `user_id`: 用户ID过滤
+
+### 9.8 完成购买（发货）
+**接口**: `POST /api/mall/purchases/{purchase_id}/complete`
+**描述**: 标记购买为已完成（管理员功能）
+**路径参数**:
+- `purchase_id`: 购买记录ID
+
+**请求参数**:
+```json
+{
+  "delivery_info": {
+    "tracking_number": "快递单号",
+    "delivery_method": "配送方式",
+    "notes": "发货备注"
+  }
+}
+```
+
+### 9.9 取消购买
+**接口**: `POST /api/mall/purchases/{purchase_id}/cancel`
+**描述**: 取消购买并退还积分
+**路径参数**:
+- `purchase_id`: 购买记录ID
+
+**请求参数**:
+```json
+{
+  "reason": "取消原因"
+}
+```
+
+### 9.10 获取商城统计信息
+**接口**: `GET /api/mall/statistics`
+**描述**: 获取商城统计信息（管理员功能）
+**请求头**:
+- `X-User-Id`: 管理员用户ID
+
+### 9.11 获取用户商城摘要
+**接口**: `GET /api/mall/summary`
+**描述**: 获取用户商城使用摘要
+**请求头**:
+- `X-User-Id`: 用户ID
+
+## 10. 健康检查 API
 
 ### 9.1 健康检查
 **接口**: `GET /api/health`
@@ -640,9 +829,9 @@
 }
 ```
 
-## 10. 错误处理
+## 11. 错误处理
 
-### 10.1 常见错误码
+### 11.1 常见错误码
 - `AUTH_001`: 认证失败
 - `PERM_001`: 权限不足
 - `VALID_001`: 参数验证失败

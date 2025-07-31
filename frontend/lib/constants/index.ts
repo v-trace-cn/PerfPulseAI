@@ -30,9 +30,6 @@ export const REGEX_PATTERNS = {
  * 分页常量 - 保留实际使用的
  */
 export const PAGINATION = {
-  DEFAULT_PAGE_SIZE: 10,
-  PAGE_SIZE_OPTIONS: [10, 20, 50, 100],
+  DEFAULT_PAGE_SIZE: 5,
+  PAGE_SIZE_OPTIONS: [5, 10, 20, 50],
 } as const;
-
-// 移除了大量未使用的常量，保持文件精简
-// 如需要其他常量，可以在具体使用的地方定义或重新添加到此文件

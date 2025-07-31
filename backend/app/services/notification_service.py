@@ -44,27 +44,58 @@ class NotificationService:
         self.db.add(notification)
         await self.db.commit()
         await self.db.refresh(notification)
-        
-        logger.info(f"为用户 {user_id} 创建通知: {title}")
+
+        # 触发 SSE 广播
+        try:
+            await self._broadcast_new_notification(notification)
+        except Exception as e:
+            logger.error(f"广播通知失败，用户: {user_id}，错误: {e}")
+
         return notification
+
+    async def _broadcast_new_notification(self, notification: Notification):
+        """广播新通知到 SSE 连接"""
+        try:
+            # 导入广播函数（避免循环导入）
+            from app.api.notifications import broadcast_notification_to_user
+
+            # 准备通知数据
+            notification_data = {
+                "type": "new_notification",
+                "notification": {
+                    "id": notification.id,
+                    "title": notification.title,
+                    "content": notification.content,
+                    "type": notification.type.value if notification.type else None,
+                    "createdAt": notification.created_at.isoformat() if notification.created_at else None,
+                    "read": False
+                }
+            }
+
+            # 广播到用户的所有 SSE 连接
+            broadcast_notification_to_user(notification.user_id, notification_data)
+
+        except Exception as e:
+            logger.error(f"广播通知失败: {e}")
+            # 不抛出异常，避免影响通知创建
     
     async def create_redemption_notification(
         self,
         user_id: int,
         item_name: str,
         redemption_code: str,
-        points_cost: int
+        points_cost: float
     ) -> Notification:
         """创建兑换成功通知"""
         title = "兑换成功"
-        content = f"恭喜您成功兑换 {item_name}！消耗 {points_cost} 积分。"
+        content = f"恭喜您成功兑换 {item_name}！消耗 {points_cost} 积分。兑换密钥：{redemption_code}，请前往兑奖中心核销。"
         extra_data = {
-            "redemption_code": redemption_code,
-            "item_name": item_name,
-            "points_cost": points_cost,
+            "redeemCode": redemption_code,  # 使用驼峰命名与前端保持一致
+            "item": item_name,
+            "points": points_cost,
             "type": "redemption_success"
         }
-        
+
         return await self.create_notification(
             user_id=user_id,
             notification_type=NotificationType.REDEMPTION,

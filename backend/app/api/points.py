@@ -84,17 +84,9 @@ async def get_my_points_summary(
         point_service = PointService(db)
         level_service = LevelService(db)
 
-        # 获取积分统计
         stats = await point_service.get_user_statistics(current_user.id)
-        print(f"积分统计: {stats}")
-
-        # 获取等级信息
         level_info = await level_service.get_user_level_info(current_user.id)
-        print(f"等级信息: {level_info}")
-
-        # 获取兑换统计
         redemption_stats = await point_service.get_user_redemption_stats(current_user.id)
-        print(f"兑换统计: {redemption_stats}")
 
         return UserPointsSummaryResponse(
             userId=current_user.id,
@@ -250,8 +242,122 @@ async def check_my_points_consistency(
     """检查我的积分一致性"""
     point_service = PointService(db)
     consistency = await point_service.check_consistency(current_user.id)
-    
+
     return consistency
+
+
+@router.get("/points/unified-data")
+async def get_my_unified_points_data(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """获取统一的积分数据（推荐使用此接口）"""
+    try:
+        point_service = PointService(db)
+        unified_data = await point_service.get_unified_user_data(current_user.id)
+        return unified_data
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"获取统一积分数据失败: {str(e)}")
+
+
+@router.get("/levels/validate")
+async def validate_level_system(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """验证等级系统的完整性"""
+    try:
+        from app.services.level_service import LevelService
+        level_service = LevelService(db)
+        validation_result = await level_service.validate_level_system()
+        return validation_result
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"验证等级系统失败: {str(e)}")
+
+
+@router.post("/levels/auto-upgrade")
+async def auto_upgrade_all_users(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """自动为所有用户检查并升级等级（管理员功能）"""
+    try:
+        # TODO: 添加管理员权限检查
+        # if not current_user.is_admin:
+        #     raise HTTPException(status_code=403, detail="需要管理员权限")
+
+        from app.services.level_service import LevelService
+        level_service = LevelService(db)
+        upgrade_result = await level_service.auto_upgrade_all_users()
+        return upgrade_result
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"自动升级失败: {str(e)}")
+
+
+@router.get("/points/validate/{target_user_id}")
+async def validate_user_points_data(
+    target_user_id: int,
+    auto_fix: bool = Query(False, description="是否自动修复发现的问题"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """验证特定用户的积分数据"""
+    try:
+        # TODO: 添加权限检查（用户只能验证自己的数据，管理员可以验证任何用户的数据）
+        # if target_user_id != current_user.id and not current_user.is_admin:
+        #     raise HTTPException(status_code=403, detail="权限不足")
+
+        point_service = PointService(db)
+        validation_result = await point_service.validate_and_fix_user_data(target_user_id, auto_fix)
+        return validation_result
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"验证用户数据失败: {str(e)}")
+
+
+@router.post("/points/validate-all")
+async def validate_all_users_points_data(
+    auto_fix: bool = Query(False, description="是否自动修复发现的问题"),
+    limit: int = Query(100, ge=1, le=1000, description="验证用户数量限制"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """批量验证所有用户的积分数据（管理员功能）"""
+    try:
+        # TODO: 添加管理员权限检查
+        # if not current_user.is_admin:
+        #     raise HTTPException(status_code=403, detail="需要管理员权限")
+
+        point_service = PointService(db)
+        validation_result = await point_service.validate_all_users_data(auto_fix, limit)
+        return validation_result
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"批量验证失败: {str(e)}")
+
+
+@router.get("/points/health-report")
+async def get_points_system_health_report(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """获取积分系统健康报告"""
+    try:
+        point_service = PointService(db)
+        health_report = await point_service.get_system_health_report()
+        return health_report
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"获取健康报告失败: {str(e)}")
 
 
 @router.get("/points/levels")

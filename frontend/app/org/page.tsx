@@ -152,6 +152,12 @@ export default function OrganizationManagement() {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
+                      <Link href="/org" className="flex items-center w-full">
+                        <Gift className="mr-2 h-4 w-4" />
+                        权限管理
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
                       <Link href="/org/redemption" className="flex items-center w-full">
                         <Gift className="mr-2 h-4 w-4" />
                         兑奖管理

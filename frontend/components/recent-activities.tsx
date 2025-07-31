@@ -3,11 +3,11 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { CheckCircle2, Code, FileText, GitCommit, MessageSquare } from "lucide-react"
 import Link from "next/link"
-import { useEffect, useState, memo } from "react"
-import { useApi } from "@/hooks/useApi"
+import { useState, memo } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { getRelativeDate, cn } from "@/lib/utils"
 import { unifiedApi } from "@/lib/unified-api"
+import { useQuery } from "@tanstack/react-query"
 import {
   Tooltip,
   TooltipContent,
@@ -50,31 +50,23 @@ const getActivityIcon = (type: string) => {
 }
 
 export const RecentActivities = memo(() => {
-  const { data: fetchedData, isLoading: apiLoading, error: apiError, execute: fetchActivitiesApi } = useApi(unifiedApi.activity.getRecentActivities);
-  
-  const [activities, setActivities] = useState<Activity[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [perPage] = useState(10); // 每页显示数量
-  const [totalPages, setTotalPages] = useState(1);
+  const perPage = 10; // 每页显示数量
 
-  const { user, isLoading: userLoading } = useAuth();
+  const { user } = useAuth();
 
-  useEffect(() => {
-    const fetchActivities = async () => {
-      if (userLoading || !user?.id) {
-        return;
-      }
+  // 使用 React Query 来管理 API 调用
+  const { data: fetchedData, isLoading: apiLoading, error: apiError } = useQuery({
+    queryKey: ['recentActivities', user?.id, currentPage, perPage],
+    queryFn: () => unifiedApi.activity.getRecentActivities(user!.id, currentPage, perPage),
+    enabled: !!user?.id,
+    staleTime: 30000, // 30秒缓存
+    refetchOnWindowFocus: false, // 避免窗口聚焦时重复请求
+  });
 
-      await fetchActivitiesApi(user.id, currentPage, perPage);
-    };
-
-    fetchActivities();
-  }, [user?.id, userLoading, currentPage, perPage]); // 移除 fetchActivitiesApi 依赖
-
-  useEffect(() => {
-    if (fetchedData && fetchedData.success && fetchedData.data) {
-      const { activities: fetchedActivities, total, page, per_page } = fetchedData.data;
-      const mappedActivities: Activity[] = (fetchedActivities || []).map((activity: any) => ({
+  // 处理数据映射
+  const activities: Activity[] = fetchedData?.success && fetchedData.data?.activities
+    ? fetchedData.data.activities.map((activity: any) => ({
         id: activity.id,
         show_id: activity.showId || activity.show_id,
         title: activity.title,
@@ -90,24 +82,14 @@ export const RecentActivities = memo(() => {
           initials: activity.user ? (activity.user.name ? activity.user.name[0] : "无") : "无",
         },
         type: activity.status || "default",
-      }));
-      setActivities(mappedActivities);
-      setCurrentPage(page);
-      // 确保 totalPages 是一个有效的正整数
-      const calculatedTotalPages = total > 0 && per_page > 0 ? Math.ceil(total / per_page) : 1;
-      setTotalPages(Math.max(1, calculatedTotalPages));
-    } else if (fetchedData && !fetchedData.success) {
-      // Handle backend success: false case
-      // This is now handled by the apiError state if fetchDirectApi throws.
-      // If the backend explicitly returns success: false with a message and a 200 status,
-      // it means useApi won't catch an error, and fetchedData.success will be false.
-      // In this case, useApi's `error` state would be null.
-      // So, we need to check both apiError and fetchedData.message for displaying error.
-      // For now, let's rely on apiError.
-    }
-  }, [fetchedData]);
+      }))
+    : [];
 
-  if (userLoading || apiLoading) {
+  const totalPages = fetchedData?.success && fetchedData.data
+    ? Math.max(1, Math.ceil(fetchedData.data.total / fetchedData.data.per_page))
+    : 1;
+
+  if (apiLoading) {
     return <div className="text-center text-muted-foreground">加载中...</div>;
   }
 

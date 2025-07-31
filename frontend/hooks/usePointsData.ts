@@ -27,14 +27,34 @@ export const CACHE_TIMES = {
   STATS: 10 * 60 * 1000,       // 10分钟
 } as const;
 
-// 积分概览数据 Hook
+// 统一积分数据 Hook（推荐使用）
+export function useUnifiedPointsData(userId?: string, options?: Partial<UseQueryOptions<any>>) {
+  const { user } = useAuth();
+  const targetUserId = userId || user?.id;
+
+  return useQuery({
+    queryKey: ['unifiedPointsData', String(targetUserId)],
+    queryFn: () => unifiedApi.points.getUnifiedPointsData(String(targetUserId)),
+    enabled: !!targetUserId,
+    staleTime: CACHE_TIMES.SUMMARY,
+    gcTime: CACHE_TIMES.SUMMARY * 2,
+    refetchOnWindowFocus: false,
+    retry: 2,
+    ...options,
+  });
+}
+
+// 积分概览数据 Hook（保持向后兼容）
 export function usePointsSummary(userId?: string, options?: Partial<UseQueryOptions<UserPointsSummary>>) {
   const { user } = useAuth();
   const targetUserId = userId || user?.id;
 
   return useQuery({
     queryKey: POINTS_QUERY_KEYS.summary(String(targetUserId)),
-    queryFn: () => unifiedApi.points.getUserPointsSummary(String(targetUserId)),
+    queryFn: async () => {
+      const response = await unifiedApi.points.getUserPointsSummary(String(targetUserId));
+      return response.data || response; // 处理不同的响应格式
+    },
     enabled: !!targetUserId,
     staleTime: CACHE_TIMES.SUMMARY,
     gcTime: CACHE_TIMES.SUMMARY * 2, // 缓存保留时间
@@ -46,9 +66,9 @@ export function usePointsSummary(userId?: string, options?: Partial<UseQueryOpti
 
 // 积分交易记录 Hook（支持分页）
 export function usePointsTransactions(
-  userId?: string, 
-  page: number = 1, 
-  pageSize: number = 10,
+  userId?: string,
+  page: number = 1,
+  pageSize: number = 5,
   options?: Partial<UseQueryOptions<{ transactions: PointTransaction[]; totalCount: number }>>
 ) {
   const { user } = useAuth();
@@ -56,7 +76,10 @@ export function usePointsTransactions(
 
   return useQuery({
     queryKey: POINTS_QUERY_KEYS.transactions(String(targetUserId), page, pageSize),
-    queryFn: () => unifiedApi.points.getPointsTransactions(String(targetUserId), page, pageSize),
+    queryFn: async () => {
+      const response = await unifiedApi.points.getPointsTransactions(String(targetUserId), page, pageSize);
+      return response.data || response; // 处理不同的响应格式
+    },
     enabled: !!targetUserId,
     staleTime: CACHE_TIMES.TRANSACTIONS,
     gcTime: CACHE_TIMES.TRANSACTIONS * 2,
@@ -134,7 +157,7 @@ export function usePrefetchPointsData(userId?: string) {
     });
   };
 
-  const prefetchTransactions = (page: number = 1, pageSize: number = 10) => {
+  const prefetchTransactions = (page: number = 1, pageSize: number = 5) => {
     if (!targetUserId) return;
     
     queryClient.prefetchQuery({
@@ -186,7 +209,7 @@ export function usePrefetchPointsData(userId?: string) {
 }
 
 // 组合 Hook - 获取所有积分相关数据
-export function useAllPointsData(userId?: string, page: number = 1, pageSize: number = 10) {
+export function useAllPointsData(userId?: string, page: number = 1, pageSize: number = 5) {
   const { user } = useAuth();
   const targetUserId = userId || user?.id;
 

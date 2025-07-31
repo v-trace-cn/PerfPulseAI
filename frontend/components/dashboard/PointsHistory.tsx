@@ -13,7 +13,7 @@ interface PointsHistoryProps {
 
 export const PointsHistory = memo<PointsHistoryProps>(({ userId }) => {
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(5);
 
   // 获取积分交易记录（分页）
   const { data: pointsTransactions, isLoading, error } = useQuery<{

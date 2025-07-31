@@ -179,7 +179,7 @@ export function ScoringSystem() {
 
   return (
     <div className="space-y-6">
-      <Card className="tech-card">
+      <Card className="border border-border bg-card rounded-xl shadow-lg">
         {/* 修改 CardHeader 部分，添加点击事件 */}
         <CardHeader>
           <div className="flex justify-between items-center">

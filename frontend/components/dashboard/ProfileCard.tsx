@@ -40,7 +40,7 @@ export function ProfileCard({ userData, setUserData, mounted }: ProfileCardProps
   const [showPhone, setShowPhone] = useState(false);
 
   return (
-    <Card className="tech-card shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp md:col-span-1">
+    <Card className="shadow-lg hover:shadow-xl transition-all duration-500 hover:translate-y-[-5px] animate-fadeInSlideUp md:col-span-1 border border-border bg-card rounded-xl">
       <CardHeader className="flex flex-col items-center text-center pb-2 bg-gradient-to-r from-primary/10 to-transparent rounded-t-xl overflow-hidden">
         <div className="relative mb-2">
           <ProfileAvatar

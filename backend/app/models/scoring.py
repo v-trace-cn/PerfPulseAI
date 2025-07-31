@@ -296,7 +296,7 @@ class PointPurchase(Base):
     item_name = Column(String(200), nullable=False)  # 商品名称
     item_description = Column(Text, nullable=True)  # 商品描述
     points_cost = Column(Integer, nullable=False)  # 消费积分数量
-    transaction_id = Column(String(36), ForeignKey('point_transactions.id'), nullable=False)
+    transaction_id = Column(String(36), ForeignKey('point_transactions.id'), nullable=True)  # 免费商品可以没有交易记录
     status = Column(Enum(PurchaseStatus), default=PurchaseStatus.PENDING)
     redemption_code = Column(String(20), nullable=True)  # 兑换码
     delivery_info = Column(JSON, nullable=True)  # 配送信息

@@ -236,7 +236,7 @@ class ActivityService:
             if not activity.user_id:
                 raise ValueError(f"Activity {activity_id} has no associated user")
 
-            if points <= 0:
+            if points < 0:
                 raise ValueError("积分数量必须大于0")
 
             # 使用积分服务授予积分

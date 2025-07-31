@@ -7,6 +7,7 @@ from app.core.base_api import BaseAPIRouter
 from app.core.decorators import handle_api_errors, transaction
 from app.models.user import User
 from app.models.department import Department
+from app.services.point_service import PointConverter
 
 import os
 import uuid
@@ -44,8 +45,8 @@ async def get_user(user_id: int, db: AsyncSession = Depends(get_db)):
         "position": user.position,
         "phone": user.phone,
         "joinDate": user.join_date.isoformat() if isinstance(user.join_date, datetime) else user.join_date,
-        "points": user.points,
-        "total_points": user.points,  # 添加 total_points 字段以保持一致性
+        "points": PointConverter.format_for_api(user.points or 0),
+        "total_points": PointConverter.format_for_api(user.points or 0),  # 添加 total_points 字段以保持一致性
         "level": user.level,
         "completed_activities_count": user.completed_tasks,
         "pendingTasks": user.pending_tasks,

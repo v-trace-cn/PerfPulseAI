@@ -33,7 +33,7 @@ class MallItemResponse(BaseModel):
     id: str
     name: str
     description: str
-    points_cost: int
+    points_cost: float
     category: str
     image: str
     stock: int
@@ -43,20 +43,21 @@ class MallItemResponse(BaseModel):
 
 class PurchaseResponse(BaseModel):
     id: str
-    user_id: int
-    item_id: str
-    item_name: str
-    item_description: str
-    points_cost: int
-    transaction_id: str
+    userId: int
+    itemId: str
+    itemName: str
+    itemDescription: str
+    pointsCost: float
+    transactionId: Optional[str] = None  # 免费商品没有交易记录
     status: str
-    delivery_info: Optional[Dict[str, Any]]
-    notes: Optional[str]
-    created_at: str
-    completed_at: Optional[str]
-    is_pending: bool
-    is_completed: bool
-    is_cancelled: bool
+    redemptionCode: Optional[str] = None
+    deliveryInfo: Optional[Dict[str, Any]] = None
+    notes: Optional[str] = None
+    createdAt: str
+    completedAt: Optional[str] = None
+    isPending: bool
+    isCompleted: bool
+    isCancelled: bool
 
 
 @router.get("/mall/items", response_model=List[MallItemResponse])
@@ -141,7 +142,7 @@ async def purchase_item(
 ):
     """购买商品"""
     mall_service = MallService(db)
-    
+
     try:
         purchase = await mall_service.purchase_item(
             user_id=current_user.id,
@@ -151,6 +152,57 @@ async def purchase_item(
         return PurchaseResponse(**purchase.to_dict())
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/mall/purchases/my", response_model=List[PurchaseResponse])
+async def get_my_purchases(
+    limit: int = Query(20, description="每页数量"),
+    offset: int = Query(0, description="偏移量"),
+    status: Optional[str] = Query(None, description="状态过滤"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """获取我的购买记录"""
+    mall_service = MallService(db)
+
+    try:
+        purchases = await mall_service.get_user_purchases(
+            user_id=current_user.id,
+            limit=limit,
+            offset=offset,
+            status=status
+        )
+        return [PurchaseResponse(**purchase.to_dict()) for purchase in purchases]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取购买记录失败: {str(e)}")
+
+
+@router.get("/mall/purchases", response_model=List[PurchaseResponse])
+async def get_all_purchases(
+    limit: int = Query(20, description="每页数量"),
+    offset: int = Query(0, description="偏移量"),
+    status: Optional[str] = Query(None, description="状态过滤"),
+    user_id: Optional[int] = Query(None, description="用户ID过滤"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """获取所有购买记录（管理员）"""
+    # TODO: 添加管理员权限检查
+    # if not current_user.is_admin:
+    #     raise HTTPException(status_code=403, detail="需要管理员权限")
+
+    mall_service = MallService(db)
+
+    try:
+        purchases = await mall_service.get_all_purchases(
+            limit=limit,
+            offset=offset,
+            status=status,
+            user_id=user_id
+        )
+        return [PurchaseResponse(**purchase.to_dict()) for purchase in purchases]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取购买记录失败: {str(e)}")
 
 
 @router.get("/mall/purchases/my", response_model=List[PurchaseResponse])
@@ -284,5 +336,69 @@ async def get_user_mall_summary(
     """获取用户商城使用摘要"""
     mall_service = MallService(db)
     summary = await mall_service.get_user_mall_summary(current_user.id)
-    
+
     return summary
+
+
+class RedemptionCodeRequest(BaseModel):
+    redemption_code: str = Field(..., description="兑换密钥")
+
+
+class RedemptionCodeResponse(BaseModel):
+    valid: bool
+    message: str
+    purchase_info: Optional[Dict[str, Any]] = None
+
+
+@router.post("/mall/verify-redemption-code", response_model=RedemptionCodeResponse)
+async def verify_redemption_code(
+    request: RedemptionCodeRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """验证兑换密钥"""
+    mall_service = MallService(db)
+
+    try:
+        purchase = await mall_service.verify_redemption_code(request.redemption_code)
+        if purchase:
+            return RedemptionCodeResponse(
+                valid=True,
+                message="兑换密钥验证成功",
+                purchase_info={
+                    "id": purchase.id,
+                    "itemName": purchase.item_name,
+                    "itemDescription": purchase.item_description,
+                    "pointsCost": purchase.points_cost,
+                    "status": purchase.status.value,
+                    "createdAt": purchase.created_at.isoformat() if purchase.created_at else None
+                }
+            )
+        else:
+            return RedemptionCodeResponse(
+                valid=False,
+                message="无效的兑换密钥"
+            )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"验证失败: {str(e)}")
+
+
+@router.post("/mall/redeem-code", response_model=PurchaseResponse)
+async def redeem_code(
+    request: RedemptionCodeRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """使用兑换密钥核销商品"""
+    mall_service = MallService(db)
+
+    try:
+        purchase = await mall_service.redeem_with_code(
+            redemption_code=request.redemption_code,
+            user_id=current_user.id
+        )
+        return PurchaseResponse(**purchase.to_dict())
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"核销失败: {str(e)}")

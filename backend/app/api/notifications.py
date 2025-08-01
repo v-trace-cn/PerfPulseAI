@@ -89,8 +89,8 @@ async def get_notifications(
             content=notification.content,
             status=notification.status.value,
             extraData=notification.extra_data,
-            createdAt=notification.created_at.isoformat() if notification.created_at else "",
-            readAt=notification.read_at.isoformat() if notification.read_at else None,
+            createdAt=notification.created_at.isoformat() + 'Z' if notification.created_at else "",
+            readAt=notification.read_at.isoformat() + 'Z' if notification.read_at else None,
             isUnread=notification.status == NotificationStatus.UNREAD,
             isRead=notification.status == NotificationStatus.READ,
             isArchived=notification.status == NotificationStatus.ARCHIVED

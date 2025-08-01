@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-context"
 import { useNotifications, type Notification } from "@/hooks/useNotifications"
+import { formatRelativeTime } from "@/lib/timezone-utils"
 
 
 
@@ -57,19 +58,9 @@ const getNotificationColor = (type: string, priority: string) => {
   }
 }
 
-// 格式化时间
+// 格式化时间 - 使用中国时区
 const formatTime = (timestamp: string) => {
-  const date = new Date(timestamp)
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-  const minutes = Math.floor(diff / 60000)
-  const hours = Math.floor(diff / 3600000)
-  const days = Math.floor(diff / 86400000)
-
-  if (minutes < 60) return `${minutes}分钟前`
-  if (hours < 24) return `${hours}小时前`
-  if (days < 7) return `${days}天前`
-  return date.toLocaleDateString()
+  return formatRelativeTime(timestamp)
 }
 
 // 转换后端通知类型为前端类型

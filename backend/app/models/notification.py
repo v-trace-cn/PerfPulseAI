@@ -52,8 +52,8 @@ class Notification(Base):
             "content": self.content,
             "status": self.status.value if self.status else None,
             "extraData": self.extra_data,
-            "createdAt": self.created_at.isoformat() if isinstance(self.created_at, datetime) else self.created_at,
-            "readAt": self.read_at.isoformat() if self.read_at else None,
+            "createdAt": self.created_at.isoformat() + 'Z' if isinstance(self.created_at, datetime) else self.created_at,
+            "readAt": self.read_at.isoformat() + 'Z' if self.read_at else None,
             "isUnread": self.status == NotificationStatus.UNREAD,
             "isRead": self.status == NotificationStatus.READ,
             "isArchived": self.status == NotificationStatus.ARCHIVED

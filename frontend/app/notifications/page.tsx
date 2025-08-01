@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/utils"
 import { useToast } from "@/components/ui/use-toast"
 import { useNotifications, type Notification } from "@/hooks/useNotifications"
+import { formatRelativeTime, getFullChinaTime } from "@/lib/timezone-utils"
 
 
 
@@ -72,32 +73,14 @@ const getPriorityColor = (priority: string) => {
   }
 }
 
-// 格式化时间
+// 格式化时间 - 使用中国时区
 const formatTime = (timestamp: string) => {
-  const date = new Date(timestamp)
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-  const minutes = Math.floor(diff / 60000)
-  const hours = Math.floor(diff / 3600000)
-  const days = Math.floor(diff / 86400000)
-
-  if (minutes < 60) return `${minutes}分钟前`
-  if (hours < 24) return `${hours}小时前`
-  if (days < 7) return `${days}天前`
-  return date.toLocaleDateString()
+  return formatRelativeTime(timestamp)
 }
 
-// 获取完整时间
+// 获取完整时间 - 使用中国时区
 const getFullTime = (timestamp: string) => {
-  const date = new Date(timestamp)
-  return date.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  })
+  return getFullChinaTime(timestamp)
 }
 
 // 内部组件，使用 useSearchParams
@@ -109,6 +92,23 @@ function NotificationsContent() {
   const [readFilter, setReadFilter] = useState('all')
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const { toast } = useToast()
+
+  // 获取URL中的高亮通知ID
+  useEffect(() => {
+    const highlight = searchParams.get('highlight')
+    if (highlight) {
+      setHighlightId(highlight)
+      // 自动滚动到高亮通知
+      const timer = setTimeout(() => {
+        const element = document.getElementById(`notification-${highlight}`)
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      }, 500)
+
+      return () => clearTimeout(timer)
+    }
+  }, [searchParams])
 
   // 使用真实数据
   const {
@@ -247,13 +247,13 @@ function NotificationsContent() {
               <Bell className="mr-3 h-8 w-8" />
               通知中心
             </h1>
-            <p className="text-muted-foreground">
+            <div className="text-muted-foreground">
               {unreadCount > 0 && (
                 <Badge variant="destructive" className="ml-2">
                   {unreadCount} 条未读
                 </Badge>
               )}
-            </p>
+            </div>
           </div>
           <div className="flex items-center space-x-2">
             {unreadCount > 0 && (
@@ -386,12 +386,13 @@ function NotificationItem({
 }) {
   return (
     <div
+      id={`notification-${notification.id}`}
       className={cn(
         "flex items-start gap-4 p-4 rounded-lg transition-all duration-500 group relative",
         // 未读消息样式
         !notification.read && "bg-primary/5 border-l-4 border-l-primary hover:bg-primary/10",
-        // 已读消息样式 - 更明显的灰色背景和降低透明度
-        notification.read && "bg-muted/30 hover:bg-muted/50 opacity-70",
+        // 已读消息样式 - 轻微的背景色区别
+        notification.read && "bg-gray-50 hover:bg-gray-100",
         // 高亮样式
         isHighlighted && "bg-yellow-100 border-2 border-yellow-400 shadow-lg scale-[1.02]"
       )}
@@ -401,8 +402,8 @@ function NotificationItem({
         getNotificationColor(notification.type, notification.priority),
         // 未读消息图标样式
         !notification.read && "bg-primary/10 ring-2 ring-primary/20",
-        // 已读消息图标样式 - 降低饱和度
-        notification.read && "opacity-60 grayscale-[0.3]"
+        // 已读消息图标样式 - 保持正常显示
+        notification.read && "opacity-80"
       )}>
         {getNotificationIcon(notification.category)}
       </div>
@@ -410,28 +411,19 @@ function NotificationItem({
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between mb-2">
           <div className="flex items-center gap-2 flex-1">
-            <h3 className={cn(
-              "text-sm font-medium truncate",
-              // 已读消息标题样式
-              notification.read && "text-muted-foreground"
-            )}>
+            <h3 className="text-sm font-medium truncate text-foreground">
               {notification.title}
             </h3>
             {!notification.read && (
-              <div className="w-2 h-2 bg-primary rounded-full flex-shrink-0 animate-pulse" />
-            )}
-            {notification.read && (
-              <Badge variant="secondary" className="text-xs px-2 py-0 bg-muted text-muted-foreground">
-                已读
+              <Badge variant="destructive" className="text-xs px-2 py-0 bg-red-500 text-white">
+                未读
               </Badge>
             )}
             <Badge
               variant="outline"
               className={cn(
                 "text-xs px-2 py-0",
-                getPriorityColor(notification.priority),
-                // 已读消息优先级标签样式
-                notification.read && "opacity-60"
+                getPriorityColor(notification.priority)
               )}
             >
               {notification.priority === 'high' ? '高' : notification.priority === 'medium' ? '中' : '低'}
@@ -471,29 +463,20 @@ function NotificationItem({
           </DropdownMenu>
         </div>
 
-        <p className={cn(
-          "text-sm mb-3 leading-relaxed",
-          // 已读消息内容样式
-          notification.read ? "text-muted-foreground/80" : "text-foreground"
-        )}>
+        <p className="text-sm mb-3 leading-relaxed text-foreground">
           {notification.message}
         </p>
 
         <div className="flex items-center justify-between text-xs">
           <span
             title={getFullTime(notification.timestamp)}
-            className={cn(
-              notification.read ? "text-muted-foreground/60" : "text-muted-foreground"
-            )}
+            className="text-muted-foreground"
           >
             {formatTime(notification.timestamp)}
           </span>
           <Badge
             variant="secondary"
-            className={cn(
-              "text-xs",
-              notification.read && "opacity-60"
-            )}
+            className="text-xs"
           >
             {notification.type === 'announcement' ? '公告' :
              notification.type === 'personal_data' ? '个人数据' :
@@ -503,11 +486,7 @@ function NotificationItem({
 
         {/* 显示额外数据 */}
         {notification.data && (
-          <div className={cn(
-            "mt-3 p-2 rounded text-xs",
-            // 已读消息额外数据样式
-            notification.read ? "bg-muted/30 text-muted-foreground/70" : "bg-muted/50 text-muted-foreground"
-          )}>
+          <div className="mt-3 p-2 rounded text-xs bg-muted/50 text-foreground">
             {notification.category === 'pr_score' && (
               <span>PR #{notification.data.prId} - 评分: {notification.data.score}</span>
             )}

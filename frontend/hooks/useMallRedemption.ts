@@ -139,7 +139,7 @@ export function useRedeemItem() {
 
       toast({
         title: "兑换成功！",
-        description: `成功兑换 ${data.itemName}，兑换码：${data.redemptionCode}`,
+        description: `成功兑换 ${data.itemName}`,
         variant: "default",
       })
     },

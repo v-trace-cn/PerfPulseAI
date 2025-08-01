@@ -37,7 +37,7 @@ export default function SiteHeader({ onHelpClick, onSettingsClick }: SiteHeaderP
       <div className="container flex h-16 items-center justify-between py-4 dark:bg-background/60 dark:border-primary/5 dark:shadow-[0_4px_20px_rgba(79,70,229,0.1)] rounded-b-lg">
         <div className="flex items-center gap-2">
           <Link href="/" className="flex items-center gap-2 cursor-pointer">
-            <Image src="/logo.ico" alt="Logo" width={24} height={24} className="animate-pulse-slow" />
+            <Image src="/favicon.ico" alt="Logo" width={24} height={24} className="animate-pulse-slow" />
             <h1 className="text-xl font-bold tracking-tight">
               <span className="cyber-text">PerfPulseAI</span>
             </h1>

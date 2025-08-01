@@ -153,8 +153,7 @@ export const PointsHistory = memo<PointsHistoryProps>(({ userId }) => {
         {totalPages > 1 && (
           <div className="flex items-center justify-between mt-6 pt-4 border-t">
             <div className="text-sm text-muted-foreground">
-              显示 {((currentPage - 1) * pageSize) + 1}-{Math.min(currentPage * pageSize, pointsTransactions?.totalCount || 0)} 条，
-              共 {pointsTransactions?.totalCount || 0} 条记录
+              显示 {((currentPage - 1) * pageSize) + 1}-{Math.min(currentPage * pageSize, pointsTransactions?.totalCount || 0)} 条
             </div>
 
             <Pagination>

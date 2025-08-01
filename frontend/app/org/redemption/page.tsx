@@ -134,13 +134,14 @@ export default function RedemptionPage() {
   const [timeRangeStats, setTimeRangeStats] = useState<any>({})
   const [statsLoading, setStatsLoading] = useState(false)
 
-  // 获取兑换记录
+  // 获取兑换记录 - 改为公司级别数据
   const fetchRedemptionRecords = async () => {
     if (!user?.id) return
 
     try {
       setLoading(true)
-      const response = await fetch(`/api/mall/purchases?page=${currentPage}&page_size=${pageSize}`, {
+      const offset = (currentPage - 1) * pageSize
+      const response = await fetch(`/api/mall/purchases/company?limit=${pageSize}&offset=${offset}`, {
         headers: {
           'X-User-Id': String(user.id),
         },
@@ -148,13 +149,13 @@ export default function RedemptionPage() {
 
       if (response.ok) {
         const data = await response.json()
-        // 转换后端数据格式为前端格式
+        // 转换后端数据格式为前端格式，现在包含公司所有成员的兑换记录
         const formattedRecords = data.purchases.map((item: any) => ({
           id: item.id,
           userId: item.userId,
-          userName: user.name || "当前用户",
-          userAvatar: user.avatar || "/placeholder.svg?height=32&width=32",
-          department: user.department || "未知部门",
+          userName: item.userName || "未知用户", // 使用实际的用户名
+          userAvatar: item.userAvatar || "/placeholder.svg?height=32&width=32",
+          department: item.userDepartment || "未知部门", // 使用实际的部门信息
           redeemCode: item.redemptionCode || "无",
           rewardType: "积分商品",
           rewardName: item.itemName,
@@ -167,10 +168,10 @@ export default function RedemptionPage() {
         setRedemptionRecords(formattedRecords)
         setTotalRecords(data.totalCount)
       } else {
-        console.error('获取兑换记录失败')
+        console.error('获取公司兑换记录失败')
       }
     } catch (error) {
-      console.error('获取兑换记录错误:', error)
+      console.error('获取公司兑换记录错误:', error)
     } finally {
       setLoading(false)
     }
@@ -243,22 +244,28 @@ export default function RedemptionPage() {
     }
   }
 
-  // 获取统计数据
+  // 获取统计数据 - 改为真实后端数据
   const fetchStatsData = async () => {
+    if (!user?.id) return
+
     try {
       setStatsLoading(true)
-      // 这里可以调用后端统计API，暂时使用默认数据
-      const defaultStats = {
-        "2024-01": { month: "2024年1月", totalRedemptions: 12, totalPoints: 18500, totalUsers: 8 },
-        "2024-02": { month: "2024年2月", totalRedemptions: 15, totalPoints: 22300, totalUsers: 10 },
-        "2024-03": { month: "2024年3月", totalRedemptions: 18, totalPoints: 26800, totalUsers: 12 },
-        "2024-04": { month: "2024年4月", totalRedemptions: 22, totalPoints: 31200, totalUsers: 14 },
-        "2024-05": { month: "2024年5月", totalRedemptions: 25, totalPoints: 35600, totalUsers: 16 },
-        "2024-06": { month: "2024年6月", totalRedemptions: 28, totalPoints: 42100, totalUsers: 18 },
+      const response = await fetch('/api/mall/statistics/company?months=6', {
+        headers: {
+          'X-User-Id': String(user.id),
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setTimeRangeStats(data)
+      } else {
+        console.error('获取公司统计数据失败')
+        // 如果获取失败，使用空数据
+        setTimeRangeStats({})
       }
-      setTimeRangeStats(defaultStats)
     } catch (error) {
-      console.error('获取统计数据错误:', error)
+      console.error('获取公司统计数据错误:', error)
       setTimeRangeStats({})
     } finally {
       setStatsLoading(false)
@@ -314,7 +321,7 @@ export default function RedemptionPage() {
 
         toast({
           title: "兑换成功！",
-          description: `您已成功兑换 ${product.name}，兑换密钥：${redeemCode}`,
+          description: `您已成功兑换 ${product.name}`,
         });
 
         setSelectedProduct(null);
@@ -714,8 +721,8 @@ export default function RedemptionPage() {
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">已选择记录</p>
-                      <p className="text-2xl font-bold text-gray-900">{selectedRecords.length}</p>
+                      <p className="text-sm text-gray-600">奖品总数</p>
+                      <p className="text-2xl font-bold text-gray-900">0</p>
                     </div>
                     <div
                       className="h-8 w-8 rounded-lg flex items-center justify-center"
@@ -1063,7 +1070,7 @@ export default function RedemptionPage() {
                   <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-gray-600">
-                        显示 {startIndex + 1}-{Math.min(endIndex, filteredData.length)} 条，共 {filteredData.length} 条记录
+                        显示 {startIndex + 1}-{Math.min(endIndex, filteredData.length)} 条
                       </span>
                       <Select value={pageSize.toString()} onValueChange={(value) => {
                         setPageSize(Number(value));

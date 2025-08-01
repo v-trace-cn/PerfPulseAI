@@ -815,9 +815,73 @@
 **请求头**:
 - `X-User-Id`: 用户ID
 
-## 10. 健康检查 API
+## 10. 通知系统 API
 
-### 9.1 健康检查
+### 10.1 获取通知列表
+**接口**: `GET /api/notifications`
+**描述**: 获取用户通知列表
+**请求头**:
+- `X-User-Id`: 用户ID
+
+**查询参数**:
+- `type`: 通知类型过滤 (可选) - ANNOUNCEMENT, PERSONAL_DATA, PERSONAL_BUSINESS, REDEMPTION, POINTS, SYSTEM
+- `status`: 通知状态过滤 (可选) - UNREAD, READ, ARCHIVED
+- `limit`: 每页数量 (默认50, 最大100)
+- `offset`: 偏移量 (默认0)
+
+**响应示例**:
+```json
+[
+  {
+    "id": "notification-uuid",
+    "userId": 1,
+    "type": "REDEMPTION",
+    "title": "兑换成功",
+    "content": "恭喜您成功兑换商品",
+    "status": "UNREAD",
+    "extraData": {
+      "redeemCode": "ABC123",
+      "item": "商品名称",
+      "points": 50
+    },
+    "createdAt": "2025-08-01T02:13:37Z",
+    "readAt": null,
+    "isUnread": true,
+    "isRead": false,
+    "isArchived": false
+  }
+]
+```
+
+**注意**: 所有时间字段返回UTC格式，带'Z'后缀，前端会自动转换为中国时区显示。
+
+### 10.2 标记通知为已读
+**接口**: `POST /api/notifications/mark-read`
+**描述**: 批量标记通知为已读
+**请求头**:
+- `X-User-Id`: 用户ID
+
+**请求体**:
+```json
+{
+  "notification_ids": ["uuid1", "uuid2"]
+}
+```
+
+### 10.3 通知实时推送 (SSE)
+**接口**: `GET /api/notifications/stream`
+**描述**: 服务器发送事件流，实时推送新通知
+**查询参数**:
+- `user_id`: 用户ID
+
+**事件类型**:
+- `connected`: 连接成功
+- `heartbeat`: 心跳保持连接
+- `new_notification`: 新通知推送
+
+## 11. 健康检查 API
+
+### 11.1 健康检查
 **接口**: `GET /api/health`
 **描述**: 检查API服务器状态
 **响应示例**:
@@ -829,16 +893,16 @@
 }
 ```
 
-## 11. 错误处理
+## 12. 错误处理
 
-### 11.1 常见错误码
+### 12.1 常见错误码
 - `AUTH_001`: 认证失败
 - `PERM_001`: 权限不足
 - `VALID_001`: 参数验证失败
 - `DB_001`: 数据库操作失败
 - `FILE_001`: 文件操作失败
 
-### 10.2 错误响应示例
+### 12.2 错误响应示例
 ```json
 {
   "success": false,

@@ -3,6 +3,7 @@
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 
@@ -246,9 +247,9 @@ async def get_all_purchases(
     # TODO: 添加管理员权限检查
     # if not current_user.is_admin:
     #     raise HTTPException(status_code=403, detail="需要管理员权限")
-    
+
     mall_service = MallService(db)
-    
+
     # 转换状态字符串为枚举
     status_enum = None
     if status:
@@ -256,14 +257,79 @@ async def get_all_purchases(
             status_enum = PurchaseStatus(status.upper())
         except ValueError:
             raise HTTPException(status_code=400, detail="无效的状态值")
-    
+
     purchases = await mall_service.get_all_purchases(
         status=status_enum,
         limit=limit,
         offset=offset
     )
-    
+
     return [PurchaseResponse(**purchase.to_dict()) for purchase in purchases]
+
+
+@router.get("/mall/purchases/company")
+async def get_company_purchases(
+    status: Optional[str] = Query(None, description="购买状态过滤"),
+    limit: int = Query(100, ge=1, le=200, description="返回数量限制"),
+    offset: int = Query(0, ge=0, description="偏移量"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """获取公司级别的购买记录"""
+    if not current_user.company_id:
+        raise HTTPException(status_code=400, detail="用户未加入任何公司")
+
+    mall_service = MallService(db)
+
+    # 转换状态字符串为枚举
+    status_enum = None
+    if status:
+        try:
+            status_enum = PurchaseStatus(status.upper())
+        except ValueError:
+            raise HTTPException(status_code=400, detail="无效的状态值")
+
+    purchases = await mall_service.get_company_purchases(
+        company_id=current_user.company_id,
+        status=status,
+        limit=limit,
+        offset=offset
+    )
+
+    # 获取总数
+    total_count = await mall_service.get_company_purchases_count(
+        company_id=current_user.company_id,
+        status=status
+    )
+
+    # 为每个购买记录添加用户信息
+    purchases_with_user_info = []
+    for purchase in purchases:
+        purchase_dict = purchase.to_dict()
+        # 添加用户信息
+        if purchase.user:
+            purchase_dict.update({
+                "userName": purchase.user.name,
+                "userAvatar": purchase.user.avatar_url,
+                "userDepartment": purchase.user.department_rel.name if purchase.user.department_rel else "未知部门"
+            })
+        else:
+            purchase_dict.update({
+                "userName": "未知用户",
+                "userAvatar": "/placeholder.svg?height=32&width=32",
+                "userDepartment": "未知部门"
+            })
+        purchases_with_user_info.append(purchase_dict)
+
+    return {
+        "purchases": purchases_with_user_info,
+        "totalCount": total_count,
+        "page": (offset // limit) + 1,
+        "pageSize": limit,
+        "totalPages": (total_count + limit - 1) // limit,
+        "hasNext": offset + limit < total_count,
+        "hasPrev": offset > 0
+    }
 
 
 @router.post("/mall/purchases/{purchase_id}/complete", response_model=PurchaseResponse)
@@ -321,10 +387,29 @@ async def get_mall_statistics(
     # TODO: 添加管理员权限检查
     # if not current_user.is_admin:
     #     raise HTTPException(status_code=403, detail="需要管理员权限")
-    
+
     mall_service = MallService(db)
     stats = await mall_service.get_mall_statistics()
-    
+
+    return stats
+
+
+@router.get("/mall/statistics/company")
+async def get_company_mall_statistics(
+    months: int = Query(6, description="获取最近几个月的数据"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """获取公司级别的商城统计信息"""
+    if not current_user.company_id:
+        raise HTTPException(status_code=400, detail="用户未加入任何公司")
+
+    mall_service = MallService(db)
+    stats = await mall_service.get_company_statistics(
+        company_id=current_user.company_id,
+        months=months
+    )
+
     return stats
 
 

@@ -511,3 +511,110 @@ class MallService:
 
         result = await self.db.execute(query)
         return result.scalars().all()
+
+    async def get_company_purchases(
+        self,
+        company_id: int,
+        limit: int = 20,
+        offset: int = 0,
+        status: Optional[str] = None
+    ) -> List[PointPurchase]:
+        """获取公司级别的购买记录"""
+        from sqlalchemy import select
+        from sqlalchemy.orm import joinedload
+        from app.models.user import User
+
+        # 联接用户表以过滤公司成员的购买记录，并预加载用户信息
+        query = select(PointPurchase).options(
+            joinedload(PointPurchase.user).joinedload(User.department_rel),
+            joinedload(PointPurchase.transaction)
+        ).join(
+            User, PointPurchase.user_id == User.id
+        ).filter(User.company_id == company_id)
+
+        if status:
+            try:
+                status_enum = PurchaseStatus(status.upper())
+                query = query.filter(PointPurchase.status == status_enum)
+            except ValueError:
+                pass  # 忽略无效的状态值
+
+        query = query.order_by(PointPurchase.created_at.desc()).limit(limit).offset(offset)
+
+        result = await self.db.execute(query)
+        return result.scalars().all()
+
+    async def get_company_purchases_count(
+        self,
+        company_id: int,
+        status: Optional[str] = None
+    ) -> int:
+        """获取公司级别的购买记录总数"""
+        from sqlalchemy import select, func
+        from app.models.user import User
+
+        query = select(func.count(PointPurchase.id)).join(
+            User, PointPurchase.user_id == User.id
+        ).filter(User.company_id == company_id)
+
+        if status:
+            try:
+                status_enum = PurchaseStatus(status.upper())
+                query = query.filter(PointPurchase.status == status_enum)
+            except ValueError:
+                pass  # 忽略无效的状态值
+
+        result = await self.db.execute(query)
+        return result.scalar() or 0
+
+    async def get_company_statistics(
+        self,
+        company_id: int,
+        months: int = 6
+    ) -> Dict[str, Any]:
+        """获取公司级别的商城统计信息"""
+        from sqlalchemy import select, func, extract
+        from app.models.user import User
+        from datetime import datetime, timezone
+
+        # 获取最近几个月的数据
+        current_date = datetime.now(timezone.utc)
+        stats_by_month = {}
+
+        for i in range(months):
+            # 计算目标月份
+            target_month = current_date.month - i
+            target_year = current_date.year
+
+            if target_month <= 0:
+                target_month += 12
+                target_year -= 1
+
+            # 查询该月的统计数据
+            month_result = await self.db.execute(
+                select(
+                    func.count(PointPurchase.id).label('total_redemptions'),
+                    func.sum(PointPurchase.points_cost).label('total_points'),
+                    func.count(func.distinct(PointPurchase.user_id)).label('total_users')
+                )
+                .join(User, PointPurchase.user_id == User.id)
+                .filter(
+                    User.company_id == company_id,
+                    extract('year', PointPurchase.created_at) == target_year,
+                    extract('month', PointPurchase.created_at) == target_month,
+                    PointPurchase.status != PurchaseStatus.CANCELLED
+                )
+            )
+
+            month_stats = month_result.first()
+            month_key = f"{target_year}-{target_month:02d}"
+            month_name = f"{target_year}年{target_month}月"
+
+            stats_by_month[month_key] = {
+                "month": month_name,
+                "totalRedemptions": month_stats.total_redemptions or 0,
+                "totalPoints": int(month_stats.total_points or 0),
+                "totalUsers": month_stats.total_users or 0
+            }
+
+        return stats_by_month

@@ -21,7 +21,7 @@ import { authApi } from "@/lib/unified-api"
 import { useAuthDialog } from "@/lib/auth-dialog-context"
 import { Loader2 } from "lucide-react"
 
-export default function ClientPage() {
+export default function ClientPage({ children }: { children?: React.ReactNode }) {
   const { user, isAuthenticated, isLoading, error, login, register, logout } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
@@ -147,6 +147,7 @@ export default function ClientPage() {
 
   return (
     <>
+      {children}
       {/* Login/Register/Reset Password Dialogs */}
       <Dialog open={authDialogOpen} onOpenChange={setAuthDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">

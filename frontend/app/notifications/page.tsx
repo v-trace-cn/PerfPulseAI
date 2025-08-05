@@ -86,7 +86,7 @@ const getFullTime = (timestamp: string) => {
 // 内部组件，使用 useSearchParams
 function NotificationsContent() {
   const searchParams = useSearchParams()
-  const [activeTab, setActiveTab] = useState('all')
+  const [activeTab, setActiveTab] = useState('unread')
   const [searchQuery, setSearchQuery] = useState('')
   const [priorityFilter, setPriorityFilter] = useState('all')
   const [readFilter, setReadFilter] = useState('all')
@@ -98,13 +98,17 @@ function NotificationsContent() {
     const highlight = searchParams.get('highlight')
     if (highlight) {
       setHighlightId(highlight)
+      // 当有高亮通知时，切换到"全部"标签页
+      setActiveTab('all')
       // 自动滚动到高亮通知
       const timer = setTimeout(() => {
         const element = document.getElementById(`notification-${highlight}`)
         if (element) {
           element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        } else {
+          console.log('未找到高亮通知元素')
         }
-      }, 500)
+      }, 1000) // 增加延迟确保数据加载完成
 
       return () => clearTimeout(timer)
     }
@@ -120,6 +124,15 @@ function NotificationsContent() {
     markAllAsRead,
     deleteNotification
   } = useNotifications(activeTab === 'all' ? undefined : activeTab)
+
+  // 调试信息
+  console.log('通知页面状态:', {
+    notifications: notifications.length,
+    loading,
+    error,
+    activeTab,
+    highlight: searchParams.get('highlight')
+  })
 
   // 计算未读通知数量 - 使用 useMemo 优化
   const unreadCount = useMemo(() =>
@@ -255,18 +268,6 @@ function NotificationsContent() {
               )}
             </div>
           </div>
-          <div className="flex items-center space-x-2">
-            {unreadCount > 0 && (
-              <Button variant="outline" onClick={markAllAsRead}>
-                <Check className="h-4 w-4 mr-2" />
-                全部已读
-              </Button>
-            )}
-            <Button variant="outline" onClick={clearAllNotifications}>
-              <Trash2 className="h-4 w-4 mr-2" />
-              清空通知
-            </Button>
-          </div>
         </div>
 
         {/* 搜索和过滤 */}
@@ -317,11 +318,11 @@ function NotificationsContent() {
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <div className="p-4 border-b">
                 <TabsList className="grid w-full grid-cols-4">
-                  <TabsTrigger value="all" className="text-sm">
-                    全部 ({notifications.length})
-                  </TabsTrigger>
                   <TabsTrigger value="unread" className="text-sm">
                     未读 ({notifications.filter(n => !n.read).length})
+                  </TabsTrigger>
+                  <TabsTrigger value="all" className="text-sm">
+                    全部
                   </TabsTrigger>
                   <TabsTrigger value="announcement" className="text-sm">
                     公告 ({notifications.filter(n => n.type === 'announcement').length})

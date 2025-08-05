@@ -38,7 +38,6 @@ class NotificationResponse(BaseModel):
 
 class NotificationSummaryResponse(BaseModel):
     unreadCount: int
-    totalCount: int
 
 
 class MarkAsReadRequest(BaseModel):
@@ -104,21 +103,14 @@ async def get_notification_summary(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """获取通知摘要"""
+    """获取通知摘要（仅未读数量）"""
     notification_service = NotificationService(db)
-    
+
+    # 只查询未读数量，提升性能
     unread_count = await notification_service.get_unread_count(current_user.id)
-    
-    # 获取总数（这里简化处理，实际可能需要更复杂的查询）
-    all_notifications = await notification_service.get_user_notifications(
-        user_id=current_user.id,
-        limit=1000  # 临时方案，实际应该用count查询
-    )
-    total_count = len(all_notifications)
-    
+
     return NotificationSummaryResponse(
-        unreadCount=unread_count,
-        totalCount=total_count
+        unreadCount=unread_count
     )
 
 

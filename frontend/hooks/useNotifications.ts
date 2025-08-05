@@ -39,7 +39,10 @@ export function useNotifications(category?: string) {
   const { toast } = useToast()
 
   const fetchNotifications = async () => {
-    if (!user?.id) return
+    if (!user?.id) {
+      console.log('useNotifications: 用户未登录')
+      return
+    }
 
     try {
       setLoading(true)
@@ -51,7 +54,8 @@ export function useNotifications(category?: string) {
       }
       params.append('limit', '50')
 
-      const response = await fetch(`/api/notifications?${params}`, {
+      const url = `/api/notifications?${params}`
+      const response = await fetch(url, {
         headers: {
           'X-User-Id': String(user.id),
         },
@@ -59,7 +63,6 @@ export function useNotifications(category?: string) {
 
       if (response.ok) {
         const data = await response.json()
-        // 后端直接返回通知数组，不是包装在 notifications 字段中
         const formattedNotifications = (Array.isArray(data) ? data : []).map((item: any) => {
           // 根据后端通知类型映射到前端类型
           let frontendType: 'announcement' | 'personal_data' | 'personal_business' = 'personal_business'
@@ -89,7 +92,7 @@ export function useNotifications(category?: string) {
         setError(errorData.error || '获取通知失败')
       }
     } catch (err) {
-      console.error('获取通知失败:', err)
+      console.error('useNotifications: 获取通知失败:', err)
       setError('网络错误，请稍后重试')
     } finally {
       setLoading(false)

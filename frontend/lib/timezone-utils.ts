@@ -3,6 +3,27 @@
  * 处理UTC时间到中国时区(UTC+8)的转换
  */
 
+// 时间格式化缓存
+interface TimeFormatCache {
+  result: string;
+  timestamp: number;
+}
+
+const formatCache = new Map<string, TimeFormatCache>();
+const CACHE_DURATION = 30 * 1000; // 30秒缓存
+
+/**
+ * 清理过期的缓存条目
+ */
+function cleanExpiredCache() {
+  const now = Date.now();
+  for (const [key, cache] of formatCache.entries()) {
+    if (now - cache.timestamp > CACHE_DURATION) {
+      formatCache.delete(key);
+    }
+  }
+}
+
 /**
  * 将UTC时间戳转换为中国时区时间
  * @param timestamp - UTC时间戳字符串
@@ -24,44 +45,100 @@ export function convertUTCToChinaTime(timestamp: string): Date {
 
 /**
  * 格式化时间为相对时间（几分钟前、几小时前等）
+ * 带缓存机制，提升性能
  * @param timestamp - UTC时间戳字符串
  * @returns 格式化的相对时间字符串
  */
 export function formatRelativeTime(timestamp: string): string {
-  // 确保时间戳有正确的UTC标识
-  let normalizedTimestamp = timestamp;
-  if (!timestamp.includes('Z') && !timestamp.includes('+') && !timestamp.includes('-')) {
-    normalizedTimestamp = timestamp + 'Z';
+  // 检查缓存
+  const cacheKey = timestamp;
+  const cached = formatCache.get(cacheKey);
+  const now = Date.now();
+
+  if (cached && (now - cached.timestamp) < CACHE_DURATION) {
+    return cached.result;
   }
 
-  const targetTime = new Date(normalizedTimestamp);
-  const now = new Date();
+  try {
+    // 确保时间戳有正确的UTC标识
+    let normalizedTimestamp = timestamp;
+    if (!timestamp.includes('Z') && !timestamp.includes('+') && !timestamp.includes('-')) {
+      normalizedTimestamp = timestamp + 'Z';
+    }
 
-  const diff = now.getTime() - targetTime.getTime();
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
+    // 创建目标时间（UTC）
+    const targetTime = new Date(normalizedTimestamp);
 
-  if (minutes < 1) return '刚刚';
-  if (minutes < 60) return `${minutes}分钟前`;
-  if (hours < 24) return `${hours}小时前`;
-  if (days < 7) return `${days}天前`;
+    // 检查时间是否有效
+    if (isNaN(targetTime.getTime())) {
+      return '时间无效';
+    }
 
-  // 超过7天显示具体日期（使用中国时区）
-  return targetTime.toLocaleDateString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    timeZone: 'Asia/Shanghai'
-  });
+    // 获取当前时间（本地时间）
+    const currentTime = new Date();
+
+    // 计算时间差（毫秒）
+    const diff = currentTime.getTime() - targetTime.getTime();
+
+    // 转换为各种时间单位
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    let result: string;
+    if (seconds < 60) {
+      result = '刚刚';
+    } else if (minutes < 60) {
+      result = `${minutes}分钟前`;
+    } else if (hours < 24) {
+      result = `${hours}小时前`;
+    } else if (days < 7) {
+      result = `${days}天前`;
+    } else {
+      // 超过7天显示具体日期（使用中国时区）
+      result = targetTime.toLocaleDateString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        timeZone: 'Asia/Shanghai'
+      });
+    }
+
+    // 缓存结果
+    formatCache.set(cacheKey, {
+      result,
+      timestamp: now
+    });
+
+    // 定期清理过期缓存（每100次调用清理一次）
+    if (formatCache.size > 100) {
+      cleanExpiredCache();
+    }
+
+    return result;
+  } catch (error) {
+    console.error('Error formatting relative time:', error, timestamp);
+    return '时间格式错误';
+  }
 }
 
 /**
  * 获取完整的中国时区时间字符串
+ * 带缓存机制，提升性能
  * @param timestamp - UTC时间戳字符串
  * @returns 格式化的完整时间字符串
  */
 export function getFullChinaTime(timestamp: string): string {
+  // 检查缓存
+  const cacheKey = `full_${timestamp}`;
+  const cached = formatCache.get(cacheKey);
+  const now = Date.now();
+
+  if (cached && (now - cached.timestamp) < CACHE_DURATION) {
+    return cached.result;
+  }
+
   // 确保时间戳有正确的UTC标识
   let normalizedTimestamp = timestamp;
   if (!timestamp.includes('Z') && !timestamp.includes('+') && !timestamp.includes('-')) {
@@ -70,7 +147,7 @@ export function getFullChinaTime(timestamp: string): string {
 
   const targetTime = new Date(normalizedTimestamp);
 
-  return targetTime.toLocaleString('zh-CN', {
+  const result = targetTime.toLocaleString('zh-CN', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -79,6 +156,14 @@ export function getFullChinaTime(timestamp: string): string {
     second: '2-digit',
     timeZone: 'Asia/Shanghai'
   });
+
+  // 缓存结果
+  formatCache.set(cacheKey, {
+    result,
+    timestamp: now
+  });
+
+  return result;
 }
 
 /**
@@ -140,4 +225,36 @@ export function formatSmartTime(timestamp: string): string {
     day: '2-digit',
     timeZone: 'Asia/Shanghai'
   });
+}
+
+/**
+ * 获取缓存统计信息（用于性能监控）
+ */
+export function getCacheStats() {
+  const now = Date.now();
+  let validEntries = 0;
+  let expiredEntries = 0;
+
+  for (const [, cache] of formatCache.entries()) {
+    if (now - cache.timestamp < CACHE_DURATION) {
+      validEntries++;
+    } else {
+      expiredEntries++;
+    }
+  }
+
+  return {
+    totalEntries: formatCache.size,
+    validEntries,
+    expiredEntries,
+    cacheDuration: CACHE_DURATION,
+    hitRate: validEntries / (validEntries + expiredEntries) || 0
+  };
+}
+
+/**
+ * 清空所有缓存（用于测试或重置）
+ */
+export function clearCache() {
+  formatCache.clear();
 }

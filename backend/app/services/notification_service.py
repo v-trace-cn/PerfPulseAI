@@ -67,7 +67,7 @@ class NotificationService:
                     "title": notification.title,
                     "content": notification.content,
                     "type": notification.type.value if notification.type else None,
-                    "createdAt": notification.created_at.isoformat() if notification.created_at else None,
+                    "createdAt": notification.created_at.isoformat() + 'Z' if notification.created_at else None,
                     "read": False
                 }
             }

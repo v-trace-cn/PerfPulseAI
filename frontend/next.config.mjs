@@ -46,6 +46,14 @@ const nextConfig = {
         source: '/api/pr/:path*',
         destination: `${process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://127.0.0.1:5000'}/api/pr/:path*`,
       },
+      {
+        source: '/api/permissions/:path*',
+        destination: `${process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://127.0.0.1:5000'}/api/permissions/:path*`,
+      },
+      {
+        source: '/api/roles/:path*',
+        destination: `${process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://127.0.0.1:5000'}/api/roles/:path*`,
+      },
     ];
   },
 }

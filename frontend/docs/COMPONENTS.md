@@ -196,49 +196,22 @@ interface NotificationItemProps {
 - 兑换成功Toast只显示商品名称（不显示兑换码）
 ```
 
-### 6. 时区处理工具 (`lib/timezone-utils.ts`)
+### 6. 时区处理工具
 
-#### formatRelativeTime
-格式化相对时间显示，带性能优化缓存。
+时区处理功能已迁移到专门的文档中，详见 [通知与时区系统](./module/notify-time.md#时间与时区处理)。
 
-```typescript
-function formatRelativeTime(timestamp: string): string
+**核心功能：**
+- 自动UTC到中国时区转换
+- 相对时间显示（如"2分钟前"）
+- 完整时间格式显示
+- 高性能缓存机制
+- 性能监控工具
 
-// 功能特性
-- 自动处理UTC时间转换为中国时区
-- 智能相对时间显示（刚刚、几分钟前、几小时前等）
-- 超过7天显示具体日期
-- 自动标准化时间戳格式
-- 30秒缓存机制，提升性能3-10倍
-- 自动清理过期缓存
-```
-
-#### getFullChinaTime
-获取完整的中国时区时间字符串，带缓存优化。
-
-```typescript
-function getFullChinaTime(timestamp: string): string
-
-// 功能特性
-- 返回格式化的完整时间字符串
-- 自动转换为中国时区（UTC+8）
-- 支持多种输入时间格式
-- 缓存机制避免重复计算
-```
-
-#### 性能监控工具
-```typescript
-// 获取缓存统计
-function getCacheStats(): CacheStats
-
-// 清空缓存
-function clearCache(): void
-
-// 功能特性
-- 监控缓存命中率
-- 性能调试工具
-- 内存使用控制
-```
+**主要函数：**
+- `formatRelativeTime()` - 相对时间显示
+- `getFullChinaTime()` - 完整时间显示
+- `getCacheStats()` - 缓存统计
+- `clearCache()` - 缓存清理
 
 ## 组件开发规范
 

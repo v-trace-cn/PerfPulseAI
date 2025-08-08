@@ -21,6 +21,7 @@ interface PointsMallProps {
 export const PointsMall = memo<PointsMallProps>(({ currentPoints }) => {
   const { toast } = useToast();
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [redeemingItems, setRedeemingItems] = useState<Set<string>>(new Set());
 
   // 使用真实API获取商品数据
   const { data: mallItems, error } = useMallItems(selectedCategory === 'all' ? undefined : selectedCategory);
@@ -88,10 +89,22 @@ export const PointsMall = memo<PointsMallProps>(({ currentPoints }) => {
       return;
     }
 
+    // 标记当前商品为兑换中
+    setRedeemingItems(prev => new Set([...prev, reward.id]));
+
     // 调用兑换API
     redeemMutation.mutate({
       item_id: reward.id,
       delivery_info: {} // 可以根据需要添加配送信息
+    }, {
+      onSettled: () => {
+        // 无论成功还是失败，都移除兑换中状态
+        setRedeemingItems(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(reward.id);
+          return newSet;
+        });
+      }
     });
   };
 
@@ -187,9 +200,9 @@ export const PointsMall = memo<PointsMallProps>(({ currentPoints }) => {
                 <Button
                   className="w-full"
                   onClick={() => handleRedeem(reward)}
-                  disabled={!reward.available || currentPoints < reward.cost || redeemMutation.isPending}
+                  disabled={!reward.available || currentPoints < reward.cost || redeemingItems.has(reward.id)}
                 >
-                  {redeemMutation.isPending ? '兑换中...' :
+                  {redeemingItems.has(reward.id) ? '兑换中...' :
                    !reward.available ? '缺货' :
                    currentPoints < reward.cost ? '积分不足' : '立即兑换'}
                 </Button>

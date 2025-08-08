@@ -383,6 +383,26 @@ class Notification(Base):
     status = Column(Enum(NotificationStatus), default=NotificationStatus.UNREAD)
     extra_data = Column(JSON, nullable=True)
     created_at = Column(DateTime, nullable=False)
+    read_at = Column(DateTime, nullable=True)
+```
+
+**性能优化索引：**
+```sql
+-- 用户通知查询索引
+CREATE INDEX idx_notifications_user_created
+ON notifications(user_id, created_at DESC);
+
+-- 未读通知统计索引
+CREATE INDEX idx_notifications_user_status
+ON notifications(user_id, status);
+
+-- 通知类型查询索引
+CREATE INDEX idx_notifications_user_type_created
+ON notifications(user_id, type, created_at DESC);
+
+-- 复合查询索引
+CREATE INDEX idx_notifications_user_status_type_created
+ON notifications(user_id, status, type, created_at DESC);
 ```
 
 ### 7.5 状态管理

@@ -3,7 +3,7 @@
 import React, { useState } from "react"
 import AuthGuard from "@/components/guards/AuthGuard"
 import CompanyGuard from "@/components/guards/CompanyGuard"
-import { Building, Plus, Search, Settings, Gift, LogOut, Link as LinkIcon, ChevronDown } from "lucide-react"
+import { Building, Plus, Search, Settings, Gift, LogOut, Link as LinkIcon, ChevronDown, Shield, Package } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -152,9 +152,15 @@ export default function OrganizationManagement() {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href="/org" className="flex items-center w-full">
-                        <Gift className="mr-2 h-4 w-4" />
+                      <Link href="/org/permissions" className="flex items-center w-full">
+                        <Shield className="mr-2 h-4 w-4" />
                         权限管理
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/org/mall" className="flex items-center w-full">
+                        <Package className="mr-2 h-4 w-4" />
+                        商城管理
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>

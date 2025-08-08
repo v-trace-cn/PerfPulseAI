@@ -59,6 +59,7 @@ export default function RedemptionPage() {
   const [showPointsMall, setShowPointsMall] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<any>(null)
   const [userPoints, setUserPoints] = useState(0) // 从后端获取用户积分
+  const [redeemingProducts, setRedeemingProducts] = useState<Set<string>>(new Set())
 
   // 处理时间范围变化
   const handleTimeRangeChange = (value: string) => {
@@ -291,7 +292,9 @@ export default function RedemptionPage() {
       return;
     }
 
-    setIsRedeeming(true);
+    // 标记当前商品为兑换中
+    setRedeemingProducts(prev => new Set([...prev, product.id]));
+
     try {
       // 调用后端购买API
       const response = await fetch('/api/mall/purchase', {
@@ -341,7 +344,12 @@ export default function RedemptionPage() {
         variant: "destructive",
       });
     } finally {
-      setIsRedeeming(false);
+      // 移除兑换中状态
+      setRedeemingProducts(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(product.id);
+        return newSet;
+      });
     }
   };
 
@@ -1180,11 +1188,12 @@ export default function RedemptionPage() {
                         </div>
                         <Button
                           onClick={() => setSelectedProduct(product)}
-                          disabled={!product.isAvailable || userPoints < product.points}
+                          disabled={!product.isAvailable || userPoints < product.points || redeemingProducts.has(product.id)}
                           className="w-full"
                           variant={userPoints >= product.points ? "default" : "secondary"}
                         >
-                          {userPoints >= product.points ? '立即兑换' : '积分不足'}
+                          {redeemingProducts.has(product.id) ? '兑换中...' :
+                           userPoints >= product.points ? '立即兑换' : '积分不足'}
                         </Button>
                       </CardContent>
                     </Card>
@@ -1242,10 +1251,10 @@ export default function RedemptionPage() {
                   </Button>
                   <Button
                     onClick={() => selectedProduct && handleRedeem(selectedProduct)}
-                    disabled={isRedeeming}
+                    disabled={selectedProduct && redeemingProducts.has(selectedProduct.id)}
                     className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
                   >
-                    {isRedeeming ? (
+                    {selectedProduct && redeemingProducts.has(selectedProduct.id) ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                         兑换中...

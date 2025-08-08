@@ -255,7 +255,17 @@ export default function RootLayout({ children }) {
 
 ## 缓存策略
 
-### 1. HTTP 缓存
+### 1. 时区处理缓存
+
+时区处理系统采用了专门的高性能缓存机制，详见 [通知与时区系统](./module/notify-time.md#时间与时区处理)。
+
+**关键特性：**
+- 30秒TTL缓存机制
+- LRU缓存策略
+- 3-10倍性能提升
+- 自动内存管理
+
+### 2. HTTP 缓存
 
 ```typescript
 // Next.js 静态资源缓存

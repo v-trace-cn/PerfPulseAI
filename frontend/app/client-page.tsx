@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useTheme } from "next-themes"
 import { useToast } from "@/components/ui/use-toast"
@@ -36,6 +37,8 @@ export default function ClientPage({ children }: { children?: React.ReactNode })
     confirmPassword: "",
     passwordMatch: "",
   })
+  const [rememberCreds, setRememberCreds] = useState<boolean>(false)
+
   const [registrationStatus, setRegistrationStatus] = useState<string>("");
 
   useEffect(() => {
@@ -51,6 +54,39 @@ export default function ClientPage({ children }: { children?: React.ReactNode })
     setFormData(prev => ({ ...prev, password: "", confirmPassword: "" }));
     setErrors({ email: "", password: "", confirmPassword: "", passwordMatch: "" });
   }, [authMode]);
+
+  // 初始化“记住账号/密码”
+  useEffect(() => {
+    if (authMode !== "login") return;
+    if (typeof window === "undefined") return;
+
+    const remCredsStored = localStorage.getItem("login_remember_creds");
+    const remEmail = localStorage.getItem("login_remember_email") === "1"; // 兼容旧数据
+    const remPwd = localStorage.getItem("login_remember_pwd") === "1"; // 兼容旧数据
+    const rememberCreds = remCredsStored ? remCredsStored === "1" : (remEmail || remPwd);
+
+
+    const savedEmail = localStorage.getItem("login_saved_email") || "";
+    const savedPwdEnc = localStorage.getItem("login_saved_pwd");
+
+    setRememberCreds(rememberCreds);
+
+
+    setFormData((prev) => ({
+      ...prev,
+      email: rememberCreds ? savedEmail : prev.email,
+      password:
+        rememberCreds && savedPwdEnc
+          ? (() => {
+              try {
+                return window.atob(savedPwdEnc);
+              } catch {
+                return "";
+              }
+            })()
+          : prev.password,
+    }));
+  }, [authMode, authDialogOpen]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -112,6 +148,21 @@ export default function ClientPage({ children }: { children?: React.ReactNode })
         const success = await login(formData.email, formData.password);
         if (success) {
           toast({ title: "登录成功", description: "欢迎回来！", variant: "default" });
+
+          if (typeof window !== "undefined") {
+            localStorage.setItem("login_remember_creds", rememberCreds ? "1" : "0");
+            if (rememberCreds) {
+              localStorage.setItem("login_saved_email", formData.email);
+              try {
+                localStorage.setItem("login_saved_pwd", window.btoa(formData.password));
+              } catch {
+                // ignore btoa errors
+              }
+            } else {
+              localStorage.removeItem("login_saved_email");
+              localStorage.removeItem("login_saved_pwd");
+            }
+          }
           setAuthDialogOpen(false);
         } else {
           toast({ title: "登录失败", description: error || "请检查您的邮箱和密码", variant: "destructive" });
@@ -188,6 +239,28 @@ export default function ClientPage({ children }: { children?: React.ReactNode })
                   required
                 />
                 {errors.password && <p className="text-red-500 text-sm">{errors.password}</p>}
+              </div>
+            )}
+            {authMode === "login" && (
+              <div className="flex items-center gap-6">
+                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Checkbox
+                    checked={rememberCreds}
+                    onCheckedChange={(v) => {
+                      const checked = !!v;
+                      setRememberCreds(checked);
+                      if (typeof window !== "undefined") {
+                        localStorage.setItem("login_remember_creds", checked ? "1" : "0");
+                        if (!checked) {
+                          localStorage.removeItem("login_saved_email");
+                          localStorage.removeItem("login_saved_pwd");
+                        }
+                      }
+                    }}
+                  />
+                  记住账密（公共设备不建议）
+                </label>
+
               </div>
             )}
             {(authMode === "register" || authMode === "reset-password") && (

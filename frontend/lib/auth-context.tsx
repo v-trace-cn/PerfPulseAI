@@ -9,7 +9,7 @@ type AuthContextType = {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string, autoLogin?: boolean) => Promise<boolean>;
   register: (email: string, password: string, name?: string) => Promise<boolean>;
   logout: () => void;
   refreshUser: () => Promise<void>;
@@ -28,7 +28,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const checkAuth = async () => {
       if (typeof window === 'undefined') return;
       
-      const token = localStorage.getItem('token');
+      const tokenLS = localStorage.getItem('token');
+      const tokenSS = sessionStorage.getItem('token');
+      const token = tokenLS || tokenSS;
       if (!token) {
         setIsLoading(false);
         return;
@@ -41,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error('Profile fetch error:', err);
         // Clear invalid token
         localStorage.removeItem('token');
+        sessionStorage.removeItem('token');
       } finally {
         setIsLoading(false);
       }
@@ -50,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshUser = async () => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     if (!token) return;
 
     setIsLoading(true);
@@ -65,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string, autoLogin: boolean = true): Promise<boolean> => {
     setIsLoading(true);
     setError(null);
 
@@ -77,7 +80,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (typeof window !== 'undefined') {
-        localStorage.setItem('token', response.data.userId);
+        if (autoLogin) {
+          localStorage.setItem('token', response.data.userId);
+          sessionStorage.removeItem('token');
+        } else {
+          sessionStorage.setItem('token', response.data.userId);
+          localStorage.removeItem('token');
+        }
         await refreshUser();
       }
       return true;
@@ -118,6 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('token');
+      sessionStorage.removeItem('token');
     }
     setUser(null);
   };

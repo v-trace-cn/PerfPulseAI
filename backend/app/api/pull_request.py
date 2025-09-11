@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from sqlalchemy.orm import Session, joinedload
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.core.database import get_db, AsyncSessionLocal
@@ -243,9 +243,11 @@ async def calculate_pr_points(
             print(f"[积分发放] 活动 {activity_show_id} 已完成且已发放积分 {activity.points}，不再重复授予。")
             return {"message": "Points already awarded for this activity.", "points_awarded": activity.points}
 
-        score_result = analysis_result.get("score") or {
+        # 使用顶层字段构建积分计算输入，保证分值在统一尺度（0-100）
+        score_result = {
             "overall_score": analysis_result.get("overall_score"),
-            "dimensions": analysis_result.get("dimensions")
+            "innovation_score": analysis_result.get("innovation_score", 0),
+            "dimensions": analysis_result.get("dimensions"),
         }
 
         # 始终重新计算积分，确保精确性
@@ -256,12 +258,18 @@ async def calculate_pr_points(
         # 使用新的积分服务来处理积分授予
         point_service = PointService(db)
 
-        # 检查是否已经为此活动授予过积分
+        # 先获取用户公司ID（公司维度去重）
+        from app.models.user import User
+        user_res = await db.execute(select(User.company_id).filter(User.id == activity.user_id))
+        company_id = user_res.scalar()
+
+        # 检查是否已经为此活动授予过积分（公司维度）
         existing_transaction = await point_service._check_duplicate_transaction(
             user_id=activity.user_id,
             reference_id=activity_show_id,
             reference_type='activity',
-            transaction_type=TransactionType.EARN
+            transaction_type=TransactionType.EARN,
+            company_id=company_id,
         )
 
         if existing_transaction:
@@ -277,12 +285,17 @@ async def calculate_pr_points(
             if old_amount_storage != new_amount_storage:
                 # 需要调整积分（使用前端展示格式计算调整量）
                 adjustment_amount_display = new_amount_display - old_amount_display
+                # 获取用户的公司ID用于公司维度记账
+                user_res = await db.execute(select(User.company_id).filter(User.id == activity.user_id))
+                company_id = user_res.scalar()
+
                 await point_service.adjust_points(
                     user_id=activity.user_id,
                     amount=adjustment_amount_display,
                     reference_id=activity_show_id,
                     reference_type='activity_adjustment',
                     description=f"AI重新评分调整: {activity_show_id} (原{old_amount_display}分 -> 现{new_amount_display}分)",
+                    company_id=company_id,
                     is_display_amount=True  # 调整量是前端展示格式
                 )
                 print(f"[积分调整] 活动 {activity_show_id} 积分从 {old_amount_display} 调整为 {new_amount_display}，调整量: {adjustment_amount_display}")
@@ -290,6 +303,10 @@ async def calculate_pr_points(
                 print(f"[积分发放] 活动 {activity_show_id} 积分无变化，保持 {new_amount_display} 分")
         else:
             # 首次授予积分
+            # 获取用户的公司ID用于公司维度记账
+            user_res = await db.execute(select(User.company_id).filter(User.id == activity.user_id))
+            company_id = user_res.scalar()
+
             await point_service.earn_points(
                 user_id=activity.user_id,
                 amount=points_to_award,
@@ -301,6 +318,7 @@ async def calculate_pr_points(
                     "pr_node_id": pull_request_result.pr_node_id,
                     "detailed_points": detailed_points
                 },
+                company_id=company_id,
                 is_display_amount=True  # AI计算的积分是前端展示格式
             )
             print(f"[积分发放] 用户 {activity.user_id} 获得活动 {activity_show_id} 积分 {points_to_award}")
@@ -384,9 +402,11 @@ async def recalculate_pr_points(
 
         analysis_result = pull_request_result.ai_analysis_result
 
-        score_result = analysis_result.get("score") or {
+        # 使用顶层字段构造积分计算输入，避免 score 子结构（可能为 0-10 尺度）
+        score_result = {
             "overall_score": analysis_result.get("overall_score"),
-            "dimensions": analysis_result.get("dimensions")
+            "innovation_score": analysis_result.get("innovation_score", 0),
+            "dimensions": analysis_result.get("dimensions"),
         }
 
         # 重新计算积分
@@ -420,6 +440,10 @@ async def recalculate_pr_points(
                 adjustment_amount_display = new_points_display - old_points_display
 
                 # 创建积分调整交易
+                # 获取用户的公司ID用于公司维度记账
+                user_res = await db.execute(select(User.company_id).filter(User.id == activity.user_id))
+                company_id = user_res.scalar()
+
                 await point_service.adjust_points(
                     user_id=activity.user_id,
                     amount=adjustment_amount_display,
@@ -435,6 +459,7 @@ async def recalculate_pr_points(
                         "recalculated_at": datetime.utcnow().isoformat(),
                         "recalculation_reason": "AI重新评分"
                     },
+                    company_id=company_id,
                     is_display_amount=True  # 调整量是前端展示格式
                 )
 
@@ -460,6 +485,10 @@ async def recalculate_pr_points(
                 }
         else:
             # 如果没有现有交易，直接授予积分
+            # 获取用户的公司ID用于公司维度记账
+            user_res = await db.execute(select(User.company_id).filter(User.id == activity.user_id))
+            company_id = user_res.scalar()
+
             await point_service.earn_points(
                 user_id=activity.user_id,
                 amount=new_points,
@@ -471,6 +500,7 @@ async def recalculate_pr_points(
                     "pr_node_id": pull_request_result.pr_node_id,
                     "detailed_points": points_calculation_result["detailed_points"]
                 },
+                company_id=company_id,
                 is_display_amount=True  # AI计算的积分是前端展示格式
             )
 

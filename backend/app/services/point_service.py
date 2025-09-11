@@ -6,10 +6,10 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict, Any, Tuple, Union
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, desc, text, case
+from sqlalchemy import select, func, and_, desc, case
 from sqlalchemy.orm import joinedload
 import logging
-import asyncio
+
 from functools import wraps
 
 from app.models.scoring import (
@@ -44,7 +44,7 @@ class PointConverter:
         """格式化积分用于API返回（保留1位小数）"""
         display_points = cls.to_display(storage_points)
         return round(display_points, 1)
-from app.core.database import get_db
+
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +146,7 @@ class PointService:
         reference_type: Optional[str] = None,
         description: Optional[str] = None,
         extra_data: Optional[Dict[str, Any]] = None,
-        company_id: Optional[int] = None,
+        company_id: int = None,
         dispute_deadline_days: int = 90,
         is_display_amount: bool = True
     ) -> PointTransaction:
@@ -160,6 +160,8 @@ class PointService:
         """
         if amount <= 0:
             raise ValueError("积分数量必须大于0")
+        if company_id is None:
+            raise ValueError("company_id 必填")
 
         # 转换积分格式：如果是展示格式，需要放大10倍存储
         storage_amount = PointConverter.to_storage(amount) if is_display_amount else int(amount)
@@ -171,14 +173,11 @@ class PointService:
                 user_id, reference_id, reference_type, TransactionType.EARN, company_id=company_id
             )
             if existing:
-                logger.warning(f"重复的积分交易: user_id={user_id}, reference_id={reference_id}")
+                logger.warning(f"重复的积分交易: user_id={user_id}, reference_id={reference_id}, company_id={company_id}")
                 return existing
 
-        # 获取当前余额（后端存储格式）
-        if company_id is not None:
-            current_balance = await self.calculate_user_balance(user_id, company_id)
-        else:
-            current_balance = await self.get_user_balance(user_id)
+        # 获取当前余额（后端存储格式，强制公司维度）
+        current_balance = await self.calculate_user_balance(user_id, company_id)
         new_balance = current_balance + storage_amount
 
         # 创建交易记录
@@ -219,7 +218,7 @@ class PointService:
         reference_type: Optional[str] = None,
         description: Optional[str] = None,
         extra_data: Optional[Dict[str, Any]] = None,
-        company_id: Optional[int] = None,
+        company_id: int = None,
         is_display_amount: bool = True
     ) -> PointTransaction:
         """用户消费积分（可选公司维度）
@@ -232,16 +231,15 @@ class PointService:
         """
         if amount <= 0:
             raise ValueError("积分数量必须大于0")
+        if company_id is None:
+            raise ValueError("company_id 必填")
 
         # 转换积分格式：如果是展示格式，需要放大10倍存储
         storage_amount = PointConverter.to_storage(amount) if is_display_amount else int(amount)
         display_amount = PointConverter.to_display(storage_amount)
 
-        # 获取当前余额并验证（按公司或全量）
-        if company_id is not None:
-            current_balance = await self.calculate_user_balance(user_id, company_id)
-        else:
-            current_balance = await self.get_user_balance(user_id)
+        # 获取当前余额并验证（强制公司维度）
+        current_balance = await self.calculate_user_balance(user_id, company_id)
         if current_balance < storage_amount:
             current_display = PointConverter.to_display(current_balance)
             raise ValueError(f"积分余额不足，当前余额: {current_display}，需要: {display_amount}")
@@ -285,6 +283,7 @@ class PointService:
         reference_type: Optional[str] = None,
         description: Optional[str] = None,
         extra_data: Optional[Dict[str, Any]] = None,
+        company_id: int = None,
         is_display_amount: bool = True
     ) -> PointTransaction:
         """积分调整（支持AI重新评分等场景）
@@ -296,13 +295,15 @@ class PointService:
         """
         if amount == 0:
             raise ValueError("调整积分数量不能为0")
+        if company_id is None:
+            raise ValueError("company_id 必填")
 
         # 转换积分格式
         storage_amount = PointConverter.to_storage(amount) if is_display_amount else int(amount)
         display_amount = PointConverter.to_display(storage_amount)
 
-        # 获取当前余额（后端存储格式）
-        current_balance = await self.get_user_balance(user_id)
+        # 获取当前余额（后端存储格式，强制公司维度）
+        current_balance = await self.calculate_user_balance(user_id, company_id)
         new_balance = current_balance + storage_amount
 
         # 确保余额不会变为负数
@@ -314,6 +315,7 @@ class PointService:
         transaction = PointTransaction(
             id=str(uuid.uuid4()),
             user_id=user_id,
+            company_id=company_id,
             transaction_type=TransactionType.ADJUST,
             amount=storage_amount,
             balance_after=new_balance,
@@ -326,11 +328,11 @@ class PointService:
 
         self.db.add(transaction)
 
-        # 更新用户积分
-        await self._update_user_points(user_id, new_balance)
+        # 更新用户积分（维护全局缓存字段）
+        await self._update_user_points(user_id, (await self.calculate_user_balance(user_id)))
 
-        # 检查用户等级变化
-        await self._check_level_upgrade(user_id, new_balance)
+        # 等级变化（基于全量）
+        await self._check_level_upgrade(user_id, await self.calculate_user_balance(user_id))
 
         await self.db.commit()
         await self.db.refresh(transaction)
@@ -551,7 +553,7 @@ class PointService:
                 "isConsistent": abs(balance_difference) < 1  # 允许1个存储单位的误差
             }
         except Exception as e:
-            print(f"获取用户积分统计错误: {e}")
+            logger.warning(f"get_user_statistics error: {e}")
             # 返回默认值
             current_balance_storage = await self.get_user_balance(user_id)
             return {
@@ -623,7 +625,7 @@ class PointService:
             return unified_data
 
         except Exception as e:
-            print(f"获取统一用户数据错误: {e}")
+            logger.warning(f"get_unified_user_data error: {e}")
             # 返回基础数据
             current_balance_storage = await self.get_user_balance(user_id)
             return {
@@ -941,17 +943,16 @@ class PointService:
         reference_id: str,
         reference_type: str,
         transaction_type: TransactionType,
-        company_id: Optional[int] = None
+        company_id: int
     ) -> Optional[PointTransaction]:
-        """检查重复交易（可按公司维度）"""
+        """检查重复交易（按公司维度）"""
         query = select(PointTransaction).filter(
             PointTransaction.user_id == user_id,
             PointTransaction.reference_id == reference_id,
             PointTransaction.reference_type == reference_type,
-            PointTransaction.transaction_type == transaction_type
+            PointTransaction.transaction_type == transaction_type,
+            PointTransaction.company_id == company_id,
         )
-        if company_id is not None:
-            query = query.filter(PointTransaction.company_id == company_id)
         result = await self.db.execute(query.limit(1))
         return result.scalar()
 

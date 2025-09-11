@@ -179,6 +179,11 @@ class ActivityService:
 
                     if existing_transaction:
                         # 创建回退交易记录
+                        # 获取活动用户的公司ID用于公司维度记账
+                        from app.models.user import User
+                        user_res = await self.db.execute(select(User.company_id).filter(User.id == activity.user_id))
+                        company_id = user_res.scalar()
+
                         reverted_transaction = await point_service.adjust_points(
                             user_id=activity.user_id,
                             amount=-old_points,  # 负数表示回退
@@ -190,6 +195,7 @@ class ActivityService:
                                 "activity_title": activity.title,
                                 "reset_reason": "AI重新评分前重置"
                             },
+                            company_id=company_id,
                             is_display_amount=True  # old_points是前端展示格式
                         )
                         logger.info(f"Reverted {old_points} points for user {activity.user_id} from activity {activity_id}")
@@ -246,6 +252,11 @@ class ActivityService:
 
             # 创建积分交易记录
             # points参数是前端展示格式，需要传递is_display_amount=True让服务层转换
+            # 获取活动用户的公司ID用于公司维度记账
+            from app.models.user import User
+            user_res = await self.db.execute(select(User.company_id).filter(User.id == activity.user_id))
+            company_id = user_res.scalar()
+
             transaction = await point_service.earn_points(
                 user_id=activity.user_id,
                 amount=points,
@@ -257,6 +268,7 @@ class ActivityService:
                     "activity_title": activity.title,
                     **(extra_data or {})
                 },
+                company_id=company_id,
                 is_display_amount=True  # 明确指定这是前端展示格式
             )
 

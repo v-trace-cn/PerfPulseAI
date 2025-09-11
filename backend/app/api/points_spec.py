@@ -25,6 +25,7 @@ class LedgerItem(BaseModel):
     type: str
     sourceType: Optional[str] = None
     sourceId: Optional[str] = None
+    showId: Optional[str] = None
     createdAt: str
 
 
@@ -57,7 +58,7 @@ class RedeemResponse(BaseModel):
 
 # ---------- Helpers ----------
 
-def _map_txn_to_ledger_item(txn: PointTransaction) -> LedgerItem:
+def _map_txn_to_ledger_item(txn: PointTransaction, show_id: Optional[str] = None) -> LedgerItem:
     from app.services.point_service import PointConverter
     change = PointConverter.format_for_api(txn.amount)
     ttype = (txn.transaction_type.value if txn.transaction_type else "").lower()
@@ -67,6 +68,7 @@ def _map_txn_to_ledger_item(txn: PointTransaction) -> LedgerItem:
         type=ttype,
         sourceType=txn.reference_type,
         sourceId=txn.reference_id,
+        showId=show_id,
         createdAt=txn.created_at.isoformat() if hasattr(txn, "created_at") and txn.created_at else datetime.utcnow().isoformat()
     )
 
@@ -151,7 +153,25 @@ async def points_ledger(
     res = await db.execute(query.order_by(desc(PointTransaction.created_at)).limit(pageSize).offset(offset))
     txns: List[PointTransaction] = res.scalars().all()
 
-    items = [_map_txn_to_ledger_item(t) for t in txns]
+    # 为 activity 交易解析 showId（兼容历史数据 reference_id 可能为 Activity.id 或 show_id）
+    show_id_by_ref: Dict[str, str] = {}
+    activity_refs = [t.reference_id for t in txns if (t.reference_type or '').lower() == 'activity' and t.reference_id]
+    if activity_refs:
+        from sqlalchemy import or_
+        from app.models.activity import Activity
+        act_res = await db.execute(
+            select(Activity.show_id, Activity.id).filter(
+                or_(Activity.show_id.in_(activity_refs), Activity.id.in_(activity_refs))
+            )
+        )
+        rows = act_res.all()
+        for show_id, act_id in rows:
+            if show_id:
+                show_id_by_ref[show_id] = show_id
+            if act_id:
+                show_id_by_ref[act_id] = show_id
+
+    items = [_map_txn_to_ledger_item(t, show_id_by_ref.get(t.reference_id)) for t in txns]
     return LedgerResponse(list=items, total=total)
 
 

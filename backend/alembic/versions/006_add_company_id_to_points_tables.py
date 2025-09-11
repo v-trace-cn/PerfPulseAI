@@ -20,6 +20,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Add company_id columns, FKs and indexes; backfill from users.company_id."""
+    # Drop dependent view to avoid SQLite rename failure during batch_alter_table
+    # (SQLite validates views on table rename; dropping prevents "error in view ... no such table" during temp rename)
+    op.execute("DROP VIEW IF EXISTS v_user_points_consistency")
+
     # point_transactions
     with op.batch_alter_table('point_transactions', schema=None) as batch_op:
         batch_op.add_column(sa.Column('company_id', sa.Integer(), nullable=True))
@@ -62,6 +66,26 @@ def upgrade() -> None:
 
     # Indexes for performance
     op.create_index('idx_point_transactions_company_id', 'point_transactions', ['company_id'])
+    # Recreate the consistency view after schema changes
+    op.execute(
+        """
+        CREATE VIEW IF NOT EXISTS v_user_points_consistency AS
+        SELECT
+            u.id as user_id,
+            u.name as user_name,
+            u.points as user_points,
+            COALESCE(SUM(pt.amount), 0) as calculated_points,
+            u.points - COALESCE(SUM(pt.amount), 0) as difference,
+            CASE
+                WHEN u.points = COALESCE(SUM(pt.amount), 0) THEN 'CONSISTENT'
+                ELSE 'INCONSISTENT'
+            END as status
+        FROM users u
+        LEFT JOIN point_transactions pt ON u.id = pt.user_id
+        GROUP BY u.id, u.name, u.points
+        """
+    )
+
     op.create_index('idx_point_transactions_user_company', 'point_transactions', ['user_id', 'company_id'])
     op.create_index('idx_point_purchases_company_id', 'point_purchases', ['company_id'])
     op.create_index('idx_point_purchases_user_company', 'point_purchases', ['user_id', 'company_id'])

@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, func, and_, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.auth import get_current_user
+from app.api.auth import get_current_user, require_company_member
 from app.core.database import get_db
 from app.models.scoring import PointTransaction, TransactionType, PointPurchase
 from app.models.user import User
@@ -15,7 +15,7 @@ from app.services.mall_service import MallService
 
 from app.services.point_service import PointConverter
 
-router = APIRouter(prefix="/api", tags=["points-spec"])
+router = APIRouter(prefix="/api", tags=["points-spec"], dependencies=[Depends(require_company_member)])
 
 
 # ---------- Pydantic models ----------
@@ -80,6 +80,8 @@ async def points_overview(
     db: AsyncSession = Depends(get_db)
 ):
     """按规范返回 { totalEarned, totalSpent, balance }"""
+    if current_user.company_id is None:
+        raise HTTPException(status_code=403, detail="NO_COMPANY")
     svc = PointService(db)
     stats = await svc.get_user_statistics(current_user.id, current_user.company_id)
     return {
@@ -103,11 +105,15 @@ async def points_ledger(
     """按规范返回分页流水 { list, total }"""
     offset = (page - 1) * pageSize
 
-    # 构建查询
-    query = select(PointTransaction).filter(PointTransaction.user_id == current_user.id)
-    # 公司维度过滤（A方案）
-    if current_user.company_id is not None:
-        query = query.filter(PointTransaction.company_id == current_user.company_id)
+    # 仅允许已加入公司的用户访问
+    if current_user.company_id is None:
+        raise HTTPException(status_code=403, detail="NO_COMPANY")
+
+    # 构建查询（公司维度强制）
+    query = select(PointTransaction).filter(
+        PointTransaction.user_id == current_user.id,
+        PointTransaction.company_id == current_user.company_id,
+    )
 
     if type:
         try:

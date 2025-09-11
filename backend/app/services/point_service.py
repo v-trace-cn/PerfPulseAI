@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict, Any, Tuple, Union
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, desc, case
+from sqlalchemy import select, func, and_, desc, case, delete
 from sqlalchemy.orm import joinedload
 import logging
 
@@ -503,14 +503,11 @@ class PointService:
             "weekStart": week_start.isoformat()
         }
 
-    async def get_user_statistics(self, user_id: int, company_id: Optional[int] = None) -> Dict[str, Any]:
+    async def get_user_statistics(self, user_id: int, company_id: int) -> Dict[str, Any]:
         """获取用户积分统计信息（返回前端展示格式）"""
         try:
-            # 获取当前余额（后端存储格式）
-            if company_id is not None:
-                current_balance_storage = await self.calculate_user_balance(user_id, company_id)
-            else:
-                current_balance_storage = await self.get_user_balance(user_id)
+            # 获取当前余额（后端存储格式）——公司维度强制
+            current_balance_storage = await self.calculate_user_balance(user_id, company_id)
 
             # 获取详细的交易统计 - 按交易类型分别统计
             txn_query = select(
@@ -519,15 +516,17 @@ class PointService:
                 func.sum(case((PointTransaction.transaction_type == TransactionType.SPEND, -PointTransaction.amount), else_=0)).label('total_spent_transactions'),
                 func.sum(case((PointTransaction.transaction_type == TransactionType.ADJUST, PointTransaction.amount), else_=0)).label('total_adjusted'),
                 func.max(PointTransaction.created_at).label('last_transaction_date')
-            ).filter(PointTransaction.user_id == user_id)
-            if company_id is not None:
-                txn_query = txn_query.filter(PointTransaction.company_id == company_id)
+            ).filter(
+                PointTransaction.user_id == user_id,
+                PointTransaction.company_id == company_id,
+            )
             stats = (await self.db.execute(txn_query)).first()
 
             # 获取兑换消费统计
-            red_query = select(func.sum(PointPurchase.points_cost).label('total_redemption_spent')).filter(PointPurchase.user_id == user_id)
-            if company_id is not None:
-                red_query = red_query.filter(PointPurchase.company_id == company_id)
+            red_query = select(func.sum(PointPurchase.points_cost).label('total_redemption_spent')).filter(
+                PointPurchase.user_id == user_id,
+                PointPurchase.company_id == company_id,
+            )
             redemption_stats = (await self.db.execute(red_query)).first()
 
             # 计算总消费（交易消费 + 兑换消费）
@@ -557,7 +556,7 @@ class PointService:
             # 返回默认值
             current_balance_storage = await self.get_user_balance(user_id)
             return {
-                "currentBalance": PointConverter.format_for_api(current_balance_storage),
+                "currentBalance": PointConverter.format_for_api(await self.calculate_user_balance(user_id, company_id)),
                 "totalTransactions": 0,
                 "totalEarned": 0.0,
                 "totalSpent": 0.0,
@@ -743,6 +742,95 @@ class PointService:
                 })
 
         return issues
+
+
+    async def replay_company_running_balance(self, user_id: int, company_id: int) -> None:
+        """按公司维度回放并更新该用户所有交易的 balance_after（后端存储格式）。
+        以 created_at、id 的稳定顺序重算余额，确保账实一致。
+        """
+        result = await self.db.execute(
+            select(PointTransaction)
+            .filter(and_(PointTransaction.user_id == user_id, PointTransaction.company_id == company_id))
+            .order_by(PointTransaction.created_at, PointTransaction.id)
+        )
+        transactions = result.scalars().all()
+        running_balance = 0
+        for txn in transactions:
+            running_balance += txn.amount
+            txn.balance_after = running_balance
+
+    async def update_activity_earn_and_replay(
+        self,
+        user_id: int,
+        company_id: int,
+        reference_id: str,
+        new_points_display: float,
+    ) -> PointTransaction:
+        """将活动对应的首条 EARN 交易金额更新为新值（展示格式），并回放公司维度余额。
+        更新后会同时刷新用户全量缓存积分（users.points）。
+        """
+        # 定位活动 EARN 交易（按公司维度，兼容 reference_id 可能为 show_id 或 Activity.id）
+        candidate_refs = {reference_id}
+        try:
+            from sqlalchemy import or_
+            from app.models.activity import Activity
+            act_res = await self.db.execute(
+                select(Activity.id, Activity.show_id).filter(
+                    or_(Activity.show_id == reference_id, Activity.id == reference_id)
+                )
+            )
+            act_row = act_res.first()
+            if act_row:
+                act_id, act_show_id = act_row
+                if act_id:
+                    candidate_refs.add(act_id)
+                if act_show_id:
+                    candidate_refs.add(act_show_id)
+        except Exception:
+            pass
+
+        query = select(PointTransaction).filter(
+            and_(
+                PointTransaction.user_id == user_id,
+                PointTransaction.company_id == company_id,
+                PointTransaction.reference_type == 'activity',
+                PointTransaction.transaction_type == TransactionType.EARN,
+                PointTransaction.reference_id.in_(list(candidate_refs)),
+            )
+        )
+        res = await self.db.execute(query)
+        txn = res.scalars().first()
+        if not txn:
+            raise ValueError("ACTIVITY_EARN_NOT_FOUND")
+
+        new_amount_storage = PointConverter.to_storage(new_points_display)
+        if txn.amount == new_amount_storage:
+            return txn
+
+        # 如存在历史调整（ADJUST）与该活动关联，先清理以避免双重记账
+        await self.db.execute(
+            delete(PointTransaction).where(
+                and_(
+                    PointTransaction.user_id == user_id,
+                    PointTransaction.company_id == company_id,
+                    PointTransaction.reference_id == reference_id,
+                    PointTransaction.transaction_type == TransactionType.ADJUST,
+                )
+            )
+        )
+
+        # 更新金额，保持原 created_at 不变，以便回放时顺序稳定
+        txn.amount = new_amount_storage
+
+        # 回放该公司下的余额
+        await self.replay_company_running_balance(user_id, company_id)
+
+        # 刷新用户全量缓存积分（全公司合计）
+        await self._update_user_points(user_id, (await self.calculate_user_balance(user_id)))
+
+        await self.db.commit()
+        await self.db.refresh(txn)
+        return txn
 
     async def _validate_level_consistency(self, user_id: int) -> List[Dict[str, Any]]:
         """验证等级一致性"""

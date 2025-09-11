@@ -308,11 +308,16 @@ class ActivityService:
                 from app.models.scoring import TransactionType
 
                 point_service = PointService(self.db)
+                # 按公司维度检查是否有积分交易
+                from app.models.user import User
+                user_res = await self.db.execute(select(User.company_id).filter(User.id == activity.user_id))
+                company_id = user_res.scalar()
                 points_transaction = await point_service._check_duplicate_transaction(
                     user_id=activity.user_id,
                     reference_id=activity.show_id,
                     reference_type='activity',
-                    transaction_type=TransactionType.EARN
+                    transaction_type=TransactionType.EARN,
+                    company_id=company_id,
                 )
 
             return {

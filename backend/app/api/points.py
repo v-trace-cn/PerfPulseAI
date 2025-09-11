@@ -2,6 +2,7 @@
 积分系统API - 优化版
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from pydantic import BaseModel, Field
@@ -10,10 +11,10 @@ from app.core.database import get_db
 from app.services.point_service import PointService
 from app.services.level_service import LevelService
 from app.models.scoring import TransactionType
-from app.api.auth import get_current_user
+from app.api.auth import get_current_user, require_company_member
 from app.models.user import User
 
-router = APIRouter(prefix="/api", tags=["points"])
+router = APIRouter(prefix="/api", tags=["points"], dependencies=[Depends(require_company_member)])
 
 
 # Pydantic 模型
@@ -79,12 +80,12 @@ async def get_my_points_summary(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """获取我的积分摘要"""
+    """获取我的积分摘要（公司维度）"""
     try:
         point_service = PointService(db)
         level_service = LevelService(db)
 
-        stats = await point_service.get_user_statistics(current_user.id)
+        stats = await point_service.get_user_statistics(current_user.id, current_user.company_id)
         level_info = await level_service.get_user_level_info(current_user.id)
         redemption_stats = await point_service.get_user_redemption_stats(current_user.id)
 
@@ -405,18 +406,23 @@ async def get_level_statistics(
 @router.post("/points/admin/adjust")
 async def admin_adjust_points(
     user_id: int,
-    amount: int,
+    amount: float,
     description: str = "管理员积分调整",
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """管理员积分调整"""
+    """管理员积分调整（按用户所属公司维度）"""
     # TODO: 添加管理员权限检查
     # if not current_user.is_admin:
     #     raise HTTPException(status_code=403, detail="需要管理员权限")
-    
+
+    # 获取目标用户的公司ID
+    res = await db.execute(select(User.company_id).filter(User.id == user_id))
+    company_id = res.scalar()
+    if company_id is None:
+        raise HTTPException(status_code=400, detail="TARGET_USER_NO_COMPANY")
+
     point_service = PointService(db)
-    
     try:
         transaction = await point_service.adjust_points(
             user_id=user_id,
@@ -425,9 +431,11 @@ async def admin_adjust_points(
             extra_data={
                 "admin_user_id": current_user.id,
                 "admin_user_name": current_user.name
-            }
+            },
+            company_id=company_id,
+            is_display_amount=True,
         )
-        
+
         return {
             "message": f"成功调整用户 {user_id} 积分 {amount}",
             "transaction": transaction.to_dict()
@@ -457,108 +465,3 @@ async def admin_get_user_balance(
         "balance": balance,
         "consistency": consistency
     }
-
-
-@router.get("/points/test/db-check")
-async def test_database_connection(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """测试数据库连接和表结构"""
-    try:
-        from sqlalchemy import text
-
-        # 测试基本数据库连接
-        result = await db.execute(text("SELECT 1"))
-        db_test = result.scalar()
-
-        # 检查用户表
-        user_check = await db.execute(text("SELECT COUNT(*) FROM users WHERE id = :user_id"), {"user_id": current_user.id})
-        user_exists = user_check.scalar()
-
-        # 检查积分交易表是否存在
-        try:
-            table_check = await db.execute(text("SELECT COUNT(*) FROM point_transactions"))
-            transaction_count = table_check.scalar()
-            table_exists = True
-        except Exception as e:
-            table_exists = False
-            transaction_count = f"表不存在: {str(e)}"
-
-        return {
-            "success": True,
-            "database_connection": db_test == 1,
-            "current_user_id": current_user.id,
-            "user_exists": user_exists > 0,
-            "point_transactions_table_exists": table_exists,
-            "transaction_count": transaction_count
-        }
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"数据库检查失败: {str(e)}")
-
-
-@router.post("/points/test/create-sample-data")
-async def create_sample_point_data(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """创建示例积分交易数据（仅用于测试）"""
-    try:
-        point_service = PointService(db)
-
-        # 创建一些示例交易记录
-        transactions = []
-
-        # 获得积分记录（使用前端展示格式）
-        transaction1 = await point_service.earn_points(
-            user_id=current_user.id,
-            amount=10.0,  # 前端展示格式：10.0积分
-            reference_id="test_activity_1",
-            reference_type="activity",
-            description="完成代码审查任务",
-            is_display_amount=True
-        )
-        transactions.append(transaction1)
-
-        transaction2 = await point_service.earn_points(
-            user_id=current_user.id,
-            amount=5.0,  # 前端展示格式：5.0积分
-            reference_id="test_activity_2",
-            reference_type="activity",
-            description="提交高质量代码",
-            is_display_amount=True
-        )
-        transactions.append(transaction2)
-
-        transaction3 = await point_service.earn_points(
-            user_id=current_user.id,
-            amount=2.5,  # 前端展示格式：2.5积分
-            reference_id="test_bonus_1",
-            reference_type="bonus",
-            description="每日签到奖励",
-            is_display_amount=True
-        )
-        transactions.append(transaction3)
-
-        # 消费积分记录（使用前端展示格式）
-        transaction4 = await point_service.spend_points(
-            user_id=current_user.id,
-            amount=3.0,  # 前端展示格式：3.0积分
-            reference_id="test_purchase_1",
-            reference_type="purchase",
-            description="兑换咖啡券",
-            is_display_amount=True
-        )
-        transactions.append(transaction4)
-
-        return {
-            "success": True,
-            "message": f"成功创建 {len(transactions)} 条示例积分交易记录",
-            "transactions": [t.to_dict() for t in transactions]
-        }
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"创建示例数据失败: {str(e)}")

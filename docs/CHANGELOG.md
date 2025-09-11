@@ -4,6 +4,28 @@
 
 ---
 
+## 2025-09-11 - 积分单位与转换统一、MallService 汇总下沉
+
+### 🔧 修复/调整
+- 统一以 PointConverter 处理单位转换，移除手工 /10：修正 /api/points-spec/redeemOrders 的 costSnapshot 显示单位
+- 下沉 MallService 汇总类接口的显示转换：get_mall_statistics / get_user_mall_summary / get_company_statistics 返回显示值；API 层透传，避免二次换算
+- 取消购买退款：earn_points 使用存储值入账（is_display_amount=False），补充 company_id，避免重复放大与跨公司错账
+- /mall/verify-redemption-code 保留对 pointsCost 的 format_for_api，确保对外显示值
+
+### 影响文件
+- backend/app/api/mall.py
+- backend/app/api/points_spec.py
+- backend/app/services/mall_service.py
+- docs/points.md
+- docs/TODO.md
+
+### 测试建议（最小化）
+- GET /api/mall/items：points_cost 为显示值（含 1 位小数）
+- GET /api/mall/statistics、/api/mall/summary：总计字段为显示值
+- GET /api/points-spec/redeemOrders：costSnapshot 为显示值
+- 取消订单路径：退款金额与余额一致性校验
+
+
 ## 2025-09-10 - 登录体验优化：记住账密 + 默认下次自动登录
 
 ### 🆕 新功能 / 🎨 界面优化 / 🔧 调整

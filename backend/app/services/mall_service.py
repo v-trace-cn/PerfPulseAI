@@ -13,7 +13,7 @@ import logging
 
 from app.models.scoring import PointPurchase, PurchaseStatus, PointTransaction
 from app.models.user import User
-from app.services.point_service import PointService
+from app.services.point_service import PointService, PointConverter
 from app.services.notification_service import NotificationService
 
 logger = logging.getLogger(__name__)
@@ -115,7 +115,7 @@ class MallService:
         redemption_code = f"RD{random_part}{timestamp_part}"
         return redemption_code
     
-    async def can_purchase_item(self, user_id: int, item_id: str) -> Tuple[bool, str]:
+    async def can_purchase_item(self, user_id: int, item_id: str, company_id: Optional[int] = None) -> Tuple[bool, str]:
         """检查用户是否可以购买商品"""
         # 获取商品信息
         item = await self.get_item_by_id(item_id)
@@ -133,7 +133,10 @@ class MallService:
         if item["pointsCost"] > 0:
             from app.services.point_service import PointConverter
 
-            user_balance_storage = await self.point_service.get_user_balance(user_id)
+            if company_id is not None:
+                user_balance_storage = await self.point_service.get_user_balance_by_company(user_id, company_id)
+            else:
+                user_balance_storage = await self.point_service.get_user_balance(user_id)
             item_cost_storage = PointConverter.to_storage(item["pointsCost"])
 
             if user_balance_storage < item_cost_storage:
@@ -146,11 +149,12 @@ class MallService:
         self,
         user_id: int,
         item_id: str,
-        delivery_info: Optional[Dict[str, Any]] = None
+        delivery_info: Optional[Dict[str, Any]] = None,
+        company_id: Optional[int] = None
     ) -> PointPurchase:
         """购买商品"""
         # 检查是否可以购买
-        can_purchase, message = await self.can_purchase_item(user_id, item_id)
+        can_purchase, message = await self.can_purchase_item(user_id, item_id, company_id)
         if not can_purchase:
             raise ValueError(message)
         
@@ -168,7 +172,8 @@ class MallService:
             item_description=item["description"],
             points_cost=item["pointsCost"],
             delivery_info=delivery_info,
-            redemption_code=redemption_code
+            redemption_code=redemption_code,
+            company_id=company_id
         )
 
         # 发送兑换成功通知
@@ -265,16 +270,18 @@ class MallService:
         if purchase.status != PurchaseStatus.PENDING:
             raise ValueError("只能取消待处理的购买记录")
         
-        # 退还积分
+        # 退还积分（purchase.points_cost 为后端存储格式）
         await self.point_service.earn_points(
             user_id=purchase.user_id,
             amount=purchase.points_cost,
             reference_id=purchase_id,
             reference_type='purchase_refund',
             description=f"购买取消退款: {purchase.item_name}",
-            dispute_deadline_days=0  # 退款不支持异议
+            company_id=purchase.company_id,
+            dispute_deadline_days=0,  # 退款不支持异议
+            is_display_amount=False   # 注意：这里传入的是存储格式，避免重复放大
         )
-        
+
         # 更新购买状态
         purchase.cancel(reason)
         await self.db.commit()
@@ -343,7 +350,7 @@ class MallService:
                 "completed": status_stats.get("COMPLETED", 0),
                 "cancelled": status_stats.get("CANCELLED", 0)
             },
-            "totalPointsSpent": int(total_points_spent),
+            "totalPointsSpent": PointConverter.format_for_api(total_points_spent),
             "popularItems": popular_items,
             "recentPurchases": recent_purchases
         }
@@ -376,9 +383,9 @@ class MallService:
         recent_purchases = recent_purchases_result.scalars().all()
 
         return {
-            "currentBalance": balance,
+            "currentBalance": PointConverter.format_for_api(balance),
             "totalPurchases": stats.total_purchases or 0,
-            "totalPointsSpent": int(stats.total_spent or 0),
+            "totalPointsSpent": PointConverter.format_for_api(stats.total_spent or 0),
             "recentPurchases": [purchase.to_dict() for purchase in recent_purchases]
         }
 
@@ -613,7 +620,7 @@ class MallService:
             stats_by_month[month_key] = {
                 "month": month_name,
                 "totalRedemptions": month_stats.total_redemptions or 0,
-                "totalPoints": int(month_stats.total_points or 0),
+                "totalPoints": PointConverter.format_for_api(month_stats.total_points or 0),
                 "totalUsers": month_stats.total_users or 0
             }
 

@@ -139,6 +139,7 @@ class PointTransaction(Base):
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    company_id = Column(Integer, ForeignKey('companies.id'), nullable=True)  # 公司维度（A方案）
     transaction_type = Column(Enum(TransactionType), nullable=False)
     amount = Column(Integer, nullable=False)  # 正数表示增加，负数表示减少
     balance_after = Column(Integer, nullable=False)  # 交易后余额
@@ -292,6 +293,7 @@ class PointPurchase(Base):
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    company_id = Column(Integer, ForeignKey('companies.id'), nullable=True)  # 公司维度（A方案）
     item_id = Column(String(36), nullable=False)  # 商品ID
     item_name = Column(String(200), nullable=False)  # 商品名称
     item_description = Column(Text, nullable=True)  # 商品描述

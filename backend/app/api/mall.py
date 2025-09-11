@@ -12,6 +12,7 @@ from app.services.mall_service import MallService
 from app.models.scoring import PurchaseStatus
 from app.api.auth import get_current_user
 from app.models.user import User
+from app.services.point_service import PointConverter
 
 router = APIRouter(prefix="/api", tags=["mall"])
 
@@ -391,6 +392,7 @@ async def get_mall_statistics(
     mall_service = MallService(db)
     stats = await mall_service.get_mall_statistics()
 
+
     return stats
 
 
@@ -410,6 +412,7 @@ async def get_company_mall_statistics(
         months=months
     )
 
+
     return stats
 
 
@@ -421,6 +424,7 @@ async def get_user_mall_summary(
     """获取用户商城使用摘要"""
     mall_service = MallService(db)
     summary = await mall_service.get_user_mall_summary(current_user.id)
+
 
     return summary
 
@@ -454,7 +458,7 @@ async def verify_redemption_code(
                     "id": purchase.id,
                     "itemName": purchase.item_name,
                     "itemDescription": purchase.item_description,
-                    "pointsCost": purchase.points_cost,
+                    "pointsCost": PointConverter.format_for_api(purchase.points_cost),
                     "status": purchase.status.value,
                     "createdAt": purchase.created_at.isoformat() if purchase.created_at else None
                 }

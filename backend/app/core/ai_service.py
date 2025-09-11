@@ -516,7 +516,11 @@ async def calculate_points_from_analysis(analysis_score_result: dict) -> dict:
         {"innovation_bonus": round(innovation_bonus_display, 1), "text": "创新加分"},
     ]
 
-    logger.info(f"[calculate_points_from_analysis] 积分计算完成 - 总分: {overall_score}, 创新分: {innovation_score}, 基础积分: {bonus_display}, 创新加分: {innovation_bonus_display}, 总积分: {total_points_display}")
+    # 日志最多两位小数，避免浮点尾差
+    logger.info(
+        "[calculate_points_from_analysis] 积分计算完成 - 总分: %.2f, 创新分: %.2f, 基础积分: %.2f, 创新加分: %.2f, 总积分: %.2f"
+        % (overall_score, innovation_score, round(bonus_display, 2), round(innovation_bonus_display, 2), round(total_points_display, 2))
+    )
 
     return {
         "total_points": round(total_points_display, 1),  # 前端展示格式，保留1位小数

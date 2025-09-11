@@ -192,3 +192,7 @@ async def get_current_user(
         )
 
     return user
+
+async def require_company_member(current_user: User = Depends(get_current_user)) -> None:
+    if current_user.company_id is None:
+        raise HTTPException(status_code=403, detail="NO_COMPANY")

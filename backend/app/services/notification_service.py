@@ -9,8 +9,9 @@ from sqlalchemy import select, func, and_, desc, or_
 from sqlalchemy.orm import joinedload
 import logging
 
-from app.models.notification import Notification, NotificationType, NotificationStatus
 from app.models.user import User
+from app.models.department import Department
+from app.models.notification import Notification, NotificationType, NotificationStatus
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +79,46 @@ class NotificationService:
         except Exception as e:
             logger.error(f"广播通知失败: {e}")
             # 不抛出异常，避免影响通知创建
-    
+
+    async def _find_hr_contact(self, company_id: int) -> tuple[Optional[str], Optional[str]]:
+        """查找人力资源部的第一个在职人员，返回(联系人姓名, 部门名称)"""
+        try:
+            hr_dept_query = select(Department).where(
+                and_(
+                    Department.company_id == company_id,
+                    or_(
+                        Department.name.ilike('%人力资源%'),
+                        Department.name.ilike('%人力%'),
+                    )
+                )
+            )
+            hr_dept_result = await self.db.execute(hr_dept_query)
+            hr_dept = hr_dept_result.scalars().first()
+
+            if hr_dept:
+                # 首先尝试获取部门管理员中的第一个
+                admin_user_ids = hr_dept.get_admin_user_ids()
+                if admin_user_ids:
+                    # 查找第一个管理员用户
+                    admin_query = select(User).where(
+                        and_(
+                            User.id == admin_user_ids[0],  # 取第一个管理员ID
+                            User.company_id == company_id
+                        )
+                    )
+                    admin_result = await self.db.execute(admin_query)
+                    admin_user = admin_result.scalars().first()
+                    if admin_user:
+                        return admin_user.name, hr_dept.name
+
+                return "", hr_dept.name
+
+            return "", ""
+
+        except Exception as e:
+            logger.error(f"查找人力资源联系人失败: {e}")
+            return "", ""
+
     async def create_redemption_notification(
         self,
         user_id: int,
@@ -87,13 +127,30 @@ class NotificationService:
         points_cost: float
     ) -> Notification:
         """创建兑换成功通知"""
+        # 获取用户的公司ID
+        user_query = select(User.company_id).where(User.id == user_id)
+        user_result = await self.db.execute(user_query)
+        company_id = user_result.scalar()
+
+        # 查找人力资源部联系人
+        hr_contact, hr_dept_name = await self._find_hr_contact(company_id) if company_id else (None, None)
+
+        # 确定联系信息：优先显示具体联系人，其次显示部门名称，最后显示默认信息
+        if hr_contact:
+            contact_info = hr_contact
+        elif hr_dept_name:
+            contact_info = hr_dept_name
+        else:
+            contact_info = "相关管理员"
+
         title = "兑换成功"
-        content = f"恭喜您成功兑换 {item_name}！消耗 {points_cost} 积分。兑换密钥：{redemption_code}，请前往兑奖中心核销。"
+        content = f"恭喜您成功兑换 {item_name}！消耗 {points_cost} 积分。兑换密钥：{redemption_code}，请联系 {contact_info} 完成兑换。"
         extra_data = {
             "redeemCode": redemption_code,  # 使用驼峰命名与前端保持一致
             "item": item_name,
             "points": points_cost,
-            "type": "redemption_success"
+            "type": "redemption_success",
+            "hrContact": hr_contact  # 添加HR联系人信息
         }
 
         return await self.create_notification(

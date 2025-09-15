@@ -799,13 +799,6 @@ export default function RedemptionPage() {
                   </div>
                 </div>
 
-	                <div className="mt-3 text-sm text-gray-600 flex items-center gap-2">
-	                  <Building className="h-4 w-4" />
-	                  <span>
-	                    提示：请找到 {hrContact ? `「${hrContact.name}」` : "人力资源部的同属"} 提交密钥
-	                  </span>
-	                </div>
-
 
                 {keyValidation.message && (
                   <div

@@ -12,8 +12,7 @@ from app.models.company import Company
 from app.models.user import User
 from app.models.department import Department
 from app.models.role import Role
-from app.models.permission import Permission, SYSTEM_PERMISSIONS
-from app.core.permissions import PermissionCheckers, company_creator_required, get_current_user, simple_user_required
+from app.core.permissions import company_creator_required, get_current_user, simple_user_required
 from typing import List, Optional
 from datetime import datetime
 import asyncio
@@ -43,6 +42,9 @@ async def get_companies(
         # 手动构建公司数据，避免调用 to_dict() 中的关系访问
         user_count = await db.scalar(select(func.count(User.id)).filter(User.company_id == company.id))
         dept_count = await db.scalar(select(func.count(Department.id)).filter(Department.company_id == company.id))
+        # 获取创建人姓名
+        creator_name_result = await db.execute(select(User.name).filter(User.id == company.creator_user_id))
+        creator_name = creator_name_result.scalar()
 
         company_dict = {
             "id": company.id,
@@ -54,6 +56,7 @@ async def get_companies(
             "createdAt": company.created_at.isoformat() if company.created_at else None,
             "updatedAt": company.updated_at.isoformat() if company.updated_at else None,
             "creatorUserId": company.creator_user_id,
+            "creatorName": creator_name,
             "userCount": user_count or 0,
             "departmentCount": dept_count or 0,
             "organizationCount": 0  # 暂时设为0，如果需要可以后续添加查询
@@ -92,6 +95,9 @@ async def get_available_companies(
         # 手动构建公司数据
         user_count = await db.scalar(select(func.count(User.id)).filter(User.company_id == company.id))
         dept_count = await db.scalar(select(func.count(Department.id)).filter(Department.company_id == company.id))
+        # 获取创建人姓名
+        creator_name_result = await db.execute(select(User.name).filter(User.id == company.creator_user_id))
+        creator_name = creator_name_result.scalar()
 
         company_dict = {
             "id": company.id,
@@ -103,6 +109,7 @@ async def get_available_companies(
             "createdAt": company.created_at.isoformat() if company.created_at else None,
             "updatedAt": company.updated_at.isoformat() if company.updated_at else None,
             "creatorUserId": company.creator_user_id,
+            "creatorName": creator_name,
             "userCount": user_count or 0,
             "departmentCount": dept_count or 0,
             "organizationCount": 0  # 暂时设为0，如果需要可以后续添加查询
@@ -164,7 +171,6 @@ async def get_company(
 async def create_company(
     data: dict = Body(...),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(PermissionCheckers.company_create)
 ):
     """创建新公司"""
     name = data.get("name")

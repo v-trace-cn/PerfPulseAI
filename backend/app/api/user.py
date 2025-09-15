@@ -17,7 +17,8 @@ from datetime import datetime
 base_router = BaseAPIRouter(prefix="/api/users", tags=["user"])
 router = base_router.router
 
-@router.get("/{user_id}")
+
+@router.get("/by-id/{user_id}")
 @handle_api_errors
 async def get_user(user_id: int, db: AsyncSession = Depends(get_db)):
     """获取用户信息"""
@@ -65,7 +66,8 @@ async def get_achievements(user_id: int, db: AsyncSession = Depends(get_db)):
     # TODO: implement achievement logic
     return base_router.success_response([], "查询成功")
 
-@router.post("/{user_id}/updateInfo")
+
+@router.post("/by-id/{user_id}/updateInfo")
 @handle_api_errors
 @transaction
 async def update_user(user_id: int, data: dict = Body(...), db: AsyncSession = Depends(get_db)):
@@ -96,15 +98,34 @@ async def update_user(user_id: int, data: dict = Body(...), db: AsyncSession = D
     # 处理其他允许更新的字段
     update_fields = {"name": "name", "email": "email", "position": "position", "phone": "phone", "githubUrl": "github_url"}
     for frontend_field, db_field in update_fields.items():
-        if frontend_field in data and data[frontend_field] is not None:
-            if frontend_field == "email":
-                existing_result = await db.execute(select(User).filter(User.email == data[frontend_field], User.id != user_id))
+        if frontend_field in data:
+            value = data[frontend_field]
+            # 特殊处理 githubUrl：空字符串按 None 处理，并校验唯一
+            if frontend_field == "githubUrl":
+                if value is None or (isinstance(value, str) and value.strip() == ""):
+                    setattr(user, db_field, None)
+                else:
+                    # 唯一性校验（忽略大小写差异可按需扩展）
+                    existing_result = await db.execute(
+                        select(User).filter(User.github_url == value, User.id != user_id)
+                    )
+                    existing = existing_result.scalars().first()
+                    if existing:
+                        base_router.error_response("该 GitHub 地址已被其他用户使用", 400)
+                    setattr(user, db_field, value)
+                continue
+
+            # email 唯一校验（保留原逻辑）
+            if frontend_field == "email" and value is not None:
+                existing_result = await db.execute(
+                    select(User).filter(User.email == value, User.id != user_id)
+                )
                 existing = existing_result.scalars().first()
                 if existing:
                     base_router.error_response("该邮箱已被注册", 400)
-            setattr(user, db_field, data[frontend_field])
-        elif frontend_field in data and data[frontend_field] is None:
-            setattr(user, db_field, None)
+
+            # 其余字段：None 直写，字符串可保留空字符串（按现有表约束）
+            setattr(user, db_field, value)
 
     if "password" in data and data["password"]:
         user.set_password(data["password"])
@@ -114,7 +135,8 @@ async def update_user(user_id: int, data: dict = Body(...), db: AsyncSession = D
     print(f"用户信息更新成功: {user.to_dict()}")
     return base_router.success_response(user.to_dict(), "用户信息更新成功")
 
-@router.post("/{user_id}/upload_avatar")
+
+@router.post("/by-id/{user_id}/upload_avatar")
 @handle_api_errors
 @transaction
 async def upload_avatar(user_id: int, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
@@ -147,3 +169,53 @@ async def upload_avatar(user_id: int, file: UploadFile = File(...), db: AsyncSes
     await db.refresh(user)
 
     return base_router.success_response(user.to_dict(), "头像上传成功")
+
+
+# 列出公司成员（支持搜索与分页）
+@router.get("/company-members")
+@handle_api_errors
+async def list_company_members(
+    companyId: int | None = None,
+    q: str | None = None,
+    page: int = 1,
+    pageSize: int = 20,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    获取公司成员列表。若未提供 companyId，尝试通过 X-User-Id 识别当前用户并使用其 company_id。
+    查询参数：companyId, q(搜索), page, pageSize
+    返回：items[], total, page, pageSize
+    """
+
+    # 基础查询
+    query = select(User).filter(User.company_id == companyId)
+    if q:
+        like = f"%{q.strip()}%"
+        query = query.filter((User.name.ilike(like)) | (User.email.ilike(like)))
+
+    total_result = await db.execute(query)
+    all_users = total_result.scalars().all()
+    total = len(all_users)
+
+    # 分页
+    start = (page - 1) * pageSize
+    end = start + pageSize
+    page_users = all_users[start:end]
+
+    items = []
+    for u in page_users:
+        items.append({
+            "id": u.id,
+            "name": u.name,
+            "email": u.email,
+            "avatar": u.avatar_url,
+            "companyId": u.company_id,
+            "departmentId": u.department_id,
+        })
+
+    return base_router.success_response({
+        "items": items,
+        "total": total,
+        "page": page,
+        "pageSize": pageSize,
+    }, "获取公司成员成功")

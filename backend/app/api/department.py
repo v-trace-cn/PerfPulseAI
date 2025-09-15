@@ -3,7 +3,7 @@ Department management API endpoints.
 """
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from app.core.database import get_db
 from app.core.base_api import BaseAPIRouter
@@ -11,8 +11,7 @@ from app.core.decorators import handle_api_errors, transaction
 from app.models.department import Department
 from app.models.user import User
 from app.models.company import Company
-from app.core.permissions import simple_user_required
-from typing import List, Optional
+from app.core.permissions import simple_user_required, check_company_creator_permission
 from datetime import datetime
 
 # Initialize router using base class
@@ -161,6 +160,15 @@ async def update_department(
     if not department:
         base_router.error_response("组织不存在", 404)
 
+    # 权限校验：同公司且具备 department.update 动作，或为公司创建者
+    if current_user.company_id != department.company_id:
+        base_router.error_response("无权访问其他公司的组织", 403)
+
+    # 简化权限检查：只有公司创建者可以更新部门
+    is_creator = await check_company_creator_permission(current_user.id, department.company_id, db)
+    if not is_creator:
+        base_router.error_response("只有公司创建者可以更新组织", 403)
+
     # 更新组织名称
     if "name" in data and data["name"]:
         if data["name"] != department.name:
@@ -271,3 +279,118 @@ async def get_department_members(
         })
 
     return base_router.success_response(members_list, "获取组织成员列表成功")
+
+
+@router.post("/{department_id}/admins")
+@handle_api_errors
+@transaction
+async def add_department_admin(
+    department_id: int,
+    data: dict = Body(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(simple_user_required)
+):
+    """添加部门管理员"""
+    user_id = data.get("userId")
+    if not user_id:
+        base_router.error_response("用户ID不能为空", 400)
+
+    # 检查部门是否存在
+    result = await db.execute(select(Department).filter(Department.id == department_id))
+    department = result.scalars().first()
+    if not department:
+        base_router.error_response("部门不存在", 404)
+
+    # 权限检查：只有公司创建者可以管理部门管理员
+    is_creator = await check_company_creator_permission(current_user.id, department.company_id, db)
+    if not is_creator:
+        base_router.error_response("只有公司创建者可以管理部门管理员", 403)
+
+    # 检查用户是否存在且属于同一公司
+    user_result = await db.execute(
+        select(User).filter(
+            User.id == user_id,
+            User.company_id == department.company_id
+        )
+    )
+    user = user_result.scalars().first()
+    if not user:
+        base_router.error_response("用户不存在或不属于当前公司", 404)
+
+    # 添加管理员
+    department.add_admin_user(user_id)
+    department.updated_at = datetime.utcnow().replace(microsecond=0)
+    await db.flush()
+
+    return base_router.success_response(
+        {"adminUserIds": department.get_admin_user_ids()},
+        "添加部门管理员成功"
+    )
+
+
+@router.delete("/{department_id}/admins/{user_id}")
+@handle_api_errors
+@transaction
+async def remove_department_admin(
+    department_id: int,
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(simple_user_required)
+):
+    """移除部门管理员"""
+    # 检查部门是否存在
+    result = await db.execute(select(Department).filter(Department.id == department_id))
+    department = result.scalars().first()
+    if not department:
+        base_router.error_response("部门不存在", 404)
+
+    # 权限检查：只有公司创建者可以管理部门管理员
+    is_creator = await check_company_creator_permission(current_user.id, department.company_id, db)
+    if not is_creator:
+        base_router.error_response("只有公司创建者可以管理部门管理员", 403)
+
+    # 移除管理员
+    department.remove_admin_user(user_id)
+    department.updated_at = datetime.utcnow().replace(microsecond=0)
+    await db.flush()
+
+    return base_router.success_response(
+        {"adminUserIds": department.get_admin_user_ids()},
+        "移除部门管理员成功"
+    )
+
+
+@router.get("/{department_id}/admins")
+@handle_api_errors
+async def get_department_admins(
+    department_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(simple_user_required)
+):
+    """获取部门管理员列表"""
+    # 检查部门是否存在
+    result = await db.execute(select(Department).filter(Department.id == department_id))
+    department = result.scalars().first()
+    if not department:
+        base_router.error_response("部门不存在", 404)
+
+    admin_user_ids = department.get_admin_user_ids()
+    if not admin_user_ids:
+        return base_router.success_response([], "获取部门管理员列表成功")
+
+    # 获取管理员用户信息
+    users_result = await db.execute(
+        select(User).filter(User.id.in_(admin_user_ids))
+    )
+    users = users_result.scalars().all()
+
+    admin_list = []
+    for user in users:
+        admin_list.append({
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "avatar": user.avatar_url or f"https://api.dicebear.com/7.x/avataaars/svg?seed={user.email or user.name}",
+        })
+
+    return base_router.success_response(admin_list, "获取部门管理员列表成功")

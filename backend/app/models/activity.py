@@ -28,9 +28,9 @@ class Activity(Base):
     activity_type = Column(String(50), default='individual')
     # 存储 PR diff 链接，用于后续定时任务拉取和分析
     diff_url = Column(String(500), nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    completed_at = Column(DateTime(timezone=True), nullable=True)
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(microsecond=0))
+    completed_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(microsecond=0), onupdate=lambda: datetime.now(timezone.utc).replace(microsecond=0))
     
     def __init__(self, title=None, description=None, points=0, user_id=None, 
                  status="pending", created_at=None, completed_at=None, activity_type='individual'):
@@ -45,36 +45,26 @@ class Activity(Base):
         self.status = status
         self.activity_type = activity_type
         
-        # 处理日期字段
-        if isinstance(created_at, str):
-            try:
-                # parse_datetime for consistent timezone handling from input
-                self.created_at = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
-                if self.created_at.tzinfo is None: # Ensure timezone aware if input was naive
-                    self.created_at = self.created_at.replace(tzinfo=timezone.utc)
-            except ValueError:
-                self.created_at = datetime.now(timezone.utc)
-        elif created_at is None:
-            self.created_at = datetime.now(timezone.utc)
-        else:
-            # Ensure incoming datetime objects are timezone-aware UTC
-            if created_at.tzinfo is None:
-                self.created_at = created_at.replace(tzinfo=timezone.utc)
+        # 简化时间处理，统一使用秒级精度
+        if created_at is not None:
+            if isinstance(created_at, str):
+                try:
+                    parsed_time = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                    self.created_at = parsed_time.replace(microsecond=0)
+                except ValueError:
+                    self.created_at = datetime.now(timezone.utc).replace(microsecond=0)
             else:
-                self.created_at = created_at.astimezone(timezone.utc)
-            
-        if isinstance(completed_at, str):
-            try:
-                self.completed_at = datetime.fromisoformat(completed_at.replace('Z', '+00:00'))
-                if self.completed_at.tzinfo is None:
-                    self.completed_at = self.completed_at.replace(tzinfo=timezone.utc)
-            except ValueError:
-                self.completed_at = None
-        else:
-            if completed_at and completed_at.tzinfo is None:
-                self.completed_at = completed_at.replace(tzinfo=timezone.utc)
-            elif completed_at:
-                self.completed_at = completed_at.astimezone(timezone.utc)
+                self.created_at = created_at.replace(microsecond=0)
+
+        if completed_at is not None:
+            if isinstance(completed_at, str):
+                try:
+                    parsed_time = datetime.fromisoformat(completed_at.replace('Z', '+00:00'))
+                    self.completed_at = parsed_time.replace(microsecond=0)
+                except ValueError:
+                    self.completed_at = None
+            else:
+                self.completed_at = completed_at.replace(microsecond=0)
         
     def to_dict(self):
         """

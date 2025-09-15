@@ -3,7 +3,7 @@ User model for the PerfPulseAI application.
 """
 from datetime import datetime
 from passlib.context import CryptContext
-from sqlalchemy import Column, String, Text, Integer, DateTime, ForeignKey, Date
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Date, Boolean
 from sqlalchemy.orm import relationship, backref
 from app.core.database import Base
 
@@ -30,6 +30,9 @@ class User(Base):
     level_id = Column(String(36), ForeignKey('user_levels.id'), nullable=True)  # 关联到用户等级表
     completed_tasks = Column(Integer, default=0)
     pending_tasks = Column(Integer, default=0)
+
+    # 超级管理员标识
+    is_super_admin = Column(Boolean, default=False, nullable=False)
 
     # 关联关系
     company = relationship('Company', back_populates='users', foreign_keys=[company_id])

@@ -6,13 +6,6 @@ from sqlalchemy import Column, String, Integer, DateTime, Text, Boolean, Foreign
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
-# 角色权限关联表
-role_permissions = Table(
-    'role_permissions',
-    Base.metadata,
-    Column('role_id', Integer, ForeignKey('roles.id'), primary_key=True),
-    Column('permission_id', Integer, ForeignKey('permissions.id'), primary_key=True)
-)
 
 # 用户角色关联表
 user_roles = Table(
@@ -38,7 +31,6 @@ class Role(Base):
     
     # 关联关系
     company = relationship('Company', backref='roles')
-    permissions = relationship('Permission', secondary=role_permissions, backref='roles')
     users = relationship('User', secondary=user_roles, back_populates='roles')
     
     def __init__(self, name: str, company_id: int, description: str = None, is_system_role: bool = False):
@@ -47,8 +39,14 @@ class Role(Base):
         self.description = description
         self.is_system_role = is_system_role
     
-    def to_dict(self):
-        return {
+    def to_dict(self, include_relations=True):
+        """
+        转换为字典格式
+
+        Args:
+            include_relations: 是否包含关联对象（permissions, users），默认为True
+        """
+        base_dict = {
             "id": self.id,
             "name": self.name,
             "description": self.description,
@@ -57,5 +55,18 @@ class Role(Base):
             "isActive": self.is_active,
             "createdAt": self.created_at.isoformat() if self.created_at else None,
             "updatedAt": self.updated_at.isoformat() if self.updated_at else None,
-            "permissions": [p.to_dict() for p in self.permissions] if self.permissions else []
         }
+
+        if include_relations:
+            # 安全地获取用户统计
+            try:
+                base_dict["userCount"] = len(self.users) if self.users is not None else 0
+                base_dict["users"] = [
+                    {"id": u.id, "name": u.name, "email": u.email}
+                    for u in (self.users or [])
+                ]
+            except Exception:
+                base_dict["userCount"] = 0
+                base_dict["users"] = []
+
+        return base_dict

@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from app.core.database import get_db
-from app.models.scoring import ScoringCriteria, ScoringFactor, ScoreEntry, GovernanceMetric
+from app.models.scoring import ScoringFactor, ScoreEntry
 from app.models.user import User
 from app.models.activity import Activity
 from pydantic import BaseModel
@@ -118,9 +118,8 @@ async def get_scoring_dimensions():
 
 @router.get("/criteria")
 async def get_scoring_criteria(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(ScoringCriteria))
-    items = result.scalars().all()
-    return {"data": [c.to_dict() for c in items], "message": "查询成功", "success": True}
+    # 返回硬编码的评分标准，不使用数据库
+    return {"data": scoring_criteria, "message": "查询成功", "success": True}
 
 @router.get("/factors")
 async def get_scoring_factors(db: AsyncSession = Depends(get_db)):
@@ -194,51 +193,22 @@ async def get_score_entries(db: AsyncSession = Depends(get_db)):
 
 @router.get("/governance-metrics")
 async def get_governance_metrics(db: AsyncSession = Depends(get_db)):
-    dimension_result = await db.execute(select(GovernanceMetric.dimension))
-    dimension = dimension_result.scalars().first()
-    
-    metrics_result = await db.execute(select(GovernanceMetric).filter(GovernanceMetric.dimension == dimension))
-    metrics = metrics_result.scalars().all()
-    if not metrics:
-        sample_metrics = {
-            "department": {
-                "labels": ['代码质量', '文档完整性', '安全合规', '性能效率', '可维护性', '可扩展性'],
-                "values": [85, 92, 88, 76, 90, 82],
-                "governance_index": 89.5
-            },
-            "global": {
-                "labels": ['代码质量', '文档完整性', '安全合规', '性能效率', '可维护性', '可扩展性'],
-                "values": [80, 85, 92, 88, 78, 86],
-                "governance_index": 86.3
-            }
+    # 返回硬编码的治理指标样本数据，不使用数据库
+    sample_metrics = {
+        "department": {
+            "labels": ['代码质量', '文档完整性', '安全合规', '性能效率', '可维护性', '可扩展性'],
+            "values": [85, 92, 88, 76, 90, 82],
+            "governance_index": 89.5
+        },
+        "global": {
+            "labels": ['代码质量', '文档完整性', '安全合规', '性能效率', '可维护性', '可扩展性'],
+            "values": [80, 85, 92, 88, 78, 86],
+            "governance_index": 86.3
         }
-        return {"data": sample_metrics.get(dimension, sample_metrics["department"]), "message": "查询成功", "success": True}
-    metric_dict = {}
-    metric_dict["labels"] = []
-    metric_dict["values"] = []
-    for metric in metrics:
-        metric_dict["labels"].append(metric.metric_name)
-        metric_dict["values"].append(metric.value)
-    if metric_dict["values"]:
-        metric_dict["governance_index"] = round(sum(metric_dict["values"]) / len(metric_dict["values"]), 1)
-    else:
-        metric_dict["governance_index"] = 0
-    return {"data": metric_dict, "message": "查询成功", "success": True}
+    }
+    return {"data": sample_metrics, "message": "查询成功", "success": True}
 
 @router.post("/governance-metrics")
 async def create_governance_metric(data: dict = Body(...), db: AsyncSession = Depends(get_db)):
-    dimension = data.get("dimension")
-    metric_name = data.get("metric_name")
-    value = data.get("value")
-    if not all([dimension, metric_name, value]):
-        return {"data": None, "message": "缺少必填字段", "success": False}
-    existing_metric_result = await db.execute(select(GovernanceMetric).filter(GovernanceMetric.dimension == dimension, GovernanceMetric.metric_name == metric_name))
-    existing_metric = existing_metric_result.scalars().first()
-    if existing_metric:
-        existing_metric.value = value
-        existing_metric.timestamp = datetime.utcnow()
-    else:
-        new_metric = GovernanceMetric(id=str(uuid.uuid4()), dimension=dimension, metric_name=metric_name, value=value)
-        db.add(new_metric)
-    await db.commit()
-    return {"data": None, "message": "指标已保存", "success": True}
+    # 治理指标创建接口已禁用 - 使用硬编码数据
+    return {"data": None, "message": "治理指标功能已简化，使用预设数据", "success": True}

@@ -24,7 +24,8 @@ from app.models.user import User # 导入所有需要迁移的模型
 from app.models.department import Department
 from app.models.company import Company
 from app.models.role import Role
-from app.models.permission import Permission
+
+
 # ... 导入其他模型，例如：
 # from app.models.activity import Activity
 # from app.models.reward import Reward

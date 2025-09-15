@@ -6,7 +6,7 @@ from sqlalchemy import select, func
 from app.core.database import get_db
 from app.core.base_api import BaseAPIRouter
 from app.core.decorators import handle_api_errors, transaction
-from app.models.reward import Reward, Redemption, RewardSuggestion
+from app.models.reward import Reward, Redemption
 from app.models.user import User
 
 # Initialize router using base class
@@ -116,40 +116,4 @@ async def like_reward(reward_id: str, db: AsyncSession = Depends(get_db)):
     await db.flush()
     return base_router.success_response({"likes": reward.likes}, "点赞成功")
 
-@router.post("/{reward_id}/suggest")
-@handle_api_errors
-@transaction
-async def suggest_reward_change(reward_id: str, data: dict = Body(...), db: AsyncSession = Depends(get_db)):
-    """建议奖励修改"""
-    suggestion = RewardSuggestion(
-        id=str(uuid.uuid4()),
-        user_id=data.get("user_id", "anonymous"),
-        reward_id=reward_id if reward_id != "new" else None,
-        suggestion_text=data.get("suggestion", ""),
-        suggested_value=data.get("suggested_value"),
-        timestamp=datetime.utcnow(),
-        status="pending"
-    )
-    db.add(suggestion)
-    await db.flush()
-    await db.refresh(suggestion)
-    return base_router.success_response({"suggestion_id": suggestion.id}, "建议已提交，感谢您的反馈！")
-
-@router.post("/suggest-new")
-@handle_api_errors
-@transaction
-async def suggest_new_reward(data: dict = Body(...), db: AsyncSession = Depends(get_db)):
-    """建议新奖励"""
-    suggestion = RewardSuggestion(
-        id=str(uuid.uuid4()),
-        user_id=data.get("user_id", "anonymous"),
-        reward_id=None,
-        suggestion_text=data.get("suggestion", ""),
-        suggested_value=data.get("suggested_value"),
-        timestamp=datetime.utcnow(),
-        status="pending"
-    )
-    db.add(suggestion)
-    await db.flush()
-    await db.refresh(suggestion)
-    return base_router.success_response({"suggestion_id": suggestion.id}, "新奖励建议已提交，感谢反馈！")
+# 奖励建议功能已删除 - 功能不完整，无管理界面，实际未使用

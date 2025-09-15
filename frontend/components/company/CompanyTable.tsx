@@ -63,6 +63,7 @@ export const CompanyTable = memo<CompanyTableProps>(({
         <TableRow>
           <TableHead>公司名称</TableHead>
           <TableHead>域名</TableHead>
+          <TableHead>创建人</TableHead>
           <TableHead>加入公司</TableHead>
           <TableHead>员工数</TableHead>
           <TableHead>部门数</TableHead>
@@ -92,6 +93,14 @@ export const CompanyTable = memo<CompanyTableProps>(({
                 <Badge variant="outline">{company.domain}</Badge>
               ) : (
                 <span className="text-gray-400">未设置</span>
+              )}
+            </TableCell>
+            <TableCell>
+              {company.creatorName ? (
+                <span className="text-gray-900">{company.creatorName}</span>
+              ) : (
+                <span className="text-gray-400">{company.creatorUserId ? `ID ${company.creatorUserId}` : '-'}
+                </span>
               )}
             </TableCell>
             <TableCell>

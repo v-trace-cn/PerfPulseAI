@@ -2,14 +2,14 @@ from .database import async_engine, Base
 from app.models.user     import User
 from app.models.activity import Activity
 from app.models.reward   import Reward
-from app.models.scoring  import ScoringCriteria, ScoringFactor, GovernanceMetric
+from app.models.scoring  import ScoringFactor
 from app.models.pull_request_result import PullRequestResult
 from app.models.pull_request import PullRequest
 from app.models.pull_request_event import PullRequestEvent
 from app.models.company import Company
 from app.models.department import Department
 from app.models.role import Role
-from app.models.permission import Permission
+
 
 from .seed_data import seed_data
 

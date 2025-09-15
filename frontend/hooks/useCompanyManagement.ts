@@ -14,6 +14,8 @@ export interface Company {
   updatedAt: string;
   userCount: number;
   departmentCount: number;
+  creatorUserId?: number;
+  creatorName?: string;
 }
 
 export interface CompanyFormData {

@@ -206,18 +206,18 @@ export const unifiedApi = {
   // User API
   user: {
     getProfile: async (userId: string): Promise<UserProfile> => {
-      const res = await fetchUnifiedApi<ApiResponse<UserProfile>>(`/api/users/${userId}`);
+      const res = await fetchUnifiedApi<ApiResponse<UserProfile>>(`/api/users/by-id/${userId}`);
       return res.data;
     },
 
-    updateProfile: (userId: string, data: Partial<UserProfile>): Promise<ApiResponse> => 
-      fetchUnifiedApi(`/api/users/${userId}`, {
+    updateProfile: (userId: string, data: Partial<UserProfile>): Promise<ApiResponse> =>
+      fetchUnifiedApi(`/api/users/by-id/${userId}`, {
         method: 'PUT',
         body: JSON.stringify(data),
       }),
 
-    updateUserInfo: (userId: string, data: Partial<UserProfile>): Promise<ApiResponse> => 
-      fetchUnifiedApi(`/api/users/${userId}/updateInfo`, {
+    updateUserInfo: (userId: string, data: Partial<UserProfile>): Promise<ApiResponse> =>
+      fetchUnifiedApi(`/api/users/by-id/${userId}/updateInfo`, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
@@ -225,7 +225,7 @@ export const unifiedApi = {
     uploadAvatar: (userId: string, file: File): Promise<ApiResponse<{ avatar: string }>> => {
       const formData = new FormData();
       formData.append('file', file);
-      return fetchUnifiedApi(`/api/users/${userId}/upload_avatar`, {
+      return fetchUnifiedApi(`/api/users/by-id/${userId}/upload_avatar`, {
         method: 'POST',
         body: formData,
         headers: {
@@ -498,38 +498,21 @@ export const unifiedApi = {
 
 
 
-  // Permission API
+  // Role-based Permission API (simplified)
   permission: {
-    getAll: (userId: string): Promise<ApiResponse<any>> =>
-      fetchUnifiedApi(`/api/permissions/`, {
-        headers: {
-          'X-User-ID': userId,
-        },
-      }),
-
-    getCategories: (userId: string): Promise<ApiResponse<any[]>> =>
-      fetchUnifiedApi(`/api/permissions/categories`, {
-        headers: {
-          'X-User-ID': userId,
-        },
-      }),
-
-    getUserPermissions: (targetUserId: number, userId: string): Promise<ApiResponse<any>> =>
-      fetchUnifiedApi(`/api/permissions/user/${targetUserId}`, {
-        headers: {
-          'X-User-ID': userId,
-        },
-      }),
-
-    checkUserPermissions: (targetUserId: number, permissions: string, userId: string): Promise<ApiResponse<any>> =>
-      fetchUnifiedApi(`/api/permissions/check/${targetUserId}?permissions=${encodeURIComponent(permissions)}`, {
+    // 检查用户是否可以查看管理菜单
+    canViewAdminMenus: (companyId: number, userId: string): Promise<ApiResponse<{
+      canView: boolean;
+      canOrg: boolean;
+      canMall: boolean;
+      canRedemption: boolean;
+      reason: string;
+    }>> =>
+      fetchUnifiedApi(`/api/roles/permissions/can_view_admin_menus?companyId=${companyId}`, {
         headers: {
           'X-User-Id': userId,
         },
       }),
-
-    getDefinitions: (): Promise<ApiResponse<any>> =>
-      fetchUnifiedApi(`/api/permissions/definitions`),
   },
 };
 

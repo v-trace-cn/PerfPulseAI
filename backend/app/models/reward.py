@@ -23,7 +23,6 @@ class Reward(Base):
     
     # 关联关系
     redemptions = relationship('Redemption', back_populates='reward')
-    suggestions = relationship('RewardSuggestion', back_populates='reward')
     
     def __init__(self, id, name, description, cost, icon=None, available=True):
         """
@@ -110,74 +109,3 @@ class Redemption(Base):
         }
 
 
-class RewardSuggestion(Base):
-    """Model for user suggestions about rewards."""
-    __tablename__ = 'reward_suggestions'
-    
-    id = Column(String(36), primary_key=True)
-    user_id = Column(String(36), ForeignKey('users.id'), nullable=True)  # Nullable to allow anonymous suggestions
-    reward_id = Column(String(36), ForeignKey('rewards.id'), nullable=True)  # Nullable for new reward suggestions
-    suggestion_text = Column(Text, nullable=False)
-    suggested_value = Column(Integer, nullable=True)
-    name = Column(String(100), nullable=True)  # For new reward suggestions
-    description = Column(Text, nullable=True)  # For new reward suggestions
-    category = Column(String(50), nullable=True)  # For new reward suggestions
-    is_new_reward = Column(Boolean, default=False)  # Flag to indicate if this is a suggestion for a new reward
-    status = Column(String(20), default='pending')  # pending, approved, rejected
-    timestamp = Column(DateTime, default=lambda: datetime.utcnow().replace(microsecond=0))
-    created_at = Column(DateTime, default=lambda: datetime.utcnow().replace(microsecond=0))
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow().replace(microsecond=0), onupdate=lambda: datetime.utcnow().replace(microsecond=0))
-    
-    reward = relationship('Reward', back_populates='suggestions')
-    
-    def __init__(self, id, user_id, reward_id=None, suggestion_text='', suggested_value=None, 
-                 name=None, description=None, category=None, is_new_reward=False, 
-                 timestamp=None, status="pending"):
-        """
-        Initialize a new RewardSuggestion.
-        """
-        self.id = id
-        self.user_id = user_id
-        self.reward_id = reward_id
-        self.suggestion_text = suggestion_text
-        self.suggested_value = suggested_value
-        self.name = name
-        self.description = description
-        self.category = category
-        self.is_new_reward = is_new_reward
-        
-        # 处理日期字段
-        if isinstance(timestamp, str):
-            try:
-                self.timestamp = datetime.fromisoformat(timestamp)
-            except ValueError:
-                self.timestamp = datetime.utcnow()
-        elif timestamp is None:
-            self.timestamp = datetime.utcnow()
-        else:
-            self.timestamp = timestamp
-            
-        self.status = status
-        
-    def to_dict(self):
-        """
-        Convert the suggestion object to a dictionary.
-        
-        Returns:
-            dict: Dictionary representation of the suggestion
-        """
-        return {
-            "id": self.id,
-            "user_id": self.user_id,
-            "reward_id": self.reward_id,
-            "suggestion_text": self.suggestion_text,
-            "suggested_value": self.suggested_value,
-            "name": self.name,
-            "description": self.description,
-            "category": self.category,
-            "is_new_reward": self.is_new_reward,
-            "status": self.status,
-            "timestamp": self.timestamp.isoformat() if isinstance(self.timestamp, datetime) else self.timestamp,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None
-        }

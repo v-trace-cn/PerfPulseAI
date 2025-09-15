@@ -1,15 +1,15 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useEffect, useState } from "react"
 import AuthGuard from "@/components/guards/AuthGuard"
 import CompanyGuard from "@/components/guards/CompanyGuard"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+
 import {
   Dialog,
   DialogContent,
@@ -17,108 +17,399 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { useToast } from "@/components/ui/use-toast"
+import { useInfoDialog } from "@/components/ui/info-dialog"
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Users, Shield, Settings, Plus, Edit, Trash2, Search, UserPlus, Key, ArrowLeft } from "lucide-react"
+
+import { Shield, Plus, Edit, Trash2, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
-// Mock data
-const users = [
-  {
-    id: 1,
-    name: "张三",
-    email: "zhangsan@example.com",
-    role: "管理员",
-    status: "活跃",
-    permissions: ["用户管理", "角色管理", "系统设置", "数据导出", "日志查看"]
-  },
-  {
-    id: 2,
-    name: "李四",
-    email: "lisi@example.com",
-    role: "编辑",
-    status: "活跃",
-    permissions: ["内容编辑", "内容发布", "数据查看"]
-  },
-  {
-    id: 3,
-    name: "王五",
-    email: "wangwu@example.com",
-    role: "查看者",
-    status: "禁用",
-    permissions: ["数据查看"]
-  },
-  {
-    id: 4,
-    name: "赵六",
-    email: "zhaoliu@example.com",
-    role: "编辑",
-    status: "活跃",
-    permissions: ["内容编辑", "内容发布", "数据查看"]
-  },
-]
+import { useAuth } from "@/lib/auth-context"
 
-const roles = [
-  {
-    id: 1,
-    name: "管理员",
-    description: "拥有系统所有权限",
-    userCount: 1,
-    permissions: ["用户管理", "角色管理", "系统设置", "数据导出", "日志查看"],
-  },
-  {
-    id: 2,
-    name: "编辑",
-    description: "可以编辑和发布内容",
-    userCount: 2,
-    permissions: ["内容编辑", "内容发布", "数据查看"],
-  },
-  {
-    id: 3,
-    name: "查看者",
-    description: "只能查看内容",
-    userCount: 1,
-    permissions: ["数据查看"],
-  },
-]
-
-const permissions = [
-  { id: 1, name: "用户管理", category: "系统管理", description: "创建、编辑、删除用户" },
-  { id: 2, name: "角色管理", category: "系统管理", description: "创建、编辑、删除角色" },
-  { id: 3, name: "系统设置", category: "系统管理", description: "修改系统配置" },
-  { id: 4, name: "内容编辑", category: "内容管理", description: "编辑内容" },
-  { id: 5, name: "内容发布", category: "内容管理", description: "发布内容" },
-  { id: 6, name: "数据查看", category: "数据管理", description: "查看数据" },
-  { id: 7, name: "数据导出", category: "数据管理", description: "导出数据" },
-  { id: 8, name: "日志查看", category: "系统管理", description: "查看系统日志" },
-]
-
+// 后端数据
 export default function PermissionManagement() {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectedRole, setSelectedRole] = useState("all")
-  const [isAddUserOpen, setIsAddUserOpen] = useState(false)
   const [isAddRoleOpen, setIsAddRoleOpen] = useState(false)
-  const [editingUser, setEditingUser] = useState<any>(null)
-  const [isEditUserOpen, setIsEditUserOpen] = useState(false)
-  const [isAddPermissionOpen, setIsAddPermissionOpen] = useState(false)
 
-  const handleEditUser = (user: any) => {
-    setEditingUser(user)
-    setIsEditUserOpen(true)
+  const { user } = useAuth()
+  const { showSuccess, showError, showInfo, DialogComponent } = useInfoDialog()
+  const [departments, setDepartments] = useState<any[]>([])
+  const [selectedDeptId, setSelectedDeptId] = useState<number | null>(null)
+  const [members, setMembers] = useState<any[]>([])
+  const [adminUserIds, setAdminUserIds] = useState<number[]>([])
+  const [qMember, setQMember] = useState("")
+  const [loading, setLoading] = useState(false)
+
+  const [canOrg, setCanOrg] = useState<boolean>(false)
+  const [permChecked, setPermChecked] = useState<boolean>(false)
+
+  const token = typeof window !== "undefined" ? (localStorage.getItem("token") || sessionStorage.getItem("token")) : null
+
+  // 编辑部门管理员的“用户角色”对话框
+  const [isEditUserRolesOpen, setIsEditUserRolesOpen] = useState(false)
+  const [editRolesUserId, setEditRolesUserId] = useState<number | null>(null)
+  const [editUserRoleIds, setEditUserRoleIds] = useState<number[]>([])
+  const [editRolesLoading, setEditRolesLoading] = useState(false)
+  const [editRoleMembersMap, setEditRoleMembersMap] = useState<Record<number, number[]>>({})
+
+  const openEditUserRoles = async (uid: number) => {
+    setEditRolesUserId(uid)
+    setIsEditUserRolesOpen(true)
+    setEditRolesLoading(true)
+    try {
+      // 获取用户当前的角色
+      const userRolesRes = await fetch(`/api/roles/users/${uid}/roles`, { headers })
+      const userRolesJson = await userRolesRes.json()
+
+      // 获取所有角色的成员信息（用于显示"已拥有"标注）
+      const entries = await Promise.all(
+        roles.map(async (r: any) => {
+          try {
+            const res = await fetch(`/api/roles/${r.id}/members`, { headers })
+            const json = await res.json().catch(() => ({}))
+            const ids: number[] = json?.data?.items?.map((m: any) => m.id) ?? []
+            return [r.id, ids] as [number, number[]]
+          } catch {
+            return [r.id, []] as [number, number[]]
+          }
+        }),
+      )
+
+      const map: Record<number, number[]> = {}
+      for (const [rid, ids] of entries) {
+        map[rid] = ids
+      }
+      setEditRoleMembersMap(map)
+
+      // 设置用户当前拥有的角色
+      if (userRolesJson?.success) {
+        const currentRoleIds = userRolesJson.data.roles.map((r: any) => r.id)
+        setEditUserRoleIds(currentRoleIds)
+      } else {
+        setEditUserRoleIds([])
+      }
+    } finally {
+      setEditRolesLoading(false)
+    }
   }
 
-  const filteredUsers = users.filter(
-    (user) =>
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  const toggleUserRole = (rid: number, checked: boolean) => {
+    setEditUserRoleIds((prev) => (checked ? Array.from(new Set([...prev, rid])) : prev.filter((id) => id !== rid)))
+  }
+
+  const saveEditUserRoles = async () => {
+    if (!editRolesUserId) return
+    setEditRolesLoading(true)
+    try {
+      // 使用新的用户角色更新接口
+      const response = await fetch(`/api/roles/users/${editRolesUserId}/roles`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ roleIds: editUserRoleIds }),
+      })
+
+      const result = await response.json()
+      if (result.success) {
+        showSuccess("操作成功", "用户角色更新成功")
+        setIsEditUserRolesOpen(false)
+        setEditRolesUserId(null)
+        // 重新加载数据以更新UI
+        await loadRoles()
+      } else {
+        showError("更新失败", result.message || "未知错误")
+      }
+    } catch (e) {
+      console.error('更新用户角色失败', e)
+      showError("更新失败", "网络错误，请稍后重试")
+    } finally {
+      setEditRolesLoading(false)
+    }
+  }
+
+  const headers: Record<string, string> = token ? { "X-User-Id": token, "Content-Type": "application/json" } : { "Content-Type": "application/json" }
+
+  // 角色与权限（列表与新增表单）
+  const [roles, setRoles] = useState<any[]>([])
+  const [roleName, setRoleName] = useState("")
+  const [roleDesc, setRoleDesc] = useState("")
+
+
+
+
+
+
+
+	// 角色编辑/删除弹窗状态
+	const [isEditRoleOpen, setIsEditRoleOpen] = useState(false)
+	const [editRole, setEditRole] = useState<any>(null)
+	const [editRoleName, setEditRoleName] = useState("")
+	const [editRoleDesc, setEditRoleDesc] = useState("")
+	const [isDeleteRoleOpen, setIsDeleteRoleOpen] = useState(false)
+	const [roleToDelete, setRoleToDelete] = useState<any>(null)
+
+		const openEditRole = (r: any) => {
+			setEditRole(r)
+			setEditRoleName(r?.name || "")
+			setEditRoleDesc(r?.description || "")
+			setIsEditRoleOpen(true)
+		}
+
+		const openDeleteRole = (r: any) => {
+			setRoleToDelete(r)
+			setIsDeleteRoleOpen(true)
+		}
+
+
+	// 通知
+	const { toast } = useToast()
+
+
+
+
+  const loadRoles = async () => {
+    if (!user?.companyId) return
+    try {
+      const res = await fetch(`/api/roles?companyId=${user.companyId}`, { headers })
+      const json = await res.json()
+      if (json?.success) setRoles(json.data || [])
+    } catch (e) {
+      console.error("加载角色失败", e)
+    }
+  }
+
+  useEffect(() => { loadRoles() }, [user?.companyId])
+
+
+
+  const handleCreateRole = async () => {
+    if (!user?.companyId || !roleName.trim()) {
+      toast({ variant: "destructive", title: "创建角色失败", description: "请填写角色名称" })
+      return
+    }
+    try {
+      const res = await fetch(`/api/roles`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          companyId: user.companyId,
+          name: roleName.trim(),
+          description: roleDesc || "",
+        }),
+      })
+      let json: any = null
+      try { json = await res.json() } catch {}
+      if (!res.ok || !json?.success) {
+        const msg = json?.detail || json?.message || `创建角色失败 (${res.status})`
+        toast({ variant: "destructive", title: "创建角色失败", description: msg })
+        return
+      }
+      toast({ title: "创建角色成功" })
+      setIsAddRoleOpen(false)
+      setRoleName(""); setRoleDesc("")
+      await loadRoles()
+    } catch (e) {
+      console.error("创建角色失败", e)
+      toast({ variant: "destructive", title: "创建角色失败", description: "请稍后再试" })
+    }
+  }
+
+
+
+
+
+  const onConfirmEditRole = async () => {
+    if (!editRole) return
+    const name = editRoleName.trim()
+    const description = editRoleDesc || ""
+    if (!name) {
+      toast({ variant: "destructive", title: "保存失败", description: "请填写角色名称" })
+      return
+    }
+    try {
+      const res = await fetch(`/api/roles/${editRole.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ name, description })
+      })
+      let json: any = null
+      try { json = await res.json() } catch {}
+      if (!res.ok || !json?.success) {
+        const msg = json?.detail || json?.message || `更新角色失败 (${res.status})`
+        toast({ variant: "destructive", title: "更新角色失败", description: msg })
+        return
+      }
+
+      toast({ title: "更新成功" })
+      setIsEditRoleOpen(false)
+      setEditRole(null)
+      await loadRoles()
+    } catch (e) {
+      console.error("更新角色失败", e)
+      toast({ variant: "destructive", title: "更新角色失败", description: "请稍后再试" })
+    }
+  }
+
+  const onConfirmDeleteRole = async () => {
+    if (!roleToDelete) return
+    try {
+      const res = await fetch(`/api/roles/${roleToDelete.id}`, {
+        method: 'DELETE',
+        headers,
+      })
+      let json: any = null
+      try { json = await res.json() } catch {}
+      if (!res.ok || !json?.success) {
+        const msg = json?.detail || json?.message || `删除角色失败 (${res.status})`
+        toast({ variant: "destructive", title: "删除角色失败", description: msg })
+        return
+      }
+      toast({ title: "删除成功" })
+      setIsDeleteRoleOpen(false)
+      setRoleToDelete(null)
+      await loadRoles()
+    } catch (e) {
+      console.error("删除角色失败", e)
+      toast({ variant: "destructive", title: "删除角色失败", description: "请稍后再试" })
+    }
+  }
+
+
+
+
+
+  // 权限页可见性校验（仅超级管理员或被授权者可见）
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const res = await fetch(`/api/roles/permissions/can_view_admin_menus?companyId=${user?.companyId ?? ''}`, { headers })
+        const json = await res.json()
+        setCanOrg(Boolean(json?.data?.canOrg))
+      } catch (_) {
+        setCanOrg(false)
+      } finally {
+        setPermChecked(true)
+      }
+    }
+    if (user?.companyId) check()
+  }, [user?.companyId])
+
+  // 加载部门列表
+  useEffect(() => {
+    const loadDepts = async () => {
+      if (!user?.companyId) return
+      try {
+        const res = await fetch(`/api/departments?company_id=${user.companyId}`, { headers })
+        const json = await res.json()
+        if (json?.success) {
+          setDepartments(json.data || [])
+          if (!selectedDeptId && (json.data || []).length > 0) {
+            setSelectedDeptId(json.data[0].id)
+          }
+        }
+      } catch (e) {
+        console.error("加载部门失败", e)
+      }
+    }
+    loadDepts()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.companyId])
+
+  // 加载成员和部门管理员
+  useEffect(() => {
+    const loadMembersAndAdmins = async () => {
+      if (!user?.companyId || !selectedDeptId) return
+      setLoading(true)
+      try {
+        // 加载公司成员
+        const memRes = await fetch(`/api/users/company-members?companyId=${user.companyId}&page=1&pageSize=1000`, { headers })
+        const memJson = await memRes.json()
+        if (memJson?.success) {
+          setMembers(memJson.data?.items || [])
+        }
+
+        // 加载部门管理员
+        const adminRes = await fetch(`/api/departments/${selectedDeptId}/admins`, { headers })
+        const adminJson = await adminRes.json()
+        if (adminJson?.success) {
+          const adminIds = adminJson.data.map((admin: any) => admin.id)
+          setAdminUserIds(adminIds)
+        } else {
+          setAdminUserIds([])
+        }
+      } catch (e) {
+        console.error("加载成员/管理员失败", e)
+        showError("加载失败", "无法加载成员和管理员信息，请稍后重试")
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadMembersAndAdmins()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.companyId, selectedDeptId])
+
+
+
+  const grantDeptAdmin = async (targetUserId: number) => {
+    if (!user?.companyId || !selectedDeptId) return
+    try {
+      const res = await fetch(`/api/departments/${selectedDeptId}/admins`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ userId: targetUserId }),
+      })
+
+      const json = await res.json()
+      if (json?.success) {
+        setAdminUserIds((prev) => Array.from(new Set([...prev, targetUserId])))
+      } else {
+        showError("分配失败", json?.message || "未知错误")
+      }
+    } catch (e) {
+      console.error("授权失败", e)
+      showError("分配失败", "网络错误，请稍后重试")
+    }
+  }
+
+  const revokeDeptAdmin = async (targetUserId: number) => {
+    if (!user?.companyId || !selectedDeptId) return
+    try {
+      const res = await fetch(`/api/departments/${selectedDeptId}/admins/${targetUserId}`, {
+        method: "DELETE",
+        headers,
+      })
+
+      const json = await res.json()
+      if (json?.success) {
+        setAdminUserIds((prev) => prev.filter((id) => id !== targetUserId))
+      } else {
+        showError("撤销失败", json?.message || "未知错误")
+      }
+    } catch (e) {
+      console.error("撤销失败", e)
+      showError("撤销失败", "网络错误，请稍后重试")
+    }
+  }
+
+
 
   return (
     <AuthGuard>
       <CompanyGuard>
         <div className="flex flex-col min-h-screen bg-gray-50/90">
+          {!permChecked ? (
+            <div className="flex-1 p-8">加载中...</div>
+          ) : !canOrg ? (
+            <div className="flex-1 p-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle>无权限</CardTitle>
+                  <CardDescription>仅超级管理员或被授权用户可访问此页面。</CardDescription>
+                </CardHeader>
+              </Card>
+            </div>
+          ) : (
           <main className="flex-1 p-4 md:p-8 space-y-8">
             <header className="flex flex-col md:flex-row items-start md:items-center justify-between space-y-4 md:space-y-0">
               <div className="flex items-center space-x-4">
@@ -135,388 +426,288 @@ export default function PermissionManagement() {
                 </div>
               </div>
             </header>
-            <Tabs defaultValue="users" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-3 max-w-md">
-                <TabsTrigger value="users" className="flex items-center space-x-2">
-                  <Users className="h-4 w-4" />
-                  <span>用户管理</span>
+            <Tabs defaultValue="deptPerms" className="space-y-6">
+              <TabsList className="grid w-full grid-cols-2 max-w-xl">
+                <TabsTrigger value="deptPerms" className="flex items-center space-x-2">
+                  <Shield className="h-4 w-4" />
+                  <span>部门权限</span>
                 </TabsTrigger>
                 <TabsTrigger value="roles" className="flex items-center space-x-2">
                   <Shield className="h-4 w-4" />
                   <span>角色管理</span>
                 </TabsTrigger>
-                <TabsTrigger value="permissions" className="flex items-center space-x-2">
-                  <Key className="h-4 w-4" />
-                  <span>权限管理</span>
-                </TabsTrigger>
               </TabsList>
-
-              {/* Users Tab */}
-              <TabsContent value="users" className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle>用户列表</CardTitle>
-                        <CardDescription>管理系统用户和他们的权限</CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center space-x-4 mb-6">
-                      <div className="relative flex-1 max-w-sm">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                        <Input
-                          placeholder="搜索用户..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          className="pl-10"
-                        />
-                      </div>
-                      <Select value={selectedRole} onValueChange={setSelectedRole}>
-                        <SelectTrigger className="w-40">
-                          <SelectValue placeholder="筛选角色" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">所有角色</SelectItem>
-                          <SelectItem value="admin">管理员</SelectItem>
-                          <SelectItem value="editor">编辑</SelectItem>
-                          <SelectItem value="viewer">查看者</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>用户</TableHead>
-                          <TableHead>角色</TableHead>
-                          <TableHead>状态</TableHead>
-                          <TableHead>权限</TableHead>
-                          <TableHead className="text-right">操作</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredUsers.map((user) => (
-                          <TableRow key={user.id}>
-                            <TableCell>
-                              <div>
-                                <div className="font-medium">{user.name}</div>
-                                <div className="text-sm text-gray-500">{user.email}</div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={user.role === "管理员" ? "default" : "secondary"}>{user.role}</Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={user.status === "活跃" ? "default" : "destructive"}>{user.status}</Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex flex-wrap gap-1 max-w-xs">
-                                {user.permissions.slice(0, 3).map((permission, index) => (
-                                  <Badge key={index} variant="outline" className="text-xs">
-                                    {permission}
-                                  </Badge>
-                                ))}
-                                {user.permissions.length > 3 && (
-                                  <Badge variant="outline" className="text-xs">
-                                    +{user.permissions.length - 3}
-                                  </Badge>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex items-center justify-end space-x-2">
-                                <Button variant="ghost" size="sm" onClick={() => handleEditUser(user)}>
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="sm">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* Edit User Dialog */}
-              <Dialog open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>编辑用户</DialogTitle>
-                    <DialogDescription>修改用户信息和权限设置</DialogDescription>
-                  </DialogHeader>
-                  {editingUser && (
-                    <div className="grid gap-4 py-4">
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="edit-name" className="text-right">
-                          姓名
-                        </Label>
-                        <Input id="edit-name" defaultValue={editingUser.name} className="col-span-3" />
-                      </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="edit-email" className="text-right">
-                          邮箱
-                        </Label>
-                        <Input id="edit-email" type="email" defaultValue={editingUser.email} className="col-span-3" />
-                      </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="edit-role" className="text-right">
-                          角色
-                        </Label>
-                        <Select defaultValue={editingUser.role}>
-                          <SelectTrigger className="col-span-3">
-                            <SelectValue placeholder="选择角色" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="管理员">管理员</SelectItem>
-                            <SelectItem value="编辑">编辑</SelectItem>
-                            <SelectItem value="查看者">查看者</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="edit-status" className="text-right">
-                          状态
-                        </Label>
-                        <Select defaultValue={editingUser.status}>
-                          <SelectTrigger className="col-span-3">
-                            <SelectValue placeholder="选择状态" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="活跃">活跃</SelectItem>
-                            <SelectItem value="禁用">禁用</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="grid grid-cols-4 items-start gap-4">
-                        <Label className="text-right mt-2">当前权限</Label>
-                        <div className="col-span-3">
-                          <div className="flex flex-wrap gap-2">
-                            {editingUser.permissions.map((permission: string, index: number) => (
-                              <Badge key={index} variant="outline" className="text-xs">
-                                {permission}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsEditUserOpen(false)}>
-                      取消
-                    </Button>
-                    <Button onClick={() => setIsEditUserOpen(false)}>保存修改</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
 
               {/* Roles Tab */}
               <TabsContent value="roles" className="space-y-6">
                 <Card>
                   <CardHeader>
                     <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle>角色列表</CardTitle>
-                        <CardDescription>管理系统角色和权限分配</CardDescription>
-                      </div>
-                      <Dialog open={isAddRoleOpen} onOpenChange={setIsAddRoleOpen}>
-                        <DialogTrigger asChild>
-                          <Button className="flex items-center space-x-2">
-                            <Plus className="h-4 w-4" />
-                            <span>添加角色</span>
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-2xl">
-                          <DialogHeader>
-                            <DialogTitle>创建新角色</DialogTitle>
-                            <DialogDescription>定义角色名称、描述和权限</DialogDescription>
-                          </DialogHeader>
-                          <div className="grid gap-4 py-4">
-                            <div className="grid grid-cols-4 items-center gap-4">
-                              <Label htmlFor="roleName" className="text-right">
-                                角色名称
-                              </Label>
-                              <Input id="roleName" className="col-span-3" />
-                            </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                              <Label htmlFor="roleDesc" className="text-right">
-                                描述
-                              </Label>
-                              <Input id="roleDesc" className="col-span-3" />
-                            </div>
-                            <div className="grid grid-cols-4 items-start gap-4">
-                              <Label className="text-right mt-2">权限</Label>
-                              <div className="col-span-3 space-y-3">
-                                {["系统管理", "内容管理", "数据管理"].map((category) => (
-                                  <div key={category}>
-                                    <h4 className="font-medium mb-2">{category}</h4>
-                                    <div className="space-y-2 pl-4">
-                                      {permissions
-                                        .filter((p) => p.category === category)
-                                        .map((permission) => (
-                                          <div key={permission.id} className="flex items-center space-x-2">
-                                            <Checkbox id={`perm-${permission.id}`} />
-                                            <Label htmlFor={`perm-${permission.id}`} className="text-sm">
-                                              {permission.name}
-                                            </Label>
-                                          </div>
-                                        ))}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                          <DialogFooter>
-                            <Button variant="outline" onClick={() => setIsAddRoleOpen(false)}>
-                              取消
-                            </Button>
-                            <Button onClick={() => setIsAddRoleOpen(false)}>创建角色</Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                      {roles.map((role) => (
-                        <Card key={role.id}>
-                          <CardHeader>
-                            <div className="flex items-center justify-between">
-                              <CardTitle className="text-lg">{role.name}</CardTitle>
-                              <Badge variant="secondary">{role.userCount} 用户</Badge>
-                            </div>
-                            <CardDescription>{role.description}</CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="space-y-3">
-                              <div>
-                                <h4 className="text-sm font-medium mb-2">权限列表</h4>
-                                <div className="flex flex-wrap gap-1">
-                                  {role.permissions.map((permission) => (
-                                    <Badge key={permission} variant="outline" className="text-xs">
-                                      {permission}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </div>
-                              <div className="flex items-center justify-end space-x-2 pt-2">
-                                <Button variant="ghost" size="sm">
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="sm">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* Permissions Tab */}
-              <TabsContent value="permissions" className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle>权限列表</CardTitle>
-                        <CardDescription>系统中所有可用的权限</CardDescription>
-                      </div>
-                      <Button className="flex items-center space-x-2" onClick={() => setIsAddPermissionOpen(true)}>
-                        <Plus className="h-4 w-4" />
-                        <span>添加权限</span>
+                      <CardTitle>角色管理</CardTitle>
+                      <Button size="sm" onClick={() => setIsAddRoleOpen(true)}>
+                        <Plus className="h-4 w-4 mr-1" /> 新建角色
                       </Button>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-6">
-                      {["系统管理", "内容管理", "数据管理"].map((category) => (
-                        <div key={category}>
-                          <h3 className="text-lg font-semibold mb-3">{category}</h3>
-                          <div className="grid gap-4 md:grid-cols-2">
-                            {permissions
-                              .filter((p) => p.category === category)
-                              .map((permission) => (
-                                <Card key={permission.id}>
-                                  <CardContent className="pt-4">
-                                    <div className="flex items-center justify-between">
-                                      <div>
-                                        <h4 className="font-medium">{permission.name}</h4>
-                                        <p className="text-sm text-gray-500 mt-1">{permission.description}</p>
-                                      </div>
-                                      <Button variant="ghost" size="sm">
-                                        <Settings className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  </CardContent>
-                                </Card>
-                              ))}
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {roles.map((r) => (
+                        <div key={r.id} className="p-3 border rounded">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <div className="font-medium">{r.name}</div>
+                              <div className="text-xs text-gray-500 line-clamp-2">{r.description || ''}</div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Button variant="ghost" size="icon" aria-label="编辑角色" onClick={() => openEditRole(r)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" aria-label="删除角色" onClick={() => openDeleteRole(r)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
+                          <div className="text-xs text-gray-500 mt-2">成员：{r.userCount || 0} | 权限：{(r.permissions || []).length}</div>
                         </div>
                       ))}
+                      {roles.length === 0 && <div className="text-sm text-gray-500">暂无角色</div>}
                     </div>
                   </CardContent>
                 </Card>
               </TabsContent>
 
-              {/* Add Permission Dialog */}
-              <Dialog open={isAddPermissionOpen} onOpenChange={setIsAddPermissionOpen}>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>添加新权限</DialogTitle>
-                    <DialogDescription>创建一个新的系统权限</DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="permission-name" className="text-right">
-                        权限名称
-                      </Label>
-                      <Input id="permission-name" className="col-span-3" placeholder="例如：数据导出" />
+              {/* Department Permissions Tab */}
+              <TabsContent value="deptPerms" className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle>部门管理</CardTitle>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Label>选择部门</Label>
+                        <Select value={String(selectedDeptId ?? '')} onValueChange={(v) => setSelectedDeptId(Number(v))}>
+                          <SelectTrigger className="w-64">
+                            <SelectValue placeholder="请选择部门" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {departments.map((d) => (
+                              <SelectItem key={d.id} value={String(d.id)}>
+                                {d.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="permission-category" className="text-right">
-                        权限分类
-                      </Label>
-                      <Select>
-                        <SelectTrigger className="col-span-3">
-                          <SelectValue placeholder="选择分类" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="系统管理">系统管理</SelectItem>
-                          <SelectItem value="内容管理">内容管理</SelectItem>
-                          <SelectItem value="数据管理">数据管理</SelectItem>
-                        </SelectContent>
-                      </Select>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid md:grid-cols-2 gap-6">
+                      <div>
+                        <h3 className="font-medium mb-3">当前管理员</h3>
+                        <div className="space-y-2">
+                          {adminUserIds.length === 0 && <div className="text-sm text-gray-500">暂无管理员</div>}
+                          {adminUserIds.map((uid) => {
+                            const u = members.find((m) => m.id === uid)
+                            return (
+                              <div key={uid} className="flex items-center justify-between p-2 border rounded">
+                                <div>
+                                  <div className="font-medium">{u?.name || `用户 ${uid}`}</div>
+                                  <div className="text-xs text-gray-500">{u?.email || ""}</div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Button variant="ghost" size="icon" aria-label="编辑用户角色" onClick={() => openEditUserRoles(uid)}>
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button variant="outline" size="sm" onClick={() => revokeDeptAdmin(uid)} disabled={loading}>
+                                    取消管理员
+                                  </Button>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                      <div>
+                        <h3 className="font-medium mb-3">添加管理员</h3>
+                        <div className="flex items-center gap-2 mb-3">
+                          <Input placeholder="搜索成员（姓名/邮箱）" value={qMember} onChange={(e) => setQMember(e.target.value)} />
+                        </div>
+                        <div className="space-y-2 max-h-[420px] overflow-auto">
+                          {members
+                            .filter((m) => !adminUserIds.includes(m.id))
+                            .filter((m) => !selectedDeptId || m.departmentId === selectedDeptId)
+                            .filter((m) =>
+                              qMember
+                                ? (m.name || "").toLowerCase().includes(qMember.toLowerCase()) || (m.email || "").toLowerCase().includes(qMember.toLowerCase())
+                                : true,
+                            )
+                            .map((m) => (
+                              <div key={m.id} className="flex items-center justify-between p-2 border rounded">
+                                <div>
+                                  <div className="font-medium">{m.name}</div>
+                                  <div className="text-xs text-gray-500">{m.email}</div>
+                                </div>
+                                <Button variant="default" size="sm" onClick={() => grantDeptAdmin(m.id)} disabled={loading || !selectedDeptId}>
+                                  设为管理员
+
+
+                                </Button>
+                              </div>
+                            ))}
+                          {members.filter((m) => !adminUserIds.includes(m.id) && (!selectedDeptId || m.departmentId === selectedDeptId)).length === 0 && (
+                            <div className="text-sm text-gray-500">没有可添加的成员</div>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="permission-description" className="text-right">
-                        权限描述
-                      </Label>
-                      <Input id="permission-description" className="col-span-3" placeholder="描述该权限的具体功能" />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsAddPermissionOpen(false)}>
-                      取消
-                    </Button>
-                    <Button onClick={() => setIsAddPermissionOpen(false)}>创建权限</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+
+
+
             </Tabs>
           </main>
+          )}
         </div>
       </CompanyGuard>
+
+    {/* Edit Role Dialog */}
+    <Dialog open={isEditRoleOpen} onOpenChange={setIsEditRoleOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>编辑角色</DialogTitle>
+          <DialogDescription>修改角色基础信息</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-2">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label className="text-right">角色名称</Label>
+            <Input className="col-span-3" value={editRoleName} onChange={(e) => setEditRoleName(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label className="text-right">描述</Label>
+            <Input className="col-span-3" value={editRoleDesc} onChange={(e) => setEditRoleDesc(e.target.value)} />
+          </div>
+        </div>
+
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setIsEditRoleOpen(false)}>取消</Button>
+          <Button onClick={onConfirmEditRole}>保存</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Delete Role Confirm */}
+    <AlertDialog open={isDeleteRoleOpen} onOpenChange={setIsDeleteRoleOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>删除角色</AlertDialogTitle>
+          <AlertDialogDescription>
+            确认删除角色“{roleToDelete?.name || roleToDelete?.id}”？该操作不可恢复。
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>取消</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirmDeleteRole}>删除</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    {/* Add Role Dialog (global) */}
+    <Dialog open={isAddRoleOpen} onOpenChange={setIsAddRoleOpen}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>创建新角色</DialogTitle>
+          <DialogDescription>定义角色名称、描述</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div>
+            <Label className="mb-1 block">角色名称</Label>
+            <Input value={roleName} onChange={(e) => setRoleName(e.target.value)} />
+          </div>
+          <div>
+            <Label className="mb-1 block">描述</Label>
+            <Input value={roleDesc} onChange={(e) => setRoleDesc(e.target.value)} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setIsAddRoleOpen(false)}>取消</Button>
+          <Button onClick={handleCreateRole}>创建角色</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+
+    {/* Edit User Roles Dialog */}
+    <Dialog open={isEditUserRolesOpen} onOpenChange={setIsEditUserRolesOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>设置用户角色</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-2 max-h-[420px] overflow-auto border rounded p-2">
+          {roles.map((r) => {
+            const isCurrentlyAssigned = editUserRoleIds.includes(r.id);
+            const wasOriginallyAssigned = editRoleMembersMap[r.id]?.includes(editRolesUserId || 0) || false;
+            const isNewlyAdded = isCurrentlyAssigned && !wasOriginallyAssigned;
+            const isBeingRemoved = !isCurrentlyAssigned && wasOriginallyAssigned;
+
+            return (
+              <label
+                key={r.id}
+                className={`flex items-center gap-2 text-sm p-2 rounded transition-colors ${
+                  isNewlyAdded ? 'bg-green-50 border border-green-200' :
+                  isBeingRemoved ? 'bg-red-50 border border-red-200' :
+                  wasOriginallyAssigned ? 'bg-blue-50 border border-blue-200' :
+                  'hover:bg-gray-50'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={isCurrentlyAssigned}
+                  onChange={(e) => toggleUserRole(r.id, e.target.checked)}
+                  className="rounded"
+                />
+                <span className="flex-1 flex items-center justify-between">
+                  <span>
+                    {r.name}
+                    <span className="text-xs text-gray-500 ml-2">{r.description || ''}</span>
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {wasOriginallyAssigned && (
+                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                        已拥有
+                      </span>
+                    )}
+                    {isNewlyAdded && (
+                      <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                        新增
+                      </span>
+                    )}
+                    {isBeingRemoved && (
+                      <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
+                        将移除
+                      </span>
+                    )}
+                  </div>
+                </span>
+              </label>
+            );
+          })}
+          {roles.length === 0 && <div className="text-sm text-gray-500">暂无角色</div>}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setIsEditUserRolesOpen(false)} disabled={editRolesLoading}>取消</Button>
+          <Button onClick={saveEditUserRoles} disabled={editRolesLoading}>{editRolesLoading ? '保存中…' : '保存'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* 统一信息弹窗 */}
+    <DialogComponent />
+
     </AuthGuard>
   )
 }

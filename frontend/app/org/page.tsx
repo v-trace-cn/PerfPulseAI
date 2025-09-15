@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useEffect, useState } from "react"
 import AuthGuard from "@/components/guards/AuthGuard"
 import CompanyGuard from "@/components/guards/CompanyGuard"
 import { Building, Plus, Search, Settings, Gift, LogOut, Link as LinkIcon, ChevronDown, Shield, Package } from "lucide-react"
@@ -38,6 +38,21 @@ export default function OrganizationManagement() {
   const [selectedDepartmentForMembers, setSelectedDepartmentForMembers] = useState<Department | null>(null)
 
   const { user } = useAuth()
+  const [canMenus, setCanMenus] = useState<{ canView: boolean; canOrg: boolean; canMall: boolean; canRedemption: boolean }>({ canView: false, canOrg: false, canMall: false, canRedemption: false })
+
+  useEffect(() => {
+    const token = typeof window !== "undefined" ? (localStorage.getItem("token") || sessionStorage.getItem("token")) : null
+    const headers: Record<string, string> = token ? { "X-User-Id": token } : {}
+    const run = async () => {
+      try {
+        const res = await fetch(`/api/roles/permissions/can_view_admin_menus?companyId=${user?.companyId ?? ''}`, { headers })
+        const json = await res.json()
+        if (json?.success && json.data) setCanMenus(json.data)
+      } catch (e) {
+      }
+    }
+    if (user?.companyId) run()
+  }, [user?.companyId])
 
   // API hooks
   const { data: departments, isLoading, error } = useDepartments()
@@ -151,24 +166,30 @@ export default function OrganizationManagement() {
                         公司管理
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/org/permissions" className="flex items-center w-full">
-                        <Shield className="mr-2 h-4 w-4" />
-                        权限管理
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/org/mall" className="flex items-center w-full">
-                        <Package className="mr-2 h-4 w-4" />
-                        商城管理
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/org/redemption" className="flex items-center w-full">
-                        <Gift className="mr-2 h-4 w-4" />
-                        兑奖管理
-                      </Link>
-                    </DropdownMenuItem>
+                    {canMenus.canOrg && (
+                      <DropdownMenuItem asChild>
+                        <Link href="/org/permissions" className="flex items-center w-full">
+                          <Shield className="mr-2 h-4 w-4" />
+                          权限管理
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+                    {canMenus.canMall && (
+                      <DropdownMenuItem asChild>
+                        <Link href="/org/mall" className="flex items-center w-full">
+                          <Package className="mr-2 h-4 w-4" />
+                          商城管理
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+                    {canMenus.canRedemption && (
+                      <DropdownMenuItem asChild>
+                        <Link href="/org/redemption" className="flex items-center w-full">
+                          <Gift className="mr-2 h-4 w-4" />
+                          兑奖管理
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>

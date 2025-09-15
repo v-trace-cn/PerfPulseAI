@@ -226,29 +226,15 @@ export function useChangePassword() {
 }
 
 /**
- * 获取用户权限的Hook
+ * 检查用户管理菜单权限的Hook
  */
-export function useUserPermissions(userId: number) {
+export function useAdminMenuPermissions(companyId: number, userId: string) {
   return useApiQuery(
-    ['user-permissions', userId],
-    () => unifiedApi.user.getPermissions(userId),
+    ['admin-menu-permissions', companyId, userId],
+    () => unifiedApi.permission.canViewAdminMenus(companyId, userId),
     {
-      enabled: !!userId,
+      enabled: !!companyId && !!userId,
       staleTime: 300000, // 5分钟缓存
-    }
-  );
-}
-
-/**
- * 更新用户权限的Hook
- */
-export function useUpdateUserPermissions() {
-  return useApiMutation(
-    ({ userId, permissions }: { userId: number; permissions: string[] }) =>
-      unifiedApi.user.updatePermissions(userId, permissions),
-    {
-      successMessage: "权限更新成功",
-      invalidateQueries: ['user-permissions'],
     }
   );
 }

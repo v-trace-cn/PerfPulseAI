@@ -34,6 +34,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
+import unifiedApi from "@/lib/unified-api"
+
 
 // 积分商品数据
 
@@ -44,6 +46,26 @@ import { useAuth } from "@/lib/auth-context"
 
 export default function RedemptionPage() {
   const { user } = useAuth();
+  const [canRedemption, setCanRedemption] = useState(false)
+  const [permChecked, setPermChecked] = useState(false)
+
+  useEffect(() => {
+    const token = typeof window !== 'undefined' ? (localStorage.getItem('token') || sessionStorage.getItem('token')) : null
+    const headers: Record<string, string> = token ? { 'X-User-Id': token } : {}
+    const run = async () => {
+      try {
+        const res = await fetch(`/api/roles/permissions/can_view_admin_menus?companyId=${(user as any)?.companyId ?? ''}`, { headers })
+        const json = await res.json()
+        setCanRedemption(Boolean(json?.data?.canRedemption))
+      } catch (_) {
+        setCanRedemption(false)
+      } finally {
+        setPermChecked(true)
+      }
+    }
+    if ((user as any)?.companyId) run()
+  }, [user])
+
   const { toast } = useToast();
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: new Date(2024, 4, 1), // 2024年5月1日
@@ -116,6 +138,9 @@ export default function RedemptionPage() {
     rewardInfo?: any
   }>({ isValid: null, message: "" })
   const [isRedeeming, setIsRedeeming] = useState(false)
+
+  // HR 联系人（人力资源部第一个在职人员）
+  const [hrContact, setHrContact] = useState<{ id: string; name: string; avatar?: string } | null>(null)
 
   // 清除任何可能的缓存错误状态
   useEffect(() => {
@@ -280,6 +305,28 @@ export default function RedemptionPage() {
     fetchPointsProducts()
     fetchStatsData()
   }, [user?.id, currentPage, pageSize])
+
+	  // 获取人力资源部的第一个在职人员，作为密钥提交联系人
+	  useEffect(() => {
+	    const loadHrContact = async () => {
+	      if (!user?.id) return;
+	      try {
+	        const deptRes = await unifiedApi.department.getAll(String(user.id), (user as any)?.companyId)
+	        const depts = (deptRes as any)?.data || []
+	        const hrDept = depts.find((d: any) => /人力|HR/i.test(d.name))
+	        if (!hrDept) return
+	        const memRes = await unifiedApi.department.getMembers(hrDept.id, String(user.id))
+	        const members = (memRes as any)?.data || []
+	        if (!members.length) return
+	        const firstActive = members.find((m: any) => (m.performanceScore ?? m.overallPerformance ?? 0) > 0) || members[0]
+	        setHrContact({ id: String(firstActive.id), name: firstActive.name, avatar: firstActive.avatar })
+	      } catch (err) {
+	        // 忽略联系人加载失败，不影响主流程
+	      }
+	    }
+	    loadHrContact()
+	  }, [user?.id, (user as any)?.companyId])
+
 
   // 兑换功能
   const handleRedeem = async (product: any) => {
@@ -652,6 +699,60 @@ export default function RedemptionPage() {
     <AuthGuard>
       <CompanyGuard>
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
+          {!permChecked ? (
+            <div className="p-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                  </CardTitle>
+                  <CardDescription>
+
+
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            </div>
+          ) : !canRedemption ? (
+            <div className="p-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    无权限
+                  </CardTitle>
+                  <CardDescription>
+                    仅超级管理员或已被授权的用户可访问兑奖管理。
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            </div>
+          ) : (
+
           <div className="p-6">
             {/* Page Title */}
             <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -678,9 +779,6 @@ export default function RedemptionPage() {
               <CardContent>
                 <div className="flex flex-col md:flex-row gap-4">
                   <div className="flex-1">
-                    <Label htmlFor="redeemKey" className="text-gray-700">
-                      兑换密钥
-                    </Label>
                     <Input
                       id="redeemKey"
                       placeholder="请输入兑换密钥..."
@@ -700,6 +798,14 @@ export default function RedemptionPage() {
                     </Button>
                   </div>
                 </div>
+
+	                <div className="mt-3 text-sm text-gray-600 flex items-center gap-2">
+	                  <Building className="h-4 w-4" />
+	                  <span>
+	                    提示：请找到 {hrContact ? `「${hrContact.name}」` : "人力资源部的同属"} 提交密钥
+	                  </span>
+	                </div>
+
 
                 {keyValidation.message && (
                   <div
@@ -1267,6 +1373,7 @@ export default function RedemptionPage() {
               </DialogContent>
             </Dialog>
           </div>
+          )}
         </div>
       </CompanyGuard>
     </AuthGuard>

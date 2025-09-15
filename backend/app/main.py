@@ -30,8 +30,9 @@ for _, module_name, _ in pkgutil.iter_modules(api_path):
         app.include_router(module.router)
 
 
-
+@app.get("/health")
 @app.get("/api/health")
+@app.options("/health")
 async def health_check():
     return {"status": "ok", "code": 200, "message": "API服务器运行正常"}
 

@@ -15,7 +15,7 @@ export async function POST(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
 
-    const response = await fetch(`${getBackendApiUrl()}/api/users/${userId}/updateInfo`, {
+    const response = await fetch(`${getBackendApiUrl()}/api/users/by-id/${userId}/updateInfo`, {
       method: 'POST',
       signal: controller.signal,
       headers: {

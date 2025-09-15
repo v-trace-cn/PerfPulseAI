@@ -13,7 +13,7 @@ export async function GET(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
     
-    const response = await fetch(`${getBackendApiUrl()}/api/users/${userId}`, {
+    const response = await fetch(`${getBackendApiUrl()}/api/users/by-id/${userId}`, {
       method: 'GET',
       signal: controller.signal,
       headers: {
@@ -54,7 +54,7 @@ export async function PUT(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
     
-    const response = await fetch(`${getBackendApiUrl()}/api/users/${userId}`, {
+    const response = await fetch(`${getBackendApiUrl()}/api/users/by-id/${userId}`, {
       method: 'PUT',
       signal: controller.signal,
       headers: {

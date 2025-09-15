@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useEffect, useState } from "react"
 import AuthGuard from "@/components/guards/AuthGuard"
 import CompanyGuard from "@/components/guards/CompanyGuard"
 import { Button } from "@/components/ui/button"
@@ -56,6 +56,8 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 
+import { useAuth } from "@/lib/auth-context"
+
 export default function MallManagement() {
   const [isAddProductOpen, setIsAddProductOpen] = useState(false)
   const [isAddPromotionOpen, setIsAddPromotionOpen] = useState(false)
@@ -68,6 +70,27 @@ export default function MallManagement() {
   const [filterCategory, setFilterCategory] = useState("all")
   const [restockQuantities, setRestockQuantities] = useState<{[key: number]: number}>({})
   const [searchTerm, setSearchTerm] = useState("")
+
+  const { user } = useAuth()
+  const [canMall, setCanMall] = useState(false)
+  const [permChecked, setPermChecked] = useState(false)
+
+  useEffect(() => {
+    const token = typeof window !== 'undefined' ? (localStorage.getItem('token') || sessionStorage.getItem('token')) : null
+    const headers: Record<string, string> = token ? { 'X-User-Id': token } : {}
+    const run = async () => {
+      try {
+        const res = await fetch(`/api/roles/permissions/can_view_admin_menus?companyId=${user?.companyId ?? ''}`, { headers })
+        const json = await res.json()
+        setCanMall(Boolean(json?.data?.canMall))
+      } catch (_) {
+        setCanMall(false)
+      } finally {
+        setPermChecked(true)
+      }
+    }
+    if (user?.companyId) run()
+  }, [user?.companyId])
 
   const products = [
     {
@@ -245,28 +268,39 @@ export default function MallManagement() {
     setSelectedProducts([]) // 清空选择
   }
 
-  const filteredProducts = products
-    .filter((product) => {
-      const matchesCategory = filterCategory === "all" || product.category === filterCategory
-      const matchesSearch = searchTerm === "" ||
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.category.toLowerCase().includes(searchTerm.toLowerCase())
-      return matchesCategory && matchesSearch
-    })
-    .sort((a, b) => {
-      const aValue = a[sortBy as keyof typeof a]
-      const bValue = b[sortBy as keyof typeof b]
-      if (sortOrder === "asc") {
-        return aValue > bValue ? 1 : -1
-      } else {
-        return aValue < bValue ? 1 : -1
-      }
-    })
+  // 过滤和排序商品
+  const filteredProducts = products.filter((product) => {
+    const matchesCategory = filterCategory === "all" || product.category === filterCategory
+    const matchesSearch = searchTerm === "" ||
+      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.category.toLowerCase().includes(searchTerm.toLowerCase())
+    return matchesCategory && matchesSearch
+  }).sort((a, b) => {
+    const aValue = a[sortBy as keyof typeof a]
+    const bValue = b[sortBy as keyof typeof b]
+    if (sortOrder === "asc") {
+      return aValue > bValue ? 1 : -1
+    } else {
+      return aValue < bValue ? 1 : -1
+    }
+  })
 
   return (
     <AuthGuard>
       <CompanyGuard>
         <div className="flex flex-col min-h-screen bg-gray-50/90">
+          {!permChecked ? (
+            <div className="flex-1 p-8">加载中...</div>
+          ) : !canMall ? (
+            <div className="flex-1 p-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle>无权限</CardTitle>
+                  <CardDescription>仅超级管理员或被授权用户可访问商城管理。</CardDescription>
+                </CardHeader>
+              </Card>
+            </div>
+          ) : (
           <main className="flex-1 p-4 md:p-8 space-y-8">
             <header className="flex flex-col md:flex-row items-start md:items-center justify-between space-y-4 md:space-y-0">
               <div className="flex items-center space-x-4">
@@ -936,7 +970,8 @@ export default function MallManagement() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-          </main>
+          </main> 
+        )}
         </div>
       </CompanyGuard>
     </AuthGuard>

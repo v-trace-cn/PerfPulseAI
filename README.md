@@ -1,144 +1,138 @@
 # PerfPulseAI
 
-PerfPulseAI 是一个 FastAPI 驱动的全栈应用，用于 AI 绩效管理和激励机制。
+PerfPulseAI 是一个企业级的性能管理和积分系统，提供完整的用户管理、积分系统、通知系统和组织管理功能。
 
-## 项目概述
+## 📖 项目概述
 
-PerfPulseAI 旨在通过 AI 技术自动化梳理员工绩效，提供透明的激励机制，促进团队协作和个人成长。该项目采用 FastAPI 作为全栈解决方案，既提供后端 API 服务，也负责渲染前端页面。
+PerfPulseAI 旨在通过现代化的技术栈提供高效的性能管理和激励机制，促进团队协作和个人成长。项目采用前后端分离架构，前端使用 Next.js + React，后端使用 FastAPI + Python。
 
-## 部署流程
+## 🚀 快速开始
 
-1. **后端部署**
-   - 安装Python和依赖: `pip install -r backend/requirements.txt`
-   - 配置环境变量: 复制 `backend/.env.example` 到 `backend/.env` 并修改
-   - 启动API服务器: `python backend/app/run.py`
+### 环境要求
+- **前端**: Node.js 18+, npm/yarn
+- **后端**: Python 3.9+, PostgreSQL 12+, Redis 6+
 
-2. **前端部署**
-   - 安装Node.js和依赖: `cd frontend && npm install` 或者 `npm install --legacy-peer-deps`
-   - 开发模式: `npm run dev`
-   - 生产构建: `npm run build`
+### 本地开发
+
+1. **后端设置**
+   ```bash
+   cd backend
+   python -m venv venv
+   source venv/bin/activate  # Linux/Mac
+   pip install -r requirements.txt
+   cp .env.example .env  # 配置环境变量
+   alembic upgrade head  # 数据库迁移
+   python app/run.py     # 启动后端服务
+   ```
+
+2. **前端设置**
+   ```bash
+   cd frontend
+   npm install
+   cp .env.example .env.local  # 配置环境变量
+   npm run dev                 # 启动前端服务
+   ```
+
+3. **访问应用**
+   - 前端: http://localhost:3000
+   - 后端 API: http://localhost:5000
+   - API 文档: http://localhost:5000/docs
 
 
-## 项目结构
+## 📚 文档
+
+完整的项目文档请查看：
+
+- [📋 项目文档中心](./docs/README.md) - 完整的文档导航和项目概述
+- [📝 更新日志](./CHANGELOG.md) - 版本更新和变更记录
+- [🖥️ 前端文档](./frontend/docs/README.md) - 前端开发指南
+- [🔧 后端文档](./backend/docs/README.md) - 后端开发指南
+
+## 🏗️ 项目结构
 
 ```
-perfPulseAI/
+PerfPulseAI/
 ├── README.md                  # 项目说明文档
+├── CHANGELOG.md               # 更新日志
 ├── LICENSE                    # 开源许可证
 ├── .gitignore                 # Git忽略文件
 │
-├── docs/                      # 项目文档
-│   ├── architecture.md        # 架构设计文档
-│   └──deployment.md           # 部署指南
+├── docs/                      # 项目文档中心
+│   └── README.md             # 文档导航和概述
 │
 ├── backend/                   # FastAPI 后端应用
-│   ├── app/                   # FastAPI 应用代码
-│   │   ├── main.py            # FastAPI 应用入口
-│   │   ├── api/               # 路由模块
-│   │   │   ├── auth.py
-│   │   │   ├── user.py
-│   │   │   ├── activity.py
-│   │   │   ├── reward.py
-│   │   │   ├── webhook.py
-│   │   │   └── scoring.py
+│   ├── app/                   # 应用主目录
+│   │   ├── api/               # API 路由
+│   │   ├── core/              # 核心配置
+│   │   ├── models/            # 数据模型
+│   │   ├── services/          # 业务逻辑
+│   │   └── main.py           # 应用入口
+│   ├── docs/                  # 后端文档
 │   ├── requirements.txt       # Python依赖
-│   ├── .env.example           # 环境变量示例
+│   └── .env.example          # 环境变量示例
 │
-└── frontend/
-   ├── hooks/
-   │   ├── use-mobile.tsx          # 统一的移动端检测
-   │   └── useApi.ts              # API 调用 hook
-   ├── lib/
-   │   ├── toast-context.tsx      # Toast Context 提供者
-   │   ├── toast-utils.ts         # Toast 工具函数
-   │   ├── api.ts                 # Next.js API 路由调用
-   │   └── direct-api.ts          # 直接后端 API 调用
-   ├── components/ui/
-   │   ├── use-toast.ts           # Toast hook 接口
-   │   └── toaster.tsx            # Toast 渲染组件
-   └── app/
-      ├── globals.css            # 主要全局样式
-      └── theme-vars.css         # 主题变量
+└── frontend/                  # Next.js 前端应用
+    ├── app/                   # Next.js App Router
+    ├── components/            # React 组件
+    ├── hooks/                 # 自定义 Hooks
+    ├── lib/                   # 工具函数
+    ├── docs/                  # 前端文档
+    └── package.json          # Node.js 依赖
 ```
 
-## 项目解析
+## 🎯 核心功能
 
-PerfPulseAI 是一个全栈性能管理系统，采用现代化的技术架构：
-- 后端：FastAPI (Python) + SQLAlchemy ORM + SQLite 数据库
-- 前端：Next.js 15 (TypeScript) + React 19 + Tailwind CSS
-- 架构模式：面向服务的架构，REST API，关注点清晰分离
+- **用户认证系统** - JWT Token 认证、RSA 加密、权限控制
+- **积分系统** - 积分获取消费、等级系统、事务处理
+- **积分商城** - 商品管理、购买流程、兑换码系统
+- **通知系统** - 实时 SSE 推送、通知分类、时区处理
+- **组织管理** - 公司部门管理、成员管理、权限分配
 
-### 后端技术栈
+## 🛠️ 技术栈
 
-- 核心框架：FastAPI 0.110.0，提供高性能异步API服务
-- 数据库：SQLite + SQLAlchemy 2.0 + Alembic（数据库迁移）
-- 异步支持：async/await 全栈异步编程
-- 安全机制：RSA 加密传输（前端加密，后端解密）
-- AI 集成：OpenAI API 集成，支持 AI 代码评审和积分计算
-- 邮件服务：fastapi-mail 邮件通知系统
+### 前端
+- **Next.js 14** - React 全栈框架
+- **TypeScript** - 类型安全
+- **Tailwind CSS** - 样式框架
+- **Shadcn/ui** - 组件库
 
-### 前端技术栈
+### 后端
+- **FastAPI** - Web 框架
+- **SQLAlchemy** - ORM
+- **PostgreSQL** - 数据库
+- **Redis** - 缓存
 
-- 核心框架：Next.js 15 + React 19，支持 App Router
-- 状态管理：React Query (@tanstack/react-query) 数据获取和缓存
-- UI 组件库：Radix UI + 自定义组件
-- 样式系统：Tailwind CSS + CSS-in-JS
-- 图标库：Lucide React 图标库
-- 表单处理：React Hook Form + Zod 验证
+## 🤝 贡献指南
 
-### 核心功能模块
+### 开发流程
+1. Fork 项目
+2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 创建 Pull Request
 
-#### 积分系统
+### 代码提交规范
+```bash
+feat: 新功能
+fix: 修复bug
+docs: 文档更新
+style: 代码格式调整
+refactor: 代码重构
+test: 测试相关
+chore: 构建过程或辅助工具的变动
+```
 
-该核心模块，具有以下特点：
-1. 积分存储机制：
-   - 后端存储：整数形式，实际值放大10倍存储
-   - 前端展示：小数形式，实际值展示
-   - 优势：避免浮点数精度问题，支持小数积分展示
-2. 事件溯源设计：
-   - 所有点变化都是不可变的交易记录
-   - 交易类型：EARN(获得)、SPEND(消费)、ADJUST(调整)、OBJECTION(异议)
-   - 争议窗口期：7天内可对积分分配提出争议
-3. 等级系统：
-   - 多等级设计，根据积分数量自动升级
-   - 等级福利和权益系统
-   - 进度条可视化等级进度
-4. 积分商城：
-   - 积分兑换系统
-   - 商品库存管理
-   - 兑换记录跟踪
+## 📄 许可证
 
-#### 认证与安全
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
 
-1. RSA 加密传输：
-   - 前端使用公钥加密敏感信息（密码等）
-   - 后端使用私钥解密，确保传输安全
-2. 用户权限系统：
-   - 基于角色的访问控制(RBAC)
-   - 多租户支持（公司/部门结构）
-   - 权限粒度控制
-3. 会话管理：
-   - 基于 JWT 的会话机制
-   - 用户状态持久化
+## 🆘 获取帮助
 
-#### AI 代码评审系统
+- 📖 查看 [项目文档](./docs/README.md)
+- 🐛 提交 [Issue](../../issues)
+- 💬 参与 [讨论](../../discussions)
 
-1. GitHub 集成：
-   - PR 自动分析和评分
-   - 代码质量评估
-   - 创新性评分
-2. 智能积分计算：
-   - 基于 AI 评分结果自动计算积分
-   - 支持重新评分和积分调整
+---
 
-### 数据库设计
-
-核心数据表
-- users：用户表，包含基本信息、积分、等级等
-- point_transactions：积分交易记录表（事件溯源核心）
-- user_levels：用户等级表
-- point_purchases：积分商城消费记录表
-- point_disputes：积分争议表
-- activities：活动记录表
-- companies：公司信息表
-- departments：部门/组织结构
+**最后更新**: 2025-08-08
+**项目状态**: 开发中

@@ -177,34 +177,6 @@ alembic/versions/
 └── ...
 ```
 
-## 🔍 故障排除
-
-### 常见错误
-
-1. **Multiple heads error**
-   ```bash
-   # 解决方案1：合并heads
-   python -m alembic merge -m "merge heads" head1 head2
-
-   # 解决方案2：智能清理旧迁移
-   python scripts/migration_manager.py clean 10
-   ```
-
-2. **Table already exists**
-   ```python
-   # 在迁移中添加检查
-   if not inspector.has_table('table_name'):
-       op.create_table(...)
-   ```
-
-3. **Column already exists**
-   ```python
-   # 在迁移中添加检查
-   columns = [col['name'] for col in inspector.get_columns('table_name')]
-   if 'column_name' not in columns:
-       op.add_column(...)
-   ```
-
 ### 调试技巧
 
 ```bash
@@ -224,41 +196,6 @@ python scripts/migration_manager.py status
 python -m alembic upgrade head --sql
 ```
 
-## 📊 迁移监控
-
-### 性能监控
-
-```python
-import time
-from alembic import op
-
-def upgrade():
-    start_time = time.time()
-    
-    # 执行迁移操作
-    op.create_index('ix_large_table_column', 'large_table', ['column'])
-    
-    duration = time.time() - start_time
-    print(f"⏱️ 索引创建耗时: {duration:.2f}秒")
-```
-
-### 数据完整性检查
-
-```python
-def upgrade():
-    # 执行迁移
-    op.add_column('users', sa.Column('email_verified', sa.Boolean(), default=False))
-    
-    # 验证数据
-    connection = op.get_bind()
-    result = connection.execute(text("SELECT COUNT(*) FROM users WHERE email_verified IS NULL"))
-    null_count = result.scalar()
-    
-    if null_count > 0:
-        raise Exception(f"发现 {null_count} 条记录的 email_verified 为 NULL")
-    
-    print("✅ 数据完整性检查通过")
-```
 
 ## 🎯 总结
 

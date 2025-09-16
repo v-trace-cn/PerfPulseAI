@@ -34,20 +34,6 @@ scoring_criteria = [
         "description": "编写或更新项目文档", 
         "base_points": 8, 
         "weight": 0.7
-    },
-    {
-        "id": "4", 
-        "category": "问题解决", 
-        "description": "解决项目中的bug或技术问题", 
-        "base_points": 15, 
-        "weight": 1.2
-    },
-    {
-        "id": "5", 
-        "category": "知识分享", 
-        "description": "分享技术文章或举办培训", 
-        "base_points": 20, 
-        "weight": 1.5
     }
 ]
 

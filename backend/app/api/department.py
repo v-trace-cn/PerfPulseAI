@@ -255,6 +255,7 @@ async def get_department_members(
 
     members_list = []
     for user in users:
+        points = round(user.points, 2)
         members_list.append({
             "id": str(user.id),
             "name": user.name,
@@ -263,18 +264,15 @@ async def get_department_members(
             "initials": user.name[0].upper() if user.name else "UN",
             "title": user.position or "开发工程师",
             "joinDate": user.join_date.isoformat() if user.join_date else user.created_at.date().isoformat(),
-            "performanceScore": user.points or 0,
+            "performanceScore": points or 0,
             "kpis": {
                 "codeCommits": (user.completed_tasks or 0) * 2,
                 "leadTasks": (user.completed_tasks or 0) + (user.pending_tasks or 0),
                 "bugsFixed": max(1, (user.completed_tasks or 0) // 5),
                 "newFeatures": max(1, (user.completed_tasks or 0) // 3),
             },
-            "skills": ["Python", "SQL", "FastAPI"] if user.position == "后端工程师" else ["React", "TypeScript", "Node.js"],
-            "recentWork": [
-                {"id": "rw1", "title": "项目A开发", "status": "进行中", "date": "2024-03-10"},
-                {"id": "rw2", "title": "代码审查", "status": "已完成", "date": "2024-03-05"},
-            ],
+            "skills": [] if user.position == "后端工程师" else [],
+            "recentWork": [],
             "overallPerformance": user.points or 0,
         })
 

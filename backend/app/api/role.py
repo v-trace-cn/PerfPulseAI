@@ -163,8 +163,14 @@ async def delete_role(
         # 权限校验：公司创建者或超级管理员
         await ensure_company_creator_or_super_admin(current_user.id, int(role.company_id), db)
 
-        # 清空用户关联
-        role.users = []
+        # 清空用户关联 - 使用SQL直接删除关联记录
+        from app.models.role import user_roles
+        from sqlalchemy import delete
+
+        # 删除用户角色关联
+        await db.execute(
+            delete(user_roles).where(user_roles.c.role_id == role_id)
+        )
         await db.flush()
 
         # 删除角色

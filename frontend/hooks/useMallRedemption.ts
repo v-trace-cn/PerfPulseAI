@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useToast } from '@/components/ui/use-toast'
 import { useAuth } from '@/lib/auth-context'
 import { POINTS_QUERY_KEYS } from './usePointsData'
+import { notificationEventHelpers } from '@/lib/notification-events'
 
 // 类型定义
 export interface MallItem {
@@ -136,6 +137,9 @@ export function useRedeemItem() {
 
       // 刷新用户数据以更新积分信息
       await refreshUser()
+
+      // 触发通知刷新 - 确保通知中心显示最新的兑换通知
+      notificationEventHelpers.refreshNotifications()
 
       toast({
         title: "兑换成功！",

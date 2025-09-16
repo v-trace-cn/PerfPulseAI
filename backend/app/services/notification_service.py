@@ -11,7 +11,7 @@ import logging
 
 from app.models.user import User
 from app.models.department import Department
-from app.models.notification import Notification, NotificationType, NotificationStatus
+from app.models.notification import Notification, NotificationCategory, NotificationPriority, NotificationStatus
 
 logger = logging.getLogger(__name__)
 
@@ -25,23 +25,34 @@ class NotificationService:
     async def create_notification(
         self,
         user_id: int,
-        notification_type: NotificationType,
+        category: NotificationCategory,
         title: str,
-        content: str,
-        extra_data: Optional[Dict[str, Any]] = None
+        payload: Dict[str, Any],
+        summary: Optional[str] = None,
+        priority: NotificationPriority = NotificationPriority.NORMAL,
+        action_url: Optional[str] = None,
+        action_label: Optional[str] = None,
+        expires_at: Optional[datetime] = None,
+        source: Optional[str] = None,
+        tags: Optional[List[str]] = None
     ) -> Notification:
-        """创建通知"""
+        """创建通知 - 使用新的模型结构"""
+        from datetime import timezone
+
         notification = Notification(
-            id=str(uuid.uuid4()),
             user_id=user_id,
-            type=notification_type,
+            category=category,
+            priority=priority,
             title=title,
-            content=content,
-            status=NotificationStatus.UNREAD,
-            extra_data=extra_data,
-            created_at=datetime.utcnow().replace(microsecond=0)
+            summary=summary,
+            payload=payload,
+            action_url=action_url,
+            action_label=action_label,
+            expires_at=expires_at,
+            source=source,
+            tags=tags
         )
-        
+
         self.db.add(notification)
         await self.db.commit()
         await self.db.refresh(notification)
@@ -60,16 +71,24 @@ class NotificationService:
             # 导入广播函数（避免循环导入）
             from app.api.notifications import broadcast_notification_to_user
 
-            # 准备通知数据
+            # 准备通知数据 - 使用与API相同的格式
             notification_data = {
                 "type": "new_notification",
                 "notification": {
                     "id": notification.id,
                     "title": notification.title,
-                    "content": notification.content,
-                    "type": notification.type.value if notification.type else None,
+                    "content": notification.summary or "",  # 前端期望的字段名
+                    "summary": notification.summary,
+                    "category": notification.category.value if notification.category else None,
+                    "priority": notification.priority.value if notification.priority else None,
+                    "payload": notification.payload,
+                    "extraData": notification.payload,  # 向后兼容
+                    "actionUrl": notification.action_url,
+                    "actionLabel": notification.action_label,
                     "createdAt": notification.created_at.isoformat() + 'Z' if notification.created_at else None,
-                    "read": False
+                    "status": notification.status.value if notification.status else "PENDING",
+                    "isRead": notification.status.value == "READ" if notification.status else False,
+                    "isUnread": notification.status.value == "PENDING" if notification.status else True
                 }
             }
 
@@ -126,7 +145,7 @@ class NotificationService:
         redemption_code: str,
         points_cost: float
     ) -> Notification:
-        """创建兑换成功通知"""
+        """创建兑换成功通知 - 使用新的模型结构"""
         # 获取用户的公司ID
         user_query = select(User.company_id).where(User.id == user_id)
         user_result = await self.db.execute(user_query)
@@ -135,74 +154,102 @@ class NotificationService:
         # 查找人力资源部联系人
         hr_contact, hr_dept_name = await self._find_hr_contact(company_id) if company_id else (None, None)
 
-        # 确定联系信息：优先显示具体联系人，其次显示部门名称，最后显示默认信息
+        contact_info = "相关管理员"
         if hr_contact:
             contact_info = hr_contact
         elif hr_dept_name:
             contact_info = hr_dept_name
-        else:
-            contact_info = "相关管理员"
 
-        title = "兑换成功"
-        content = f"恭喜您成功兑换 {item_name}！消耗 {points_cost} 积分。兑换密钥：{redemption_code}，请联系 {contact_info} 完成兑换。"
-        extra_data = {
-            "redeemCode": redemption_code,  # 使用驼峰命名与前端保持一致
+        # 使用新的结构化数据格式
+        redemption_data = {
+            "redeemCode": redemption_code,
             "item": item_name,
             "points": points_cost,
-            "type": "redemption_success",
-            "hrContact": hr_contact  # 添加HR联系人信息
+            "originalPrice": points_cost,  # 原价
+            "discountApplied": 0,  # 折扣
+            "hrContact": contact_info,
+            "contactMethod": "direct",
+            "validUntil": (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d"),
+            "instructions": f"请联系 {contact_info} 完成兑换",
+            "type": "redemption_success"
         }
 
         return await self.create_notification(
             user_id=user_id,
-            notification_type=NotificationType.REDEMPTION,
-            title=title,
-            content=content,
-            extra_data=extra_data
+            category=NotificationCategory.TRANSACTION,
+            priority=NotificationPriority.HIGH,
+            title="兑换成功",
+            summary=f"恭喜您成功兑换 {item_name}！",
+            payload=redemption_data,
+            action_url=f"/redemption/details/{redemption_code}",
+            action_label="查看详情",
+            expires_at=datetime.now() + timedelta(days=30),
+            source="mall_service",
+            tags=["redemption", "transaction", "high_value"]
         )
     
     async def create_points_notification(
         self,
         user_id: int,
         title: str,
-        content: str,
         points_change: int,
-        current_balance: int
+        current_balance: int,
+        source_description: str = "积分变动"
     ) -> Notification:
-        """创建积分变动通知"""
-        extra_data = {
-            "points_change": points_change,
-            "current_balance": current_balance,
+        """创建积分变动通知 - 使用新的模型结构"""
+
+        # 判断是获得还是消耗积分
+        is_gain = points_change > 0
+
+        points_data = {
+            "pointsChange": points_change,
+            "currentBalance": current_balance,
+            "previousBalance": current_balance - points_change,
+            "changeType": "gain" if is_gain else "spend",
+            "source": source_description,
             "type": "points_change"
         }
-        
+
+        # 根据积分变化设置优先级和分类
+        category = NotificationCategory.ACHIEVEMENT if is_gain else NotificationCategory.TRANSACTION
+        priority = NotificationPriority.NORMAL if abs(points_change) < 100 else NotificationPriority.HIGH
+
         return await self.create_notification(
             user_id=user_id,
-            notification_type=NotificationType.POINTS,
+            category=category,
+            priority=priority,
             title=title,
-            content=content,
-            extra_data=extra_data
+            summary=f"积分{'+' if is_gain else ''}{points_change}，当前余额：{current_balance}",
+            payload=points_data,
+            action_url="/points/history",
+            action_label="查看详情",
+            source="points_system",
+            tags=["points", "gain" if is_gain else "spend"]
         )
     
     async def get_user_notifications(
         self,
         user_id: int,
-        notification_type: Optional[NotificationType] = None,
+        category: Optional[NotificationCategory] = None,
         status: Optional[NotificationStatus] = None,
+        priority: Optional[NotificationPriority] = None,
         limit: int = 50,
         offset: int = 0
     ) -> List[Notification]:
-        """获取用户通知列表"""
+        """获取用户通知列表 - 使用新的模型结构"""
         query = select(Notification).where(Notification.user_id == user_id)
-        
-        if notification_type:
-            query = query.where(Notification.type == notification_type)
-        
+
+        if category:
+            query = query.where(Notification.category == category)
+
         if status:
             query = query.where(Notification.status == status)
-        
+
+        if priority:
+            query = query.where(Notification.priority == priority)
+
         query = query.order_by(desc(Notification.created_at)).limit(limit).offset(offset)
-        
+
         result = await self.db.execute(query)
         return result.scalars().all()
     
@@ -211,7 +258,7 @@ class NotificationService:
         query = select(func.count(Notification.id)).where(
             and_(
                 Notification.user_id == user_id,
-                Notification.status == NotificationStatus.UNREAD
+                Notification.status == NotificationStatus.PENDING
             )
         )
         result = await self.db.execute(query)
@@ -241,12 +288,12 @@ class NotificationService:
         query = select(Notification).where(
             and_(
                 Notification.user_id == user_id,
-                Notification.status == NotificationStatus.UNREAD
+                Notification.status == NotificationStatus.PENDING
             )
         )
         result = await self.db.execute(query)
         notifications = result.scalars().all()
-        
+
         count = 0
         for notification in notifications:
             notification.mark_as_read()
@@ -276,3 +323,75 @@ class NotificationService:
             return True
         
         return False
+
+    async def create_achievement_notification(
+        self,
+        user_id: int,
+        achievement_name: str,
+        points_earned: int,
+        achievement_data: Dict[str, Any]
+    ) -> Notification:
+        """创建成就通知"""
+        return await self.create_notification(
+            user_id=user_id,
+            category=NotificationCategory.ACHIEVEMENT,
+            priority=NotificationPriority.NORMAL,
+            title=f"新成就",
+            summary=f"您获得了「{achievement_name}」成就，奖励{points_earned}积分",
+            payload={
+                "achievementName": achievement_name,
+                "pointsEarned": points_earned,
+                **achievement_data
+            },
+            action_url="/achievements",
+            action_label="查看成就",
+            source="achievement_system",
+            tags=["achievement", "points_reward"]
+        )
+
+    async def create_workflow_notification(
+        self,
+        user_id: int,
+        workflow_type: str,
+        title: str,
+        workflow_data: Dict[str, Any],
+        deadline: Optional[datetime] = None
+    ) -> Notification:
+        """创建工作流通知"""
+        priority = NotificationPriority.HIGH if deadline else NotificationPriority.NORMAL
+
+        return await self.create_notification(
+            user_id=user_id,
+            category=NotificationCategory.WORKFLOW,
+            priority=priority,
+            title=title,
+            summary=workflow_data.get("description", ""),
+            payload=workflow_data,
+            action_url=f"/workflow/{workflow_type}/{workflow_data.get('workflowId')}",
+            action_label="立即处理",
+            expires_at=deadline,
+            source="workflow_engine",
+            tags=["workflow", workflow_type]
+        )
+
+    async def create_alert_notification(
+        self,
+        user_id: int,
+        alert_type: str,
+        title: str,
+        alert_data: Dict[str, Any]
+    ) -> Notification:
+        """创建警告通知"""
+        return await self.create_notification(
+            user_id=user_id,
+            category=NotificationCategory.ALERT,
+            priority=NotificationPriority.CRITICAL,
+            title=title,
+            summary=alert_data.get("description", ""),
+            payload=alert_data,
+            action_url="/security/review",
+            action_label="立即检查",
+            expires_at=datetime.now() + timedelta(hours=24),
+            source="security_monitor",
+            tags=["alert", alert_type, "critical"]
+        )

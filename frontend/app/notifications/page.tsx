@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
-import { Bell, X, Check, AlertCircle, Gift, TrendingUp, Megaphone, User, Briefcase, Filter, Search, MoreVertical, Trash2, Mail, Loader2 } from "lucide-react"
+import { Bell, X, Check, AlertCircle, Gift, TrendingUp, Megaphone, User, Briefcase, Filter, Search, MoreVertical, Trash2, Mail, Loader2, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,6 +28,19 @@ import { formatRelativeTime, getFullChinaTime } from "@/lib/timezone-utils"
 // 获取通知图标
 const getNotificationIcon = (category: string) => {
   switch (category) {
+    case 'ACHIEVEMENT':
+      return <TrendingUp className="h-4 w-4" />
+    case 'TRANSACTION':
+      return <Gift className="h-4 w-4" />
+    case 'SOCIAL':
+      return <User className="h-4 w-4" />
+    case 'SYSTEM':
+      return <Megaphone className="h-4 w-4" />
+    case 'WORKFLOW':
+      return <Briefcase className="h-4 w-4" />
+    case 'ALERT':
+      return <AlertCircle className="h-4 w-4" />
+    // 兼容旧的分类
     case 'pr_score':
       return <TrendingUp className="h-4 w-4" />
     case 'points_earned':
@@ -36,6 +49,7 @@ const getNotificationIcon = (category: string) => {
       return <Megaphone className="h-4 w-4" />
     case 'mall_exchange':
     case 'mall_verification':
+    case 'REDEMPTION':
       return <Gift className="h-4 w-4" />
     case 'verification_staff':
       return <Briefcase className="h-4 w-4" />
@@ -44,10 +58,35 @@ const getNotificationIcon = (category: string) => {
   }
 }
 
-// 获取通知颜色
-const getNotificationColor = (type: string, priority: string) => {
-  if (priority === 'high') return 'text-red-500'
-  switch (type) {
+// 获取通知颜色 - 基于优先级和分类
+const getNotificationColor = (category: string, priority: string) => {
+  // 优先级颜色
+  switch (priority) {
+    case 'CRITICAL':
+      return 'text-red-600'
+    case 'HIGH':
+      return 'text-orange-500'
+    case 'NORMAL':
+      return 'text-blue-500'
+    case 'LOW':
+      return 'text-gray-500'
+  }
+
+  // 分类颜色（兼容旧版本）
+  switch (category) {
+    case 'ACHIEVEMENT':
+      return 'text-green-500'
+    case 'TRANSACTION':
+      return 'text-blue-500'
+    case 'SOCIAL':
+      return 'text-purple-500'
+    case 'SYSTEM':
+      return 'text-blue-500'
+    case 'WORKFLOW':
+      return 'text-orange-500'
+    case 'ALERT':
+      return 'text-red-500'
+    // 兼容旧的分类
     case 'announcement':
       return 'text-blue-500'
     case 'personal':
@@ -62,6 +101,14 @@ const getNotificationColor = (type: string, priority: string) => {
 // 获取优先级颜色
 const getPriorityColor = (priority: string) => {
   switch (priority) {
+    case 'CRITICAL':
+      return 'bg-red-100 text-red-800 border-red-200'
+    case 'HIGH':
+      return 'bg-orange-100 text-orange-800 border-orange-200'
+    case 'NORMAL':
+      return 'bg-blue-100 text-blue-800 border-blue-200'
+    case 'LOW':
+      return 'bg-gray-100 text-gray-800 border-gray-200'
     case 'high':
       return 'bg-red-100 text-red-800 border-red-200'
     case 'medium':
@@ -92,6 +139,31 @@ function NotificationsContent() {
   const [readFilter, setReadFilter] = useState('all')
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const { toast } = useToast()
+
+  // 复制兑换密钥到剪贴板
+  const copyRedeemCode = async (redeemCode: string, event: React.MouseEvent) => {
+    event.stopPropagation() // 阻止事件冒泡
+    try {
+      await navigator.clipboard.writeText(redeemCode)
+      toast({
+        title: "复制成功",
+        description: "兑换密钥已复制到剪贴板",
+      })
+    } catch (error) {
+      // 如果 clipboard API 不可用，使用备用方法
+      const textArea = document.createElement('textarea')
+      textArea.value = redeemCode
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textArea)
+
+      toast({
+        title: "复制成功",
+        description: "兑换密钥已复制到剪贴板",
+      })
+    }
+  }
 
   // 获取URL中的高亮通知ID
   useEffect(() => {
@@ -351,6 +423,7 @@ function NotificationsContent() {
                               onMarkAsRead={markAsRead}
                               onMarkAsUnread={markAsUnread}
                               onDelete={deleteNotification}
+                              onCopyRedeemCode={copyRedeemCode}
                               isHighlighted={highlightId === notification.id}
                             />
                             {index < getFilteredNotifications(tab).length - 1 && (
@@ -377,12 +450,14 @@ function NotificationItem({
   onMarkAsRead,
   onMarkAsUnread,
   onDelete,
+  onCopyRedeemCode,
   isHighlighted = false
 }: {
   notification: Notification
   onMarkAsRead: (id: string) => void
   onMarkAsUnread: (id: string) => void
   onDelete: (id: string) => void
+  onCopyRedeemCode: (redeemCode: string, event: React.MouseEvent) => void
   isHighlighted?: boolean
 }) {
   return (
@@ -398,45 +473,38 @@ function NotificationItem({
         isHighlighted && "bg-yellow-100 border-2 border-yellow-400 shadow-lg scale-[1.02]"
       )}
     >
+      {/* 通知图标 */}
       <div className={cn(
-        "mt-1 p-2 rounded-full flex-shrink-0 transition-all",
+        "mt-1 p-3 rounded-full flex-shrink-0 transition-all",
         getNotificationColor(notification.type, notification.priority),
         // 未读消息图标样式
-        !notification.read && "bg-primary/10 ring-2 ring-primary/20",
-        // 已读消息图标样式 - 保持正常显示
-        notification.read && "opacity-80"
+        !notification.read && "bg-primary/10 ring-2 ring-primary/20 shadow-md",
+        // 已读消息图标样式
+        notification.read && "opacity-70"
       )}>
         {getNotificationIcon(notification.category)}
       </div>
 
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex items-center gap-2 flex-1">
-            <h3 className="text-sm font-medium truncate text-foreground">
+      {/* 通知内容区域 */}
+      <div className="flex-1 min-w-0 ml-4">
+        {/* 顶部标题行 */}
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <h3 className="text-base font-semibold text-foreground truncate">
               {notification.title}
             </h3>
             {!notification.read && (
-              <Badge variant="destructive" className="text-xs px-2 py-0 bg-red-500 text-white">
-                未读
-              </Badge>
+              <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" />
             )}
-            <Badge
-              variant="outline"
-              className={cn(
-                "text-xs px-2 py-0",
-                getPriorityColor(notification.priority)
-              )}
-            >
-              {notification.priority === 'high' ? '高' : notification.priority === 'medium' ? '中' : '低'}
-            </Badge>
           </div>
 
+          {/* 操作菜单 */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-100"
               >
                 <MoreVertical className="h-4 w-4" />
               </Button>
@@ -464,38 +532,201 @@ function NotificationItem({
           </DropdownMenu>
         </div>
 
-        <p className="text-sm mb-3 leading-relaxed text-foreground">
-          {notification.message}
-        </p>
-
-        <div className="flex items-center justify-between text-xs">
+        {/* 底部信息行：时间戳 + 标签 */}
+        <div className="flex items-center justify-between text-xs mb-3">
           <span
             title={getFullTime(notification.timestamp)}
             className="text-muted-foreground"
           >
             {formatTime(notification.timestamp)}
           </span>
-          <Badge
-            variant="secondary"
-            className="text-xs"
-          >
-            {notification.type === 'announcement' ? '公告' :
-             notification.type === 'personal_data' ? '个人数据' :
-             notification.type === 'personal_business' ? '个人业务' : '其他'}
-          </Badge>
+          <div className="flex items-center gap-2">
+            {/* 优先级标识 */}
+            {notification.priority && (
+              <Badge
+                variant={
+                  notification.priority === 'CRITICAL' ? 'destructive' :
+                  notification.priority === 'HIGH' ? 'default' :
+                  'secondary'
+                }
+                className="text-xs px-2 py-0"
+              >
+                {notification.priority === 'CRITICAL' ? '紧急' :
+                 notification.priority === 'HIGH' ? '重要' :
+                 notification.priority === 'NORMAL' ? '普通' :
+                 notification.priority === 'LOW' ? '低' : notification.priority}
+              </Badge>
+            )}
+            {/* 分类标识 */}
+            <Badge
+              variant="secondary"
+              className="text-xs"
+            >
+              {notification.category === 'ACHIEVEMENT' ? '成就' :
+               notification.category === 'TRANSACTION' ? '交易' :
+               notification.category === 'SOCIAL' ? '社交' :
+               notification.category === 'SYSTEM' ? '系统' :
+               notification.category === 'WORKFLOW' ? '工作流' :
+               notification.category === 'ALERT' ? '警告' :
+               notification.type === 'announcement' ? '公告' :
+               notification.type === 'personal_data' ? '个人数据' :
+               notification.type === 'personal_business' ? '个人业务' : '其他'}
+            </Badge>
+          </div>
         </div>
 
-        {/* 显示额外数据 */}
-        {notification.data && (
-          <div className="mt-3 p-2 rounded text-xs bg-muted/50 text-foreground">
+        {/* 显示结构化数据或通知摘要 */}
+        {notification.data && Object.keys(notification.data).length > 0 ? (
+          <div className="space-y-2">
+            {/* 成就通知 */}
+            {notification.category === 'ACHIEVEMENT' && (
+              <div className="space-y-3 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="text-green-600 font-medium text-2xl">🏆</span>
+                  <div>
+                    <h4 className="font-semibold text-green-800 text-lg">恭喜获得新成就！</h4>
+                    <p className="text-green-700 font-medium">{notification.data.achievementName || '新成就'}</p>
+                  </div>
+                </div>
+
+                {notification.data.pointsEarned && (
+                  <div className="bg-white p-3 rounded-md border border-green-200">
+                    <div className="flex items-center gap-2">
+                      <span className="text-green-600 text-lg">💰</span>
+                      <span className="text-green-700 font-medium">
+                        奖励积分: <span className="text-green-800 font-bold text-lg">+{notification.data.pointsEarned}</span>
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {notification.data.description && (
+                  <div className="text-gray-700 text-sm bg-white p-3 rounded-md border border-green-200">
+                    <span className="text-gray-500 text-xs">成就描述</span>
+                    <p className="mt-1">{notification.data.description}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 交易通知 */}
+            {notification.category === 'TRANSACTION' && notification.data.redeemCode && (
+              <div className="space-y-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-blue-600 font-medium text-lg">🎉</span>
+                  <span className="font-semibold text-blue-800">兑换成功</span>
+                </div>
+
+                <div className="space-y-2 text-sm">
+                  <p className="text-gray-700">
+                    恭喜您成功兑换 <span className="font-medium text-blue-700">{notification.data.item}</span>！
+                    消耗 <span className="font-medium">{notification.data.points}</span> 积分。
+                  </p>
+
+                  <div className="bg-white p-3 rounded-md border border-blue-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">兑换密钥</p>
+                        <span className="font-mono text-blue-700 font-bold text-base">
+                          {notification.data.redeemCode}
+                        </span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 hover:bg-blue-100 border border-blue-200 rounded"
+                        onClick={(e) => onCopyRedeemCode(notification.data.redeemCode, e)}
+                        title="复制兑换密钥"
+                      >
+                        <Copy className="h-4 w-4 text-blue-600" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <span className="text-sm">📞</span>
+                    <span className="text-sm">请联系 <span className="font-medium text-blue-700">{notification.data.hrContact}</span> 完成兑换</span>
+                  </div>
+
+                  {/* 有效期暂时隐藏 */}
+                  {false && notification.data.validUntil && (
+                    <div className="flex items-center gap-2 text-orange-600 text-sm">
+                      <span>⏰</span>
+                      <span>有效期至: {notification.data.validUntil}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 工作流通知 */}
+            {notification.category === 'WORKFLOW' && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-orange-600 font-medium">📋</span>
+                  <span className="font-medium">{notification.data.workflowType || '工作流'}</span>
+                </div>
+                {notification.data.deadline && (
+                  <div className="text-red-500">
+                    截止时间: {new Date(notification.data.deadline).toLocaleString()}
+                  </div>
+                )}
+                {notification.data.assignee && (
+                  <div className="text-gray-600">
+                    负责人: {notification.data.assignee}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 警告通知 */}
+            {notification.category === 'ALERT' && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-red-600 font-medium">🚨</span>
+                  <span className="font-medium text-red-600">{notification.data.alertType || '安全警告'}</span>
+                </div>
+                {notification.data.severity && (
+                  <div className="text-red-500">
+                    严重程度: {notification.data.severity}
+                  </div>
+                )}
+                {notification.data.affectedSystems && (
+                  <div className="text-gray-600">
+                    影响系统: {notification.data.affectedSystems.join(', ')}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 兼容旧的分类 */}
             {notification.category === 'pr_score' && (
               <span>PR #{notification.data.prId} - 评分: {notification.data.score}</span>
             )}
             {notification.category === 'points_earned' && (
               <span>获得积分: +{notification.data.points} ({notification.data.source})</span>
             )}
-            {notification.category === 'mall_exchange' && (
-              <span>兑换商品: {notification.data.item} - 消耗积分: {notification.data.points}</span>
+            {notification.category === 'REDEMPTION' && (
+              <div className="space-y-2">
+                <span>恭喜您成功兑换 {notification.data.item}！消耗 {notification.data.points} 积分。</span>
+                {notification.data.redeemCode && (
+                  <div className="inline-flex items-center gap-2">
+                    <span className="font-mono bg-blue-50 text-blue-700 px-3 py-2 rounded border border-blue-200">
+                      兑换密钥: <span className="font-bold">{notification.data.redeemCode}</span>
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 hover:bg-blue-100 border border-blue-200 rounded"
+                      onClick={(e) => onCopyRedeemCode(notification.data.redeemCode, e)}
+                      title="复制兑换密钥"
+                    >
+                      <Copy className="h-3.5 w-3.5 text-blue-600" />
+                    </Button>
+                  </div>
+                )}
+                <span className="text-gray-600">请联系 {notification.data.hrContact} 完成兑换。</span>
+              </div>
             )}
             {notification.category === 'mall_verification' && (
               <span>核销商品: {notification.data.item}</span>
@@ -504,6 +735,13 @@ function NotificationItem({
               <span>待处理订单: {notification.data.count} 个</span>
             )}
           </div>
+        ) : (
+          /* 如果没有结构化数据，显示通知摘要或消息 */
+          (notification.summary || notification.message) && (
+            <div className="p-3 rounded text-sm bg-muted/30 text-foreground leading-relaxed">
+              {notification.summary || notification.message}
+            </div>
+          )
         )}
       </div>
     </div>

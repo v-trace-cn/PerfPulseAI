@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 
 from app.core.database import get_db
 from app.services.notification_service import NotificationService
-from app.models.notification import NotificationType, NotificationStatus
+from app.models.notification import NotificationCategory, NotificationPriority, NotificationStatus
 from app.api.auth import get_current_user
 from app.models.user import User
 
@@ -57,13 +57,12 @@ async def get_notifications(
     notification_service = NotificationService(db)
     
     # 转换类型参数
-    notification_type = None
+    notification_category = None
     if type:
         try:
-            notification_type = NotificationType(type.upper())
+            notification_category = NotificationCategory(type.upper())
         except ValueError:
             raise HTTPException(status_code=400, detail="无效的通知类型")
-    
     notification_status = None
     if status:
         try:
@@ -73,7 +72,7 @@ async def get_notifications(
     
     notifications = await notification_service.get_user_notifications(
         user_id=current_user.id,
-        notification_type=notification_type,
+        category=notification_category,
         status=notification_status,
         limit=limit,
         offset=offset
@@ -83,16 +82,16 @@ async def get_notifications(
         NotificationResponse(
             id=notification.id,
             userId=notification.user_id,
-            type=notification.type.value,
+            type=notification.category.value,  # 使用新的 category 字段
             title=notification.title,
-            content=notification.content,
+            content=notification.summary or "",  # 使用 summary 作为 content
             status=notification.status.value,
-            extraData=notification.extra_data,
+            extraData=notification.payload,  # 使用新的 payload 字段
             createdAt=notification.created_at.isoformat() + 'Z' if notification.created_at else "",
             readAt=notification.read_at.isoformat() + 'Z' if notification.read_at else None,
-            isUnread=notification.status == NotificationStatus.UNREAD,
+            isUnread=notification.status == NotificationStatus.PENDING,  # 使用新的状态
             isRead=notification.status == NotificationStatus.READ,
-            isArchived=notification.status == NotificationStatus.ARCHIVED
+            isArchived=notification.status == NotificationStatus.DISMISSED
         )
         for notification in notifications
     ]

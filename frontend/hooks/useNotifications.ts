@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import { useNotificationSSE } from './useNotificationSSE'
+import { notificationEvents } from '@/lib/notification-events'
 
 export interface Notification {
   id: string
@@ -9,10 +10,17 @@ export interface Notification {
   category: string
   title: string
   message: string
+  summary?: string  // 新增摘要字段
   timestamp: string
   read: boolean
-  priority: 'low' | 'medium' | 'high'
+  priority: 'low' | 'medium' | 'high' | 'CRITICAL' | 'HIGH' | 'NORMAL' | 'LOW'  // 支持新的优先级
   data?: any
+  // 新增字段
+  actionUrl?: string
+  actionLabel?: string
+  expiresAt?: string
+  source?: string
+  tags?: string[]
 }
 
 // 映射后端通知类型到前端类型
@@ -77,13 +85,19 @@ export function useNotifications(category?: string) {
           return {
             id: String(item.id),
             type: frontendType,
-            category: item.type || 'SYSTEM',
+            category: item.category || item.type || 'SYSTEM',  // 优先使用新的 category 字段
             title: item.title,
             message: item.content, // 后端使用 content 字段
+            summary: item.summary, // 新增摘要字段
             timestamp: item.createdAt,
-            read: item.isRead || false, // 后端使用 isRead 字段
-            priority: (item.type === 'ANNOUNCEMENT' ? 'high' : 'medium') as 'low' | 'medium' | 'high',
-            data: item.extraData || {}
+            read: item.status === 'READ' || item.isRead || false, // 支持新的状态字段
+            priority: item.priority || (item.type === 'ANNOUNCEMENT' ? 'high' : 'medium'), // 支持新的优先级
+            data: item.payload || item.extraData || {}, // 优先使用新的 payload 字段
+            actionUrl: item.actionUrl,
+            actionLabel: item.actionLabel,
+            expiresAt: item.expiresAt,
+            source: item.source,
+            tags: item.tags
           }
         })
         setNotifications(formattedNotifications)
@@ -207,18 +221,30 @@ export function useNotifications(category?: string) {
 
   // 处理新通知的回调
   const handleNewNotification = useCallback((newNotification: any) => {
+    console.log('收到新通知:', newNotification)
+
+    // 使用与 fetchNotifications 相同的数据映射逻辑
+    const frontendType = mapBackendTypeToFrontend(newNotification.type || newNotification.category)
+
     const formattedNotification = {
-      id: newNotification.id,
-      type: mapBackendTypeToFrontend(newNotification.type),
-      category: newNotification.type || 'SYSTEM',
+      id: String(newNotification.id),
+      type: frontendType,
+      category: newNotification.category || newNotification.type || 'SYSTEM',
       title: newNotification.title,
-      message: newNotification.content,
+      message: newNotification.content || newNotification.summary || '',
+      summary: newNotification.summary,
       timestamp: newNotification.createdAt,
-      read: false,
-      priority: (newNotification.type === 'ANNOUNCEMENT' ? 'high' : 'medium') as 'low' | 'medium' | 'high',
-      data: {}
+      read: newNotification.status === 'READ' || newNotification.isRead || false,
+      priority: newNotification.priority || (newNotification.type === 'ANNOUNCEMENT' ? 'high' : 'medium'),
+      data: newNotification.payload || newNotification.extraData || {},
+      actionUrl: newNotification.actionUrl,
+      actionLabel: newNotification.actionLabel,
+      expiresAt: newNotification.expiresAt,
+      source: newNotification.source,
+      tags: newNotification.tags
     }
 
+    console.log('格式化后的通知:', formattedNotification)
     setNotifications(prev => [formattedNotification, ...prev])
   }, [])
 
@@ -236,6 +262,16 @@ export function useNotifications(category?: string) {
   useEffect(() => {
     fetchNotifications()
   }, [user?.id, category])
+
+  // 监听通知刷新事件
+  useEffect(() => {
+    const unsubscribe = notificationEvents.on('refresh', () => {
+      console.log('收到通知刷新事件，重新获取通知')
+      fetchNotifications()
+    })
+
+    return unsubscribe
+  }, [fetchNotifications])
 
   return {
     notifications,

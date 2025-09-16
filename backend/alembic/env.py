@@ -8,15 +8,11 @@ import asyncio
 
 from alembic import context
 
-# 新增：将项目根目录添加到 sys.path
-# 获取当前文件 (env.py) 的路径
-current_dir = os.path.dirname(os.path.abspath(__file__))
-# 假设项目根目录是 backend 的上一级目录
-project_root = os.path.abspath(os.path.join(current_dir, "..", "..")) # 从 backend/alembic/env.py 到 PerfPulseAI
-backend_app_path = os.path.join(project_root, "backend", "app") # 指向 PerfPulseAI/backend/app
-
-if backend_app_path not in sys.path:
-    sys.path.insert(0, backend_app_path)
+# 简化路径配置
+# 获取backend目录路径
+backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
 
 # 新增：导入您的 Base 和模型
 from app.core.database import Base # 导入您的 Base 对象

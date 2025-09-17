@@ -367,7 +367,7 @@ export default function MallManagement() {
                       <SelectTrigger className="w-40">
                         <SelectValue placeholder="筛选分类" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="z-[9999]">
                         <SelectItem value="all">全部分类</SelectItem>
                         <SelectItem value="电子产品">电子产品</SelectItem>
                         <SelectItem value="餐饮券">餐饮券</SelectItem>
@@ -397,7 +397,6 @@ export default function MallManagement() {
                 <Card>
                   <CardHeader>
                     <CardTitle>商品列表</CardTitle>
-                    <CardDescription>管理您的积分商城商品</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <Table>
@@ -744,7 +743,7 @@ export default function MallManagement() {
                         <SelectTrigger>
                           <SelectValue placeholder="选择分类" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="z-[9999]">
                           <SelectItem value="electronics">电子产品</SelectItem>
                           <SelectItem value="food">餐饮券</SelectItem>
                           <SelectItem value="clothing">服装鞋帽</SelectItem>
@@ -837,17 +836,34 @@ export default function MallManagement() {
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>快速编辑</DialogTitle>
-                  <DialogDescription>快速修改商品的基本信息</DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
+                      <Label htmlFor="quick-name">商品名称</Label>
+                      <Input id="quick-name" type="text" placeholder="输入商品名称" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="quick-category">分类</Label>
+                      <Select>
+                        <SelectTrigger>
+                          <SelectValue placeholder="选择分类" />
+                        </SelectTrigger>
+                        <SelectContent className="z-[9999]">
+                          <SelectItem value="electronics">电子产品</SelectItem>
+                          <SelectItem value="food">餐饮券</SelectItem>
+                          <SelectItem value="clothing">服装鞋帽</SelectItem>
+                          <SelectItem value="gift-card">购物卡</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
                       <Label htmlFor="quick-points">积分价格</Label>
-                      <Input id="quick-points" type="number" defaultValue="15000" />
+                      <Input id="quick-points" type="number" defaultValue="1500" placeholder="输入积分价格" />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="quick-stock">库存数量</Label>
-                      <Input id="quick-stock" type="number" defaultValue="25" />
+                      <Input id="quick-stock" type="number" defaultValue="25" placeholder="输入库存数量" />
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -917,7 +933,7 @@ export default function MallManagement() {
                         <SelectTrigger>
                           <SelectValue placeholder="选择类型" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="z-[9999]">
                           <SelectItem value="discount">限时折扣</SelectItem>
                           <SelectItem value="member">会员福利</SelectItem>
                           <SelectItem value="clearance">库存清理</SelectItem>
@@ -946,7 +962,7 @@ export default function MallManagement() {
                       <SelectTrigger>
                         <SelectValue placeholder="选择适用商品范围" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="z-[9999]">
                         <SelectItem value="all">全部商品</SelectItem>
                         <SelectItem value="category">指定分类</SelectItem>
                         <SelectItem value="specific">指定商品</SelectItem>

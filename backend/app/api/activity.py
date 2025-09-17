@@ -1,5 +1,7 @@
 # backend/app/api/activity.py
-
+"""
+活动管理 API 模块包
+"""
 import uuid
 from datetime import datetime
 from typing import Optional, List

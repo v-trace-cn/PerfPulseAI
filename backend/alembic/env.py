@@ -22,13 +22,18 @@ from app.models.company import Company
 from app.models.role import Role
 
 
-# ... 导入其他模型，例如：
-# from app.models.activity import Activity
-# from app.models.reward import Reward
-# from app.models.scoring import ScoringCriteria, ScoringFactor, GovernanceMetric
-# from app.models.pull_request_result import PullRequestResult
-# from app.models.pull_request import PullRequest
-# from app.models.pull_request_event import PullRequestEvent
+# 导入其他模型
+from app.models.activity import Activity
+from app.models.reward import Reward
+from app.models.scoring import ScoringFactor 
+from app.models.pull_request_result import PullRequestResult
+from app.models.pull_request import PullRequest
+from app.models.pull_request_event import PullRequestEvent
+
+# 导入新的PR模型
+from app.models.pr_metadata import PrMetadata, PrMetrics
+from app.models.pr_lifecycle_event import PrLifecycleEvent
+from app.models.user_identity import UserIdentity
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -43,7 +48,22 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-target_metadata = Base.metadata # 修改：设置为您的 Base.metadata
+
+# 配置命名约定以避免None约束名
+from sqlalchemy import MetaData
+naming_convention = {
+    "ix": "ix_%(column_0_label)s",
+    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    "ck": "ck_%(table_name)s_%(constraint_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "pk": "pk_%(table_name)s"
+}
+
+# 创建新的metadata实例并应用命名约定
+target_metadata = MetaData(naming_convention=naming_convention)
+# 复制现有表定义到新的metadata
+for table in Base.metadata.tables.values():
+    table.tometadata(target_metadata)
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

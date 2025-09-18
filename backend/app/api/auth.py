@@ -1,37 +1,38 @@
+# backend/app/api/auth.py
+"""授权管理 API 模块包."""
 import uuid
-import json
 from dataclasses import dataclass
-from typing import Dict, Any, Optional
-from fastapi import APIRouter, Depends, HTTPException, Body, Header
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-import asyncio
+from typing import Any, Optional
 
 from app.core.database import get_db
-from app.core.security import get_public_key_pem, decrypt_rsa
+from app.core.security import decrypt_rsa, get_public_key_pem
 from app.models.user import User
-# from app.core.mail import send_email
+from fastapi import APIRouter, Body, Depends, Header, HTTPException
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 @dataclass
 class Response:
-    data: Dict[str, Any]
+    """回复模型."""
+
+    data: dict[str, Any]
     message: str
     status_code: int = 200
     success: bool = True
 
 @router.post("/public_key")
 def public_key():
-    # 返回 PEM 格式公钥
+    """获取公钥."""
     return Response(
-        data={"public_key": get_public_key_pem()}, 
-        message="获取公钥成功"
+        data={"public_key": get_public_key_pem()},
+        message="Get public key successfully"
     )
 
 @router.post("/login")
 async def login(data: dict = Body(...), db: AsyncSession = Depends(get_db)):
-    """用户登录"""
+    """用户登录."""
     if "encrypted" in data:
         data = decrypt_rsa(data["encrypted"])
     email = data.get("email")
@@ -42,11 +43,11 @@ async def login(data: dict = Body(...), db: AsyncSession = Depends(get_db)):
         return Response(data={}, message="登录失败，没有该用户，请注册", status_code=404, success=False)
     if user and user.check_password(password):
         return Response(data={"email": user.email, "name": user.name, "userId": user.id}, message="登录成功")
-    raise HTTPException(status_code=401, detail=f"密码错误")
+    raise HTTPException(status_code=401, detail="密码错误")
 
 @router.post("/register")
 async def register(data: dict = Body(...), db: AsyncSession = Depends(get_db)):
-    """注册新用户"""
+    """注册新用户."""
     # 前端数据加密，先解密
     if "encrypted" in data:
         data = decrypt_rsa(data["encrypted"])
@@ -75,12 +76,12 @@ async def register(data: dict = Body(...), db: AsyncSession = Depends(get_db)):
 
 @router.post("/logout")
 async def logout():
-    """用户登出路由"""
+    """用户登出路由."""
     return Response(data={}, message="登出成功")
 
 @router.post("/reset-password")
 async def reset_password(data: dict = Body(...), db: AsyncSession = Depends(get_db)):
-    """重置用户密码"""
+    """重置用户密码."""
     if "encrypted" in data:
         data = decrypt_rsa(data["encrypted"])
     email = data.get("email")
@@ -98,17 +99,17 @@ async def reset_password(data: dict = Body(...), db: AsyncSession = Depends(get_
 
 @router.get("/session")
 async def get_session():
-    """检查当前会话状态"""
+    """检查当前会话状态."""
     return Response(data={"authenticated": False}, message="")
 
 # 加载测试数据的路由
 @router.post("/setup")
 async def setup_test_user(db: AsyncSession = Depends(get_db)):
-    """创建测试用户"""
+    """创建测试用户."""
     result = await db.execute(select(User).filter(User.username == 'admin'))
     if result.scalars().first():
         return Response(data={}, message="测试用户已存在", status_code=400, success=False)
-    
+
     test_user = User(
         id=str(uuid.uuid4()),
         username='admin',
@@ -117,10 +118,10 @@ async def setup_test_user(db: AsyncSession = Depends(get_db)):
         role='admin'
     )
     test_user.set_password('password')
-    
+
     db.add(test_user)
     await db.commit()
-    
+
     return Response(data={
         "id": test_user.id,
         "username": test_user.username,
@@ -130,7 +131,7 @@ async def setup_test_user(db: AsyncSession = Depends(get_db)):
 
 @router.post("/verify-invite-code")
 async def verify_invite_code(data: dict = Body(...)):
-    """验证邀请码"""
+    """验证邀请码."""
     import os
 
     invite_code = data.get("inviteCode")
@@ -164,10 +165,7 @@ async def get_current_user(
     user_id: Optional[str] = Header(None, alias="X-User-Id"),
     db: AsyncSession = Depends(get_db)
 ) -> User:
-    """
-    获取当前用户的依赖函数
-    从请求头中获取用户ID，然后从数据库查询用户信息
-    """
+    """获取当前用户的依赖函数, 从请求头中获取用户ID, 后数据库查询用户信息."""
     if not user_id:
         raise HTTPException(
             status_code=401,
@@ -194,5 +192,6 @@ async def get_current_user(
     return user
 
 async def require_company_member(current_user: User = Depends(get_current_user)) -> None:
+    """用于验证当前用户是否是公司成员."""
     if current_user.company_id is None:
         raise HTTPException(status_code=403, detail="NO_COMPANY")

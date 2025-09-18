@@ -1,40 +1,48 @@
 # backend/app/api/activity.py
-"""
-活动管理 API 模块包
-"""
-import uuid
-from datetime import datetime
-from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, Body, BackgroundTasks, File, UploadFile
-from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel, Field
+"""活动管理 API 模块包."""
 import asyncio
+import uuid
+from typing import Optional
 
-from app.core.database import get_db
+from app.api.auth import get_current_user
 from app.core.base_api import BaseAPIRouter, PaginationParams
+from app.core.database import get_db
 from app.core.decorators import handle_api_errors, require_authenticated
+from app.core.logging_config import logger
 from app.core.permissions import simple_user_required
-from app.services.activity_service import ActivityService
+from app.core.scheduler import process_pending_tasks
 from app.models.activity import Activity
 from app.models.user import User
-from app.api.auth import get_current_user
-from app.core.scheduler import process_pending_tasks
-from app.core.logging_config import logger
+from app.services.activity_service import ActivityService
+from fastapi import (
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+)
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+
 
 # Pydantic schemas
 class ActivityCreate(BaseModel):
+    """创建活动的model."""
+
     title: str
     description: Optional[str] = None
     points: int = 0
     user_id: str
 
 class ActivityUpdate(BaseModel):
+    """更新活动的model."""
+
     title: Optional[str] = None
     description: Optional[str] = None
     points: Optional[int] = None
     status: Optional[str] = None
 
 class ActivityQuery(PaginationParams):
+    """查询活动的model."""
+
     search: Optional[str] = ""
     user_id: Optional[str] = None
 
@@ -48,9 +56,8 @@ async def get_activities(
     query: ActivityQuery = Depends(),
     db: AsyncSession = Depends(get_db),
 ):
-    """获取活动列表"""
-    from sqlalchemy import select, desc
-    from app.models.activity import Activity
+    """获取活动列表."""
+    from sqlalchemy import desc, select
 
     # 构建查询
     query_stmt = select(Activity)
@@ -79,10 +86,9 @@ async def get_recent_activities(
     query: ActivityQuery = Depends(),
     db: AsyncSession = Depends(get_db)
 ):
-    """获取最近的活动"""
-    from sqlalchemy import select, desc, func
+    """获取最近的活动."""
+    from sqlalchemy import desc, func, select
     from sqlalchemy.orm import selectinload
-    from app.models.activity import Activity
 
     # 获取分页参数
     page = getattr(query, 'page', 1)
@@ -125,9 +131,9 @@ async def create_activity(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """创建新活动"""
+    """创建新活动."""
     service = ActivityService(db)
-    
+
     activity = await service.create_activity(
         title=data.title,
         description=data.description,
@@ -135,7 +141,7 @@ async def create_activity(
         user_id=data.user_id,
         show_id=str(uuid.uuid4())
     )
-    
+
     return base_router.success_response(
         data=activity.to_dict(),
         message="创建成功"
@@ -147,7 +153,7 @@ async def get_activity(
     activity_id: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """根据ID获取活动详情"""
+    """根据ID获取活动详情."""
     service = ActivityService(db)
 
     activity = await service.get_by_id(activity_id)
@@ -165,13 +171,13 @@ async def get_activity_by_show_id(
     show_id: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """根据show_id获取活动详情"""
+    """根据show_id获取活动详情."""
     service = ActivityService(db)
-    
+
     activity = await service.get_by_show_id(show_id)
     if not activity:
         raise HTTPException(status_code=404, detail="找不到活动")
-    
+
     return base_router.success_response(
         data=activity.to_dict(),
         message="查询成功"
@@ -186,21 +192,21 @@ async def update_activity(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """更新活动信息"""
+    """更新活动信息."""
     service = ActivityService(db)
-    
+
     activity = await service.update_activity(
         activity_id,
         data.dict(exclude_unset=True)
     )
-    
+
     if not activity:
         raise HTTPException(status_code=404, detail="找不到活动")
-    
+
     # 如果状态更新为completed，触发后台任务
     if data.status == "completed":
         asyncio.create_task(process_pending_tasks())
-    
+
     return base_router.success_response(
         data=activity.to_dict(),
         message="更新成功"
@@ -214,13 +220,13 @@ async def delete_activity(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """删除活动"""
+    """删除活动."""
     service = ActivityService(db)
-    
+
     success = await service.delete(activity_id)
     if not success:
         raise HTTPException(status_code=404, detail="找不到活动")
-    
+
     return base_router.success_response(message="删除成功")
 
 @router.post("/{activity_id}/reset-points")
@@ -230,9 +236,9 @@ async def reset_activity_points(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(simple_user_required)
 ):
-    """重置活动的积分，并同步回退用户积分"""
+    """重置活动的积分，并同步回退用户积分."""
     service = ActivityService(db)
-    
+
     try:
         result = await service.reset_activity_points(activity_id)
         return base_router.success_response(
@@ -256,7 +262,7 @@ async def award_activity_points(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """为活动授予积分"""
+    """为活动授予积分."""
     service = ActivityService(db)
 
     try:
@@ -283,7 +289,7 @@ async def get_activity_points_status(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """获取活动的积分状态"""
+    """获取活动的积分状态."""
     service = ActivityService(db)
 
     try:

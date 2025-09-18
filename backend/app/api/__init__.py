@@ -1,5 +1,4 @@
-"""
-API 模块包
+"""API 模块包.
 
 包含所有 FastAPI 路由和端点定义：
 - 认证相关 API (auth.py)

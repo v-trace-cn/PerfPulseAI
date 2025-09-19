@@ -10,7 +10,7 @@ from app.core.database import get_db
 from app.core.decorators import handle_api_errors, require_authenticated
 from app.core.logging_config import logger
 from app.core.permissions import simple_user_required
-from app.core.scheduler import process_pending_tasks
+from app.core.scheduler import schedule_pending_tasks
 from app.models.activity import Activity
 from app.models.user import User
 from app.services.activity_service import ActivityService
@@ -205,7 +205,7 @@ async def update_activity(
 
     # 如果状态更新为completed，触发后台任务
     if data.status == "completed":
-        asyncio.create_task(process_pending_tasks())
+        schedule_pending_tasks()
 
     return base_router.success_response(
         data=activity.to_dict(),

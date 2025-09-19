@@ -27,7 +27,7 @@ import {
 import { useRouter, useSearchParams } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
 import { unifiedApi } from "@/lib/unified-api"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/lib/auth-context-rq"
 import NotFoundPage from "@/components/common/NotFoundPage"
 
 

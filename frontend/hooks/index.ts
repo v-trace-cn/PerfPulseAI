@@ -1,8 +1,13 @@
 /**
- * 统一Hooks入口 - 精简版
- *
- * 按照编码共识标准，提供统一的Hooks访问接口
+ * 统一Hooks入口 - 纯 React Query 实现
+ * 零 fetch，零 API 类，纯 React Query
  */
+
+// 导出新的纯 React Query 查询
+export * from '@/lib/queries'
+
+// 保留现有的商城hooks（已经是纯React Query实现）
+export * from '@/lib/mall-hooks'
 
 // 导入组合hooks需要的依赖
 import { useMallItems } from './useMallRedemption'

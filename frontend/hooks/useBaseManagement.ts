@@ -1,6 +1,6 @@
 import { useAuth } from '@/lib/auth-context-rq';
-import { useApiQuery } from './useApiQuery';
-import { useApiMutation, SUCCESS_MESSAGES } from './useApiMutation';
+// 迁移到新的纯 React Query 实现
+import { useApiQuery, useApiMutation } from '@/lib/queries';
 
 export interface BaseEntity {
   id: number | string;
@@ -85,7 +85,7 @@ export class BaseManagementHooks<T extends BaseEntity, F extends BaseFormData> {
     return useApiMutation(
       (data: F) => this.apiService.create(data, user?.id || ''),
       {
-        successMessage: SUCCESS_MESSAGES.CREATE,
+        successMessage: `${this.entityName}创建成功`,
         invalidateQueries: [this.queryKeys.list],
       }
     );
@@ -101,7 +101,7 @@ export class BaseManagementHooks<T extends BaseEntity, F extends BaseFormData> {
       ({ id, data }: { id: number | string; data: F }) =>
         this.apiService.update(id, data, user?.id || ''),
       {
-        successMessage: SUCCESS_MESSAGES.UPDATE,
+        successMessage: `${this.entityName}更新成功`,
         invalidateQueries: [this.queryKeys.list, this.queryKeys.detail],
       }
     );
@@ -116,7 +116,7 @@ export class BaseManagementHooks<T extends BaseEntity, F extends BaseFormData> {
     return useApiMutation(
       (id: number | string) => this.apiService.delete(id, user?.id || ''),
       {
-        successMessage: SUCCESS_MESSAGES.DELETE,
+        successMessage: `${this.entityName}删除成功`,
         invalidateQueries: [this.queryKeys.list],
       }
     );

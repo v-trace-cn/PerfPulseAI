@@ -4,7 +4,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useToast } from '@/components/ui/use-toast'
 import { useAuth } from '@/lib/auth-context-rq'
-import { api } from '@/lib/api-client'
+// 迁移到新的纯 React Query 实现
+import {
+  usePointsBalance,
+  usePointsOverview,
+  usePointsTransactions,
+  useTransferPoints,
+  useAccruePoints
+} from '@/lib/queries'
 
 // 查询键常量
 export const POINTS_QUERY_KEYS = {

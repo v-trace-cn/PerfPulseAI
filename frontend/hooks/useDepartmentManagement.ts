@@ -1,7 +1,17 @@
-import { useAuth } from '@/lib/auth-context-rq';
-import { useApiQuery } from './useApiQuery';
-import { useApiMutation, SUCCESS_MESSAGES } from './useApiMutation';
-import { unifiedApi } from '@/lib/unified-api';
+// 直接使用新的查询系统，无需重复实现
+export {
+  useDepartments,
+  useDepartment,
+  useCurrentCompanyDepartments,
+  useCreateDepartment,
+  useUpdateDepartment,
+  useDeleteDepartment,
+  useDepartmentMembers,
+  useBatchAssociateDepartments,
+  type Department,
+  type DepartmentCreate,
+  type DepartmentUpdate
+} from '@/lib/queries';
 
 export interface Department {
   id: number;

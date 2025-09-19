@@ -1,7 +1,19 @@
-import { useAuth } from '@/lib/auth-context-rq';
-import { useApiQuery } from './useApiQuery';
-import { useApiMutation, SUCCESS_MESSAGES } from './useApiMutation';
-import { unifiedApi } from '@/lib/unified-api';
+// 直接使用新的查询系统，无需重复实现
+export {
+  useUserProfile,
+  useCurrentUserProfile,
+  useUpdateUserProfile,
+  useUploadAvatar,
+  useUsers,
+  useUserActivities,
+  useUserLeaderboard,
+  useDeleteUser,
+  useResetUserPassword,
+  useBatchImportUsers,
+  type User,
+  type UserProfile,
+  type UserUpdate
+} from '@/lib/queries';
 
 export interface User {
   id: number;

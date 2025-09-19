@@ -4,8 +4,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useToast } from '@/components/ui/use-toast'
 import { useAuth } from '@/lib/auth-context-rq'
-import { api } from '@/lib/api-client'
-import { roleApi } from '@/lib/services/role-api'
+// 迁移到新的纯 React Query 实现
+// 角色相关功能已集成到用户查询中
 
 // 查询键常量
 export const ROLE_QUERY_KEYS = {
@@ -42,12 +42,12 @@ export function useRole(roleId: string) {
 }
 
 /**
- * 获取所有权限（暂时返回空数组，因为后端没有此接口）
+ * 获取所有权限
  */
 export function usePermissions() {
   return useQuery({
     queryKey: ROLE_QUERY_KEYS.permissions(),
-    queryFn: () => Promise.resolve([]), // 暂时返回空数组
+    queryFn: () => api.get('/api/permissions'),
     staleTime: 10 * 60 * 1000, // 10分钟缓存
   })
 }
@@ -61,11 +61,7 @@ export function useUserRoles(userId?: string, companyId?: string) {
 
   return useQuery({
     queryKey: ROLE_QUERY_KEYS.userRoles(String(targetUserId), companyId),
-    queryFn: async () => {
-      const response = await roleApi.getUserRoles(String(targetUserId), companyId)
-      // 提取实际的角色数据
-      return response?.data?.roles || []
-    },
+    queryFn: () => roleApi.getUserRoles(String(targetUserId), companyId),
     enabled: !!targetUserId,
     staleTime: 2 * 60 * 1000, // 2分钟缓存
   })
@@ -89,20 +85,11 @@ export function usePermissionCheck(permission: string, companyId?: string, userI
 /**
  * 检查是否可以查看管理菜单
  */
-export function useCanViewAdminMenus(companyId?: string, options?: { enabled?: boolean }) {
+export function useCanViewAdminMenus(companyId?: string) {
   return useQuery({
     queryKey: ROLE_QUERY_KEYS.adminMenus(companyId),
-    queryFn: async () => {
-      const result = await roleApi.canViewAdminMenus(companyId)
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🔍 权限检查API响应:', result)
-      }
-      return result
-    },
+    queryFn: () => roleApi.canViewAdminMenus(companyId),
     staleTime: 2 * 60 * 1000, // 2分钟缓存
-    enabled: options?.enabled !== false && !!companyId,
-    retry: 1, // 只重试一次
-    retryDelay: 1000, // 重试延迟1秒
   })
 }
 

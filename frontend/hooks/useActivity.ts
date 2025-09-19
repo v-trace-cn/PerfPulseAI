@@ -3,7 +3,13 @@
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useToast } from '@/components/ui/use-toast'
-import { api } from '@/lib/api-client'
+// 迁移到新的纯 React Query 实现
+import {
+  useAnalyzePr,
+  useCalculatePrPoints,
+  useResetActivityPoints,
+  useUpdateActivityStatus
+} from '@/lib/queries'
 
 /**
  * 重置活动积分

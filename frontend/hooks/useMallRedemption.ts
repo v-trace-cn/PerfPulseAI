@@ -48,12 +48,9 @@ export interface RedemptionResponse {
 // 重新导出 mall-hooks 中的兑换功能
 export {
   useMallItems,
-  usePurchaseItem as useRedeemItem,
+  usePurchaseMallItem as useRedeemItem,
   useMyPurchases
 } from '@/lib/mall-hooks'
-
-// 添加缺失的导出
-export { useMyPurchases as useUserRedemptions } from '@/lib/mall-hooks'
 
 // 所有兑换功能都已迁移到 @/lib/mall-hooks
 // 如需额外的兑换功能，请在 @/lib/mall-hooks 中添加

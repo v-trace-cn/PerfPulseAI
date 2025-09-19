@@ -1,9 +1,18 @@
-import { useAuth } from '@/lib/auth-context-rq';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useToast } from '@/components/ui/use-toast';
-import { useApiQuery } from './useApiQuery';
-import { useApiMutation, SUCCESS_MESSAGES } from './useApiMutation';
-import { unifiedApi } from '@/lib/unified-api';
+// 使用新的通用管理 Hook 工厂
+import {
+  createCrudHooks,
+  useGenericJoin,
+  useGenericLeave,
+  COMMON_CONFIGS
+} from './useGenericManagement'
+import {
+  useCompanies,
+  useCompany,
+  useCurrentCompany,
+  type Company as QueryCompany,
+  type CompanyCreate,
+  type CompanyUpdate
+} from '@/lib/queries';
 
 export interface Company {
   id: number;
@@ -63,93 +72,27 @@ export function useUserCompanies() {
   );
 }
 
+// 使用通用 CRUD Hook 工厂创建公司管理 Hooks
+const companyHooks = createCrudHooks<QueryCompany, CompanyCreate, CompanyUpdate>(COMMON_CONFIGS.company)
+
 /**
  * 创建公司的Hook
  */
-export function useCreateCompany() {
-  const { user } = useAuth();
-  
-  return useApiMutation(
-    (data: CompanyFormData) => unifiedApi.company.create({
-      ...data,
-      creatorUserId: user?.id
-    }),
-    {
-      successMessage: SUCCESS_MESSAGES.CREATE,
-      invalidateQueries: ['available-companies', 'user-companies'],
-    }
-  );
-}
+export const useCreateCompany = companyHooks.useCreate
 
 /**
  * 更新公司的Hook
  */
-export function useUpdateCompany() {
-  const { user } = useAuth();
-  
-  return useApiMutation(
-    ({ id, data }: { id: number; data: CompanyFormData }) =>
-      unifiedApi.company.update(id, { ...data, userId: user?.id }),
-    {
-      successMessage: SUCCESS_MESSAGES.UPDATE,
-      invalidateQueries: ['available-companies', 'user-companies'],
-    }
-  );
-}
+export const useUpdateCompany = companyHooks.useUpdate
 
 /**
  * 删除公司的Hook
  */
-export function useDeleteCompany() {
-  const { user } = useAuth();
-  
-  return useApiMutation(
-    (companyId: number) => unifiedApi.company.delete(companyId, user?.id || ''),
-    {
-      successMessage: SUCCESS_MESSAGES.DELETE,
-      invalidateQueries: ['available-companies', 'user-companies'],
-    }
-  );
-}
+export const useDeleteCompany = companyHooks.useDelete
 
-/**
- * 加入公司的Hook
- */
-export function useJoinCompany() {
-  const { user, refreshUser } = useAuth();
-  
-  return useApiMutation(
-    ({ inviteCode, forceJoin = false }: JoinCompanyData) =>
-      unifiedApi.company.joinByInviteCode(inviteCode, user?.id, forceJoin),
-    {
-      successMessage: "成功加入公司",
-      invalidateQueries: ['available-companies', 'user-companies', 'departments', 'userProfile'],
-      onSuccess: async () => {
-        // 刷新用户状态
-        await refreshUser();
-      },
-    }
-  );
-}
-
-/**
- * 退出公司的Hook
- */
-export function useLeaveCompany() {
-  const { user, refreshUser } = useAuth();
-  
-  return useApiMutation(
-    () => unifiedApi.company.leaveCompany(user?.id),
-    {
-      successMessage: "成功退出公司",
-      invalidateQueries: ['available-companies', 'user-companies', 'departments', 'userProfile'],
-      onSuccess: async () => {
-        // 刷新用户状态
-        await refreshUser();
-      },
-    }
-  );
-}
+// 加入公司和退出公司的Hook已在 @/lib/queries 中实现
+// 这里重新导出以保持兼容性
+export { useJoinCompany, useLeaveCompany } from '@/lib/queries'
 
 /**
  * 通过邀请码获取公司信息的Hook

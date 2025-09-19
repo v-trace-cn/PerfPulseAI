@@ -47,9 +47,7 @@ export {
   useCreateMallItem,
   useUpdateMallItem,
   useDeleteMallItem,
-  useMallItems,
-  useMallAdminItems,
-  useUpdateStock
+  useMallItems
 } from '@/lib/mall-hooks'
 
 // 所有管理员功能都已迁移到 @/lib/mall-hooks

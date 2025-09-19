@@ -1,6 +1,7 @@
 import { useAuth } from '@/lib/auth-context-rq';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api-client';
+// 迁移到新的纯 React Query 实现
+import { useUserProfile as useUserProfileQuery, useUpdateUserProfile } from '@/lib/queries';
 
 interface UseUserProfileOptions {
   userId?: string;

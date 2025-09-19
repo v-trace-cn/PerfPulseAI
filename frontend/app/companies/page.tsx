@@ -5,7 +5,7 @@ import AuthGuard from "@/components/guards/AuthGuard"
 import InviteCodeGuard from "@/components/guards/InviteCodeGuard"
 import { Building, Settings, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/lib/auth-context-rq"
 import {
   useAvailableCompanies,
   useCreateCompany,

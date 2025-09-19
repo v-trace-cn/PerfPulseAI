@@ -33,7 +33,8 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/lib/auth-context-rq"
+import { useCanViewAdminMenus } from "@/hooks"
 import unifiedApi from "@/lib/unified-api"
 
 
@@ -46,25 +47,10 @@ import unifiedApi from "@/lib/unified-api"
 
 export default function RedemptionPage() {
   const { user } = useAuth();
-  const [canRedemption, setCanRedemption] = useState(false)
-  const [permChecked, setPermChecked] = useState(false)
-
-  useEffect(() => {
-    const token = typeof window !== 'undefined' ? (localStorage.getItem('token') || sessionStorage.getItem('token')) : null
-    const headers: Record<string, string> = token ? { 'X-User-Id': token } : {}
-    const run = async () => {
-      try {
-        const res = await fetch(`/api/roles/permissions/can_view_admin_menus?companyId=${(user as any)?.companyId ?? ''}`, { headers })
-        const json = await res.json()
-        setCanRedemption(Boolean(json?.data?.canRedemption))
-      } catch (_) {
-        setCanRedemption(false)
-      } finally {
-        setPermChecked(true)
-      }
-    }
-    if ((user as any)?.companyId) run()
-  }, [user])
+  // 使用React Query检查权限
+  const { data: permissionData, isLoading: permissionLoading } = useCanViewAdminMenus(user?.companyId?.toString())
+  const canRedemption = permissionData?.data?.canRedemption || false
+  const permChecked = !permissionLoading
 
   const { toast } = useToast();
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({

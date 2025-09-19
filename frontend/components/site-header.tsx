@@ -14,7 +14,7 @@ import {
 import { NavbarAvatar } from "@/components/ui/unified-avatar"
 import { Badge } from "@/components/ui/badge"
 import { HelpCircle, LogIn, LogOut, Settings, User, UserPlus, Search, LayoutGrid, Building2 } from "lucide-react"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/lib/auth-context-rq"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { Input } from "@/components/ui/input"

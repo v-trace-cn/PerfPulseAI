@@ -3,7 +3,7 @@
 import React from "react"
 import Link from "next/link"
 import { Building2 } from "lucide-react"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/lib/auth-context-rq"
 
 interface SmartOrgNavProps {
   className?: string

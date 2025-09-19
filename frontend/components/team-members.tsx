@@ -12,7 +12,51 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { MoreHorizontal, ArrowUpDown } from "lucide-react"
+import { MoreHorizontal, ArrowUpDown, Users, Loader2 } from "lucide-react"
+import { useAuth } from "@/lib/auth-context-rq"
+import { useQuery } from "@tanstack/react-query"
+import { useToast } from "@/components/ui/use-toast"
+
+// 团队成员类型定义
+interface TeamMember {
+  id: number
+  name: string
+  email: string
+  avatar?: string
+  companyId?: number
+  departmentId?: number
+  // 模拟的评分数据 - 后续可以从其他API获取
+  complianceScore?: number
+  transparencyScore?: number
+  accountabilityScore?: number
+  totalScore?: number
+  status?: string
+  role?: string
+  department?: string
+}
+
+// 获取公司成员的API函数
+const fetchCompanyMembers = async (companyId: number): Promise<TeamMember[]> => {
+  const response = await fetch(`/api/users/company-members?companyId=${companyId}`)
+  if (!response.ok) {
+    throw new Error('获取团队成员失败')
+  }
+  const data = await response.json()
+  return data.success ? data.data.items : []
+}
+
+// 生成模拟评分数据的函数
+const generateMockScores = (id: number) => {
+  const base = 80 + (id % 20) // 80-99 的基础分
+  return {
+    complianceScore: base + Math.floor(Math.random() * 10),
+    transparencyScore: base + Math.floor(Math.random() * 10),
+    accountabilityScore: base + Math.floor(Math.random() * 10),
+    status: Math.random() > 0.8 ? "休假" : "活跃",
+    role: ["AI 研究员", "数据科学家", "产品经理", "前端工程师", "后端工程师"][id % 5],
+    department: ["研发部", "数据部", "产品部", "技术部"][id % 4]
+  }
+}
 
 const teamMembers = [
   {

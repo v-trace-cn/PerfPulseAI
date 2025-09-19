@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useAuth } from '@/lib/auth-context'
+import { useAuth } from '@/lib/auth-context-rq'
 import { useToast } from '@/components/ui/use-toast'
 import { useNotificationSSE } from './useNotificationSSE'
 import { notificationEvents } from '@/lib/notification-events'

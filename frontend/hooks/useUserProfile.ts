@@ -1,6 +1,6 @@
-import { useAuth } from '@/lib/auth-context';
-import { useApiQuery, QUERY_STALE_TIME } from './useApiQuery';
-import { unifiedApi } from '@/lib/unified-api';
+import { useAuth } from '@/lib/auth-context-rq';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api-client';
 
 interface UseUserProfileOptions {
   userId?: string;
@@ -18,15 +18,13 @@ export function useUserProfile(options: UseUserProfileOptions = {}) {
   // 确定要获取的用户ID
   const targetUserId = userId || currentUser?.id;
   
-  return useApiQuery(
-    ['userProfile', targetUserId],
-    () => unifiedApi.user.getProfile(String(targetUserId)),
-    {
-      enabled: enabled && !!targetUserId,
-      staleTime: QUERY_STALE_TIME.MEDIUM,
-      refetchInterval,
-    }
-  );
+  return useQuery({
+    queryKey: ['userProfile', targetUserId],
+    queryFn: () => api.get(`/api/users/${targetUserId}`),
+    enabled: enabled && !!targetUserId,
+    staleTime: 5 * 60 * 1000, // 5分钟缓存
+    refetchInterval,
+  });
 }
 
 /**

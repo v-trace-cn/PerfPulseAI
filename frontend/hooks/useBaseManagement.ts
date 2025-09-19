@@ -1,4 +1,4 @@
-import { useAuth } from '@/lib/auth-context';
+import { useAuth } from '@/lib/auth-context-rq';
 import { useApiQuery } from './useApiQuery';
 import { useApiMutation, SUCCESS_MESSAGES } from './useApiMutation';
 

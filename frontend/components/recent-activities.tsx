@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { CheckCircle2, Code, FileText, GitCommit, MessageSquare } from "lucide-react"
 import Link from "next/link"
 import { useState, memo } from "react"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/lib/auth-context-rq"
 import { getRelativeDate, cn } from "@/lib/utils"
 import { unifiedApi } from "@/lib/unified-api"
 import { useQuery } from "@tanstack/react-query"
@@ -94,7 +94,8 @@ export const RecentActivities = memo(() => {
   }
 
   if (apiError) {
-    return <div className="text-center text-destructive">错误: {apiError}</div>;
+    const errorMessage = apiError instanceof Error ? apiError.message : String(apiError);
+    return <div className="text-center text-destructive">错误: {errorMessage}</div>;
   }
 
   if (!fetchedData || !fetchedData.success || !fetchedData.data || !fetchedData.data.activities || fetchedData.data.activities.length === 0) {

@@ -10,7 +10,10 @@ import { Input } from "@/components/ui/input"
 import { DataLoader } from "@/components/ui/data-loader"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/lib/auth-context-rq"
+import { OrgPermissionGuard } from "@/lib/client-permission-guard"
+import { useCanViewAdminMenus } from "@/hooks"
+import { PermissionIndicator } from "@/components/permission/PermissionStatus"
 import {
   useDepartments,
   useCreateDepartment,
@@ -26,7 +29,7 @@ import { DepartmentForm } from "@/components/department/DepartmentForm"
 import { DepartmentSettings } from "@/components/organization/DepartmentSettings"
 import Link from "next/link"
 
-export default function OrganizationManagement() {
+function OrganizationManagementContent() {
   const [searchTerm, setSearchTerm] = useState("")
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setEditDialogOpen] = useState(false)
@@ -38,21 +41,10 @@ export default function OrganizationManagement() {
   const [selectedDepartmentForMembers, setSelectedDepartmentForMembers] = useState<Department | null>(null)
 
   const { user } = useAuth()
-  const [canMenus, setCanMenus] = useState<{ canView: boolean; canOrg: boolean; canMall: boolean; canRedemption: boolean }>({ canView: false, canOrg: false, canMall: false, canRedemption: false })
 
-  useEffect(() => {
-    const token = typeof window !== "undefined" ? (localStorage.getItem("token") || sessionStorage.getItem("token")) : null
-    const headers: Record<string, string> = token ? { "X-User-Id": token } : {}
-    const run = async () => {
-      try {
-        const res = await fetch(`/api/roles/permissions/can_view_admin_menus?companyId=${user?.companyId ?? ''}`, { headers })
-        const json = await res.json()
-        if (json?.success && json.data) setCanMenus(json.data)
-      } catch (e) {
-      }
-    }
-    if (user?.companyId) run()
-  }, [user?.companyId])
+  // 使用优化的权限检查
+  const { data: permissionData } = useCanViewAdminMenus(user?.companyId?.toString())
+  const canMenus = permissionData?.data || { canView: false, canOrg: false, canMall: false, canRedemption: false }
 
   // API hooks
   const { data: departments, isLoading, error } = useDepartments()
@@ -63,7 +55,7 @@ export default function OrganizationManagement() {
   const associateCompanyMutation = useAssociateDepartmentsToCompany()
 
   // Filter departments based on search term
-  const filteredDepartments = departments?.filter(dept =>
+  const filteredDepartments = departments?.filter((dept: Department) =>
     dept.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     dept.description?.toLowerCase().includes(searchTerm.toLowerCase())
   ) || []
@@ -128,10 +120,8 @@ export default function OrganizationManagement() {
   }
 
   return (
-    <AuthGuard>
-      <CompanyGuard>
-        <div className="flex flex-col min-h-screen bg-gray-50/90">
-          <main className="flex-1 p-4 md:p-8 space-y-8">
+    <div className="flex flex-col min-h-screen bg-gray-50/90">
+      <main className="flex-1 p-4 md:p-8 space-y-8">
             <header className="flex flex-col md:flex-row items-start md:items-center justify-between space-y-4 md:space-y-0">
               <div className="flex items-center space-x-4">
                 <div className="flex items-center justify-center w-12 h-12 bg-blue-100 rounded-lg">
@@ -221,7 +211,7 @@ export default function OrganizationManagement() {
                 <DataLoader
                   data={filteredDepartments}
                   isLoading={isLoading}
-                  error={error}
+                  error={error as Error | null}
                   loadingComponent={
                     <div className="flex items-center justify-center py-12">
                       <div className="text-center">
@@ -315,16 +305,20 @@ export default function OrganizationManagement() {
               </AlertDialogContent>
             </AlertDialog>
 
-            {/* 部门成员对话框 */}
-            {selectedDepartmentForMembers && (
-              <DepartmentSettings
-                open={membersDialogOpen}
-                onOpenChange={setMembersDialogOpen}
-                department={selectedDepartmentForMembers}
-              />
-            )}
-          </main>
-        </div>
+            {/* TODO: 部门成员对话框 - 需要重构 DepartmentSettings 组件 */}
+      </main>
+    </div>
+  );
+}
+
+// 使用客户端权限守卫包装组件
+export default function OrganizationManagement() {
+  return (
+    <AuthGuard>
+      <CompanyGuard>
+        <OrgPermissionGuard>
+          <OrganizationManagementContent />
+        </OrgPermissionGuard>
       </CompanyGuard>
     </AuthGuard>
   );

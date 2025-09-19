@@ -24,7 +24,7 @@ def upgrade():
 
     # 检测数据库类型
     dialect_name = connection.dialect.name
-    print(f"🔍 检测到数据库类型: {dialect_name}")
+    print(f"检测到数据库类型: {dialect_name}")
 
     # 定义需要标准化的表和字段
     tables_to_normalize = [

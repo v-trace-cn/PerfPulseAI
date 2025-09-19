@@ -1,21 +1,18 @@
-"""
-Company management API endpoints.
-"""
-from fastapi import APIRouter, Depends, HTTPException, Body, Request
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from sqlalchemy.orm import selectinload
-from app.core.database import get_db
+"""Company management API endpoints."""
+from datetime import datetime
+from typing import Optional
+
 from app.core.base_api import BaseAPIRouter
+from app.core.database import get_db
 from app.core.decorators import handle_api_errors, transaction
+from app.core.permissions import simple_user_required, company_creator_required
 from app.models.company import Company
-from app.models.user import User
 from app.models.department import Department
 from app.models.role import Role
-from app.core.permissions import company_creator_required, get_current_user, simple_user_required
-from typing import List, Optional
-from datetime import datetime
-import asyncio
+from app.models.user import User
+from fastapi import Body, Depends, HTTPException
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 # Initialize router using base class
 base_router = BaseAPIRouter(prefix="/api/companies", tags=["company"])
@@ -28,7 +25,7 @@ async def get_companies(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(simple_user_required)
 ):
-    """获取用户创建的公司列表"""
+    """获取用户创建的公司列表."""
     # 获取用户创建的公司
     result = await db.execute(
         select(Company)
@@ -73,9 +70,9 @@ async def get_available_companies(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(simple_user_required)
 ):
-    """获取所有可用的公司列表（供新用户加入）"""
+    """获取所有可用的公司列表（供新用户加入）."""
     # 构建查询条件
-    query = select(Company).filter(Company.is_active == True)
+    query = select(Company).filter(Company.is_active)
 
     # 如果有搜索关键词，添加搜索条件
     if search and search.strip():
@@ -125,7 +122,7 @@ async def get_company(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(simple_user_required)
 ):
-    """获取单个公司详情"""
+    """获取单个公司详情."""
     try:
         result = await db.execute(
             select(Company)
@@ -172,7 +169,7 @@ async def create_company(
     data: dict = Body(...),
     db: AsyncSession = Depends(get_db),
 ):
-    """创建新公司"""
+    """创建新公司."""
     name = data.get("name")
     description = data.get("description", "")
     domain = data.get("domain")
@@ -246,14 +243,14 @@ async def update_company(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(company_creator_required)
 ):
-    """更新公司信息"""
+    """更新公司信息."""
     try:
         result = await db.execute(select(Company).filter(Company.id == company_id))
         company = result.scalars().first()
-        
+
         if not company:
             raise HTTPException(status_code=404, detail="公司不存在")
-        
+
         # 更新字段
         if "name" in data:
             # 检查新名称是否已被其他公司使用
@@ -262,10 +259,10 @@ async def update_company(
                 if result.scalars().first():
                     raise HTTPException(status_code=400, detail="公司名称已存在")
             company.name = data["name"]
-        
+
         if "description" in data:
             company.description = data["description"]
-        
+
         if "domain" in data:
             # 将空字符串转换为 None 以避免 UNIQUE 约束冲突
             new_domain = data["domain"]
@@ -279,12 +276,12 @@ async def update_company(
                     if result.scalars().first():
                         raise HTTPException(status_code=400, detail="公司域名已存在")
             company.domain = new_domain
-        
+
         if "isActive" in data:
             company.is_active = data["isActive"]
-        
+
         company.updated_at = datetime.utcnow()
-        
+
         await db.commit()
         await db.refresh(company)
 
@@ -324,14 +321,14 @@ async def delete_company(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(company_creator_required)
 ):
-    """删除公司"""
+    """删除公司."""
     try:
         result = await db.execute(select(Company).filter(Company.id == company_id))
         company = result.scalars().first()
-        
+
         if not company:
             raise HTTPException(status_code=404, detail="公司不存在")
-        
+
         # 检查是否有关联的用户或部门
         user_count = await db.scalar(select(func.count(User.id)).filter(User.company_id == company_id))
         dept_count = await db.scalar(select(func.count(Department.id)).filter(Department.company_id == company_id))
@@ -356,7 +353,7 @@ async def delete_company(
         # 2. 删除公司
         await db.delete(company)
         await db.commit()
-        
+
         return {
             "success": True,
             "data": {},
@@ -370,11 +367,11 @@ async def delete_company(
 
 
 async def init_company_permissions_and_roles(db: AsyncSession, company_id: int):
-    """为新公司初始化权限和角色"""
+    """为新公司初始化权限和角色."""
     # 获取所有系统权限
     result = await db.execute(select(Permission))
     all_permissions = result.scalars().all()
-    
+
     # 如果没有权限，先创建系统权限
     if not all_permissions:
         for perm_name, display_name, category, description in SYSTEM_PERMISSIONS:
@@ -387,11 +384,11 @@ async def init_company_permissions_and_roles(db: AsyncSession, company_id: int):
             )
             db.add(permission)
         await db.commit()
-        
+
         # 重新获取权限
         result = await db.execute(select(Permission))
         all_permissions = result.scalars().all()
-    
+
     # 创建超级管理员角色（拥有所有权限）
     admin_role = Role(
         name="超级管理员",
@@ -401,7 +398,7 @@ async def init_company_permissions_and_roles(db: AsyncSession, company_id: int):
     )
     admin_role.permissions = all_permissions
     db.add(admin_role)
-    
+
     # 创建普通用户角色（基础权限）
     user_permissions = [p for p in all_permissions if p.name in [
         'user.read', 'department.read', 'activity.read', 'reward.read'
@@ -414,12 +411,12 @@ async def init_company_permissions_and_roles(db: AsyncSession, company_id: int):
     )
     user_role.permissions = user_permissions
     db.add(user_role)
-    
+
     await db.commit()
 
 
 async def assign_creator_as_admin(db: AsyncSession, user_id: int, company_id: int):
-    """为创建者分配公司的超级管理员角色（但不自动加入公司）"""
+    """为创建者分配公司的超级管理员角色（但不自动加入公司）."""
     from app.models.role import user_roles
     from sqlalchemy import insert
 
@@ -450,7 +447,7 @@ async def join_company_by_invite_code(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(simple_user_required)
 ):
-    """用户通过邀请码加入公司"""
+    """用户通过邀请码加入公司."""
     try:
         invite_code = data.get("inviteCode")
         user_id = data.get("userId") or current_user.id
@@ -570,7 +567,7 @@ async def leave_company(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(simple_user_required)
 ):
-    """用户退出公司"""
+    """用户退出公司."""
     try:
         user_id = data.get("userId") or current_user.id
 
@@ -632,7 +629,7 @@ async def leave_company(
 
 @router.get("/{company_id}/stats")
 async def get_company_stats(company_id: int, db: AsyncSession = Depends(get_db)):
-    """获取公司统计信息"""
+    """获取公司统计信息."""
     try:
         result = await db.execute(select(Company).filter(Company.id == company_id))
         company = result.scalars().first()
@@ -673,7 +670,7 @@ async def get_company_by_invite_code(
     invite_code: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """通过邀请码获取公司信息"""
+    """通过邀请码获取公司信息."""
     try:
         result = await db.execute(select(Company).filter(Company.invite_code == invite_code))
         company = result.scalars().first()

@@ -1,12 +1,15 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Integer, Text, DateTime, JSON, ForeignKey
+
 from app.core.database import Base
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String, Text
+
 
 class PullRequestResult(Base):
     """存储 GitHub PR 分析结果的模型"""
+
     __tablename__ = 'pull_request_results'
-    
+
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     pr_node_id = Column(String(100), ForeignKey('activities.id'), unique=True, nullable=False)
     pr_number = Column(Integer, nullable=False)
@@ -30,4 +33,4 @@ class PullRequestResult(Base):
             "ai_analysis_result": self.ai_analysis_result,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-        } 
+        }

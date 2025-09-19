@@ -1,36 +1,32 @@
 # backend/app/api/webhook.py
-import hmac
-import hashlib
-import requests
-import os
-import json
+"""第三方集成 API 模块包(github)."""
+
 import asyncio
+import hashlib
+import hmac
+import json
 from datetime import datetime, timezone
-
-from uuid import uuid4
 from typing import Optional
-from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import APIRouter, Request, HTTPException, Header, Response, Depends
-from sqlalchemy import select
+from uuid import uuid4
 
-from app.core.database import get_db, AsyncSessionLocal
-from app.models.activity import Activity
-from app.models.scoring import ScoreEntry
 from app.core.config import Settings
-from app.models.user import User
+from app.core.database import AsyncSessionLocal, get_db
+from app.core.logging_config import logger
+from app.core.scheduler import process_pending_tasks
+from app.models.activity import Activity
 from app.models.pull_request import PullRequest
 from app.models.pull_request_event import PullRequestEvent
-from app.core.scheduler import process_pending_tasks
-from app.core.logging_config import logger
+from app.models.user import User
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/api/webhook", tags=["webhook"])
 GITHUB_WEBHOOK_SECRET = Settings.GITHUB_WEBHOOK_SECRET
 
 
 async def verify_signature(body: bytes, github_signature: str):
-    """
-    验证 GitHub Webhook 请求的签名。
-    """
+    """验证 GitHub Webhook 请求的签名。."""
     try:
         signature_parts = github_signature.split('=', 1)
         if len(signature_parts) != 2 or signature_parts[0] != 'sha256':
@@ -63,9 +59,7 @@ def parse_datetime(datetime_str: Optional[str]) -> Optional[datetime]:
 async def process_pull_request_event(
     payload: dict, unique_id: str
 ):
-    """
-    异步处理 pull_request 事件的详细逻辑，包括 AI 分析和数据库操作。
-    """
+    """异步处理 pull_request 事件的详细逻辑，包括 AI 分析和数据库操作。."""
     db = AsyncSessionLocal()
     try:
         action = payload.get("action")
@@ -97,7 +91,6 @@ async def process_pull_request_event(
                 if not user:
                     print(f"User with GitHub URL {user_github_url} not found.")
                     return
-                user_id = user.id
             else:
                 print("GitHub user URL not found in payload. Skipping PR processing.")
                 return
@@ -114,7 +107,7 @@ async def process_pull_request_event(
                         author=user_login.get("login")
                     )
                     db.add(pr)
-                
+
                 # 更新字段
                 pr.title = pr_title
                 pr.commit_sha = pull_request.get("head", {}).get("sha")
@@ -131,7 +124,7 @@ async def process_pull_request_event(
                         details=f"PR #{pr_number} by {pr.author} opened."
                     )
                     db.add(event)
-                
+
                 await db.commit()
 
                 # 将分析任务放入队列
@@ -150,7 +143,7 @@ async def process_pull_request_event(
                         existing_activity.created_at = pr.created_at
                     await db.commit()
                     print(f"    Pending task for PR #{pr_number} saved/updated successfully.")
-                    
+
                     asyncio.create_task(process_pending_tasks())
                 except Exception as e:
                     await db.rollback()
@@ -178,17 +171,17 @@ async def process_pull_request_event(
 
 
 async def process_pull_request_review_event(payload: dict):
-    """处理 PR 审查事件"""
+    """处理 PR 审查事件."""
     db = AsyncSessionLocal()
     try:
         action = payload.get("action")
         review = payload.get("review")
         pull_request = payload.get("pull_request")
-        
+
         # 我们只关心审查被提交且状态为"通过"的事件
         if action == "submitted" and review and review.get("state") == "approved":
             pr_node_id = pull_request.get("node_id")
-            
+
             # 检查是否已存在相同的通过事件，防止重复记录
             existing_event_result = await db.execute(select(PullRequestEvent).filter(
                 PullRequestEvent.pr_node_id == pr_node_id,
@@ -221,9 +214,7 @@ async def github_webhook_receiver(
     x_hub_signature_256: Optional[str] = Header(None, alias="X-Hub-Signature-256"),
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    接收并处理来自 GitHub 的 Webhook 请求。
-    """
+    """接收并处理来自 GitHub 的 Webhook 请求。."""
     body = await request.body()
     if x_hub_signature_256:
         try:
@@ -255,7 +246,7 @@ async def github_webhook_receiver(
     if x_github_event == "pull_request":
         # 异步处理 PR 事件，不阻塞主线程
         asyncio.create_task(process_pull_request_event(payload, unique_id))
-    
+
     elif x_github_event == "pull_request_review":
         asyncio.create_task(process_pull_request_review_event(payload))
 

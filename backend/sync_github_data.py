@@ -62,7 +62,7 @@ class GitHubDataSyncer:
     
     async def fetch_repo_prs(self, repo_url: str, github_token: Optional[str] = None) -> List[Dict[str, Any]]:
         """获取仓库的PR数据"""
-        print(f"🔍 正在获取仓库 {repo_url} 的PR数据...")
+        print(f"正在获取仓库 {repo_url} 的PR数据...")
 
         # 从仓库URL中提取owner和repo名称
         match = re.search(r'github\.com/([^/]+)/([^/]+)', repo_url)

@@ -1,17 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException, Body, File, UploadFile
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from sqlalchemy.orm import joinedload, selectinload
-from app.core.database import get_db
-from app.core.base_api import BaseAPIRouter
-from app.core.decorators import handle_api_errors, transaction
-from app.models.user import User
-from app.models.department import Department
-from app.services.point_service import PointConverter
-
+# backend/app/api/user.py
+"""用户管理 API 模块包."""
 import os
 import uuid
 from datetime import datetime
+
+from app.core.base_api import BaseAPIRouter
+from app.core.database import get_db
+from app.core.decorators import handle_api_errors, transaction
+from app.models.department import Department
+from app.models.user import User
+from app.services.point_service import PointConverter
+from fastapi import Body, Depends, File, UploadFile
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 # Initialize router using base class
 base_router = BaseAPIRouter(prefix="/api/users", tags=["user"])
@@ -21,7 +23,7 @@ router = base_router.router
 @router.get("/by-id/{user_id}")
 @handle_api_errors
 async def get_user(user_id: int, db: AsyncSession = Depends(get_db)):
-    """获取用户信息"""
+    """获取用户信息."""
     result = await db.execute(
         select(User).filter(User.id == user_id).options(
             selectinload(User.department_rel),
@@ -62,7 +64,7 @@ async def get_user(user_id: int, db: AsyncSession = Depends(get_db)):
 @router.get("/{user_id}/achievements")
 @handle_api_errors
 async def get_achievements(user_id: int, db: AsyncSession = Depends(get_db)):
-    """获取用户成就"""
+    """获取用户成就."""
     # TODO: implement achievement logic
     return base_router.success_response([], "查询成功")
 
@@ -71,7 +73,7 @@ async def get_achievements(user_id: int, db: AsyncSession = Depends(get_db)):
 @handle_api_errors
 @transaction
 async def update_user(user_id: int, data: dict = Body(...), db: AsyncSession = Depends(get_db)):
-    """更新用户信息"""
+    """更新用户信息."""
     print(f"更新用户信息请求: user_id={user_id}, data={data}")
 
     # 预加载关联对象以避免懒加载导致的异步问题
@@ -140,7 +142,7 @@ async def update_user(user_id: int, data: dict = Body(...), db: AsyncSession = D
 @handle_api_errors
 @transaction
 async def upload_avatar(user_id: int, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
-    """上传用户头像"""
+    """上传用户头像."""
     result = await db.execute(select(User).filter(User.id == user_id))
     user = result.scalars().first()
     if not user:
@@ -181,12 +183,12 @@ async def list_company_members(
     pageSize: int = 20,
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    获取公司成员列表。若未提供 companyId，尝试通过 X-User-Id 识别当前用户并使用其 company_id。
+    """获取公司成员列表。若未提供 companyId，尝试通过 X-User-Id 识别当前用户并使用其 company_id。.
+    
     查询参数：companyId, q(搜索), page, pageSize
-    返回：items[], total, page, pageSize
+    
+    返回：items[], total, page, pageSize.
     """
-
     # 基础查询
     query = select(User).filter(User.company_id == companyId)
     if q:

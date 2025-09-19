@@ -1,18 +1,19 @@
+"""Company model for multi-tenant support.
 """
-Company model for multi-tenant support.
-"""
-from datetime import datetime
 import secrets
 import string
-from sqlalchemy import Column, String, Integer, DateTime, Text, Boolean, ForeignKey
-from sqlalchemy.orm import relationship
+from datetime import datetime
+
 from app.core.database import Base
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import relationship
 
 
 class Company(Base):
     """Company model representing a tenant in the multi-tenant system."""
+
     __tablename__ = 'companies'
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), unique=True, nullable=False)
     description = Column(Text, nullable=True)
@@ -22,13 +23,13 @@ class Company(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=lambda: datetime.utcnow().replace(microsecond=0))
     updated_at = Column(DateTime, default=lambda: datetime.utcnow().replace(microsecond=0), onupdate=lambda: datetime.utcnow().replace(microsecond=0))
-    
+
     # 关联关系
     users = relationship('User', back_populates='company', lazy='select', foreign_keys='User.company_id')
     creator = relationship('User', foreign_keys=[creator_user_id], lazy='select', post_update=True)
     departments = relationship('Department', back_populates='company', lazy='select')
 
-    
+
     def __init__(self, name: str, creator_user_id: int, description: str = None, domain: str = None):
         self.name = name
         self.creator_user_id = creator_user_id
@@ -43,13 +44,13 @@ class Company(Base):
         # 生成8位随机字符串，包含大小写字母和数字
         characters = string.ascii_letters + string.digits
         return ''.join(secrets.choice(characters) for _ in range(8))
-    
+
     def to_dict(self, include_counts=False):
-        """
-        转换为字典格式
+        """转换为字典格式
 
         Args:
             include_counts: 是否包含关联对象的计数，需要在已加载关系的情况下使用
+
         """
         base_dict = {
             "id": self.id,

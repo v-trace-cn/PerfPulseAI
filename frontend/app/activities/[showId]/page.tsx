@@ -19,10 +19,10 @@ import {
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { useState, useEffect, useMemo } from "react"
-import { useApi } from "@/hooks/useApi"
 import { unifiedApi } from "@/lib/unified-api"
 import { useToast } from "@/components/ui/use-toast"
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useAnalyzePr, useResetActivityPoints, useCalculatePrPoints } from '@/hooks'
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion"
 import { format, addHours } from "date-fns"
 
@@ -74,9 +74,9 @@ export default function ActivityDetailPage() {
 
   // 调试日志已移除
 
-  const { execute: triggerAnalysis, isLoading: isAnalyzing, error: analysisError } = useApi(unifiedApi.pr.analyzePr)
-  const { execute: resetActivityPoints, isLoading: isResettingPoints } = useApi(unifiedApi.activity.resetActivityPoints)
-  const { execute: calculatePoints, isLoading: isCalculatingPoints, error: calculateError } = useApi(unifiedApi.pr.calculatePrPoints)
+  const { mutate: triggerAnalysis, isPending: isAnalyzing, error: analysisError } = useAnalyzePr()
+  const { mutate: resetActivityPoints, isPending: isResettingPoints } = useResetActivityPoints()
+  const { mutate: calculatePoints, isPending: isCalculatingPoints, error: calculateError } = useCalculatePrPoints()
   
   const { toast } = useToast();
 
@@ -105,86 +105,39 @@ export default function ActivityDetailPage() {
     fetchScoringDimensions();
   }, [toast]);
 
-  const handleAnalyzeClick = async () => {
+  const handleAnalyzeClick = () => {
     if (!showId) return;
 
     toast({
       title: "正在重置并获取 AI 评分",
       description: "正在重置当前活动积分和AI分析结果，并准备重新获取 AI 评分...",
     });
-    try {
-      const resetRes = await resetActivityPoints(showId);
-      if (!resetRes || !resetRes.success) {
-        toast({
-          title: "重置失败",
-          description: resetRes?.message || "未能成功重置活动状态，请稍后重试。",
-          variant: "destructive",
-        });
-        return;
-      }
-      toast({
-        title: "活动状态已重置",
-        description: "活动积分和AI分析结果已成功重置，正在准备重新获取 AI 评分。",
-      });
-    } catch (err: any) {
-      toast({
-        title: "重置失败",
-        description: err.message || "连接服务器失败，未能成功重置活动状态。",
-        variant: "destructive",
-      });
 
-      return;
-    }
-
-    try {
-      await triggerAnalysis(showId);
-      toast({
-          title: "分析已触发！",
-          description: "AI 分析请求已发送，结果将在后台处理。请稍后刷新页面查看。",
-      });
-      queryClient.invalidateQueries({ queryKey: ['activity', showId] });
-    } catch (err: any) {
-      toast({ title: "AI 分析触发失败", description: err.message || "连接服务器失败，未能成功触发分析。", variant: "destructive" });
-
-    }
+    // 先重置积分，成功后再触发分析
+    resetActivityPoints(showId);
   };
 
   const [dimensionLabels, setDimensionLabels] = useState<{ [key: string]: string }>({});
 
   const [isCalculatingPointsManual, setIsCalculatingPointsManual] = useState(false);
 
-  const handleCalculatePointsClick = async () => {
+  const handleCalculatePointsClick = () => {
     if (!showId || isCalculatingPointsManual) return;
     setIsCalculatingPointsManual(true);
     toast({
       title: "正在计算积分",
       description: "正在根据AI分析结果计算积分...",
     });
-    try {
-      const result = await calculatePoints(showId);
-      if (result && result.points_awarded !== undefined && result.points_awarded >= 0) {
-        toast({
-          title: "积分计算完成！",
-          description: `已成功计算并更新积分：${result.points_awarded}。请刷新页面查看。`,
-        });
+
+    calculatePoints(showId, {
+      onSuccess: () => {
+        setIsCalculatingPointsManual(false);
         queryClient.invalidateQueries({ queryKey: ['activity', showId] });
-      } else {
-        toast({
-          title: "积分计算失败",
-          description: (result as any)?.message || (calculateError as any)?.message || "未能成功计算积分，请稍后重试。",
-          variant: "destructive",
-        });
+      },
+      onError: () => {
+        setIsCalculatingPointsManual(false);
       }
-    } catch (err: any) {
-      toast({
-        title: "积分计算失败",
-        description: err.message || "连接服务器失败，未能成功计算积分。",
-        variant: "destructive",
-      });
-      // 错误日志已移除
-    } finally {
-      setIsCalculatingPointsManual(false);
-    }
+    });
   };
 
   // 添加 SSE 监听，AI 分析完成后自动计算积分

@@ -1,15 +1,26 @@
 import uuid
-from datetime import datetime, timedelta
-from sqlalchemy import Column, String, Text, Integer, DateTime, ForeignKey, Float, JSON, Enum, Boolean
-from sqlalchemy.orm import relationship, backref
-from app.core.database import Base
+from datetime import datetime
 from enum import Enum as PyEnum
+
+from app.core.database import Base
+from sqlalchemy import (
+    JSON,
+    Column,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
+from sqlalchemy.orm import backref, relationship
 
 
 class ScoringFactor(Base):
     """评分因素模型"""
+
     __tablename__ = 'scoring_factors'
-    
+
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     label = Column(String(50), nullable=False)
     description = Column(String(255), nullable=False)
@@ -19,7 +30,7 @@ class ScoringFactor(Base):
     max_value = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.utcnow().replace(microsecond=0))
     updated_at = Column(DateTime, default=lambda: datetime.utcnow().replace(microsecond=0), onupdate=lambda: datetime.utcnow().replace(microsecond=0))
-    
+
     def to_dict(self):
         result = {
             "id": self.id,
@@ -27,22 +38,23 @@ class ScoringFactor(Base):
             "description": self.description,
             "type": self.type
         }
-        
+
         if self.options:
             result["options"] = self.options
-            
+
         if self.type == "number":
             if self.min_value is not None:
                 result["min"] = self.min_value
             if self.max_value is not None:
                 result["max"] = self.max_value
-                
+
         return result
 
 class ScoreEntry(Base):
     """评分记录模型"""
+
     __tablename__ = 'score_entries'
-    
+
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     activity_id = Column(String(200), ForeignKey('activities.id'), nullable=True)
@@ -50,11 +62,11 @@ class ScoreEntry(Base):
     factors = Column(JSON, nullable=True)  # 存储评分因素的JSON数据
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.utcnow().replace(microsecond=0))
-    
+
     # 关联关系
     user = relationship('User', backref=backref('scores', lazy=True))
     activity = relationship('Activity', backref=backref('scores', lazy=True))
-    
+
     def to_dict(self):
         return {
             "id": self.id,
@@ -73,6 +85,7 @@ class ScoreEntry(Base):
 
 class TransactionType(PyEnum):
     """积分交易类型枚举"""
+
     EARN = "EARN"           # 获得积分
     SPEND = "SPEND"         # 消费积分
     ADJUST = "ADJUST"       # 管理员调整
@@ -81,6 +94,7 @@ class TransactionType(PyEnum):
 
 class DisputeStatus(PyEnum):
     """争议状态枚举"""
+
     PENDING = "PENDING"     # 待处理
     APPROVED = "APPROVED"   # 已批准
     REJECTED = "REJECTED"   # 已拒绝
@@ -88,6 +102,7 @@ class DisputeStatus(PyEnum):
 
 class PurchaseStatus(PyEnum):
     """购买状态枚举"""
+
     PENDING = "PENDING"     # 待处理
     COMPLETED = "COMPLETED" # 已完成
     CANCELLED = "CANCELLED" # 已取消
@@ -95,6 +110,7 @@ class PurchaseStatus(PyEnum):
 
 class PointTransaction(Base):
     """积分交易记录表"""
+
     __tablename__ = 'point_transactions'
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -151,6 +167,7 @@ class PointTransaction(Base):
 
 class PointDispute(Base):
     """积分争议表"""
+
     __tablename__ = 'point_disputes'
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -195,6 +212,7 @@ class PointDispute(Base):
 
 class UserLevel(Base):
     """用户等级表"""
+
     __tablename__ = 'user_levels'
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -249,6 +267,7 @@ class UserLevel(Base):
 
 class PointPurchase(Base):
     """积分商城消费记录表"""
+
     __tablename__ = 'point_purchases'
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))

@@ -1,0 +1,17 @@
+[tool.ruff]
+extend-exclude = [
+    "backend/alembic",
+    "backend/db",
+    ".venv",
+    "__pycache__",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "D", "UP"]
+ignore = ["E501", "D203", "D213"]
+
+# 所有 per-file-ignores 都放这里
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["D104"]
+"tests/*" = ["D"]
+"backend/alembic/env.py" = ["E402", "F401"]

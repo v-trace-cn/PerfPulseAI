@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/lib/auth-context-rq"
 import { useAuthDialog } from "@/lib/auth-dialog-context"
 // 模拟权限数据
 const permissionsData = [

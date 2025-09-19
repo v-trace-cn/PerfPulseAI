@@ -82,32 +82,30 @@ cp .env.example .env.local
 
 ```
 frontend/
-├── app/                    # Next.js 13+ App Router
+├── app/                    # Next.js 14 App Router
 │   ├── (auth)/            # 认证相关页面
-│   ├── api/               # API 路由
+│   ├── api/               # 必要的API路由 (已精简)
 │   ├── dashboard/         # 仪表板页面
 │   ├── notifications/     # 通知页面
-│   ├── org/              # 组织管理页面
-│   └── layout.tsx        # 根布局
+│   └── org/              # 组织管理页面
 ├── components/            # 可复用组件
-│   ├── ui/               # 基础 UI 组件
-│   ├── forms/            # 表单组件
-│   ├── layout/           # 布局组件
-│   └── dashboard/        # 仪表板组件
-├── hooks/                # 自定义 Hooks
-│   ├── useAuth.ts        # 认证状态管理
-│   ├── useNotifications.ts # 通知数据管理
-│   └── usePoints.ts      # 积分数据管理
-├── lib/                  # 工具函数和配置
-│   ├── utils.ts          # 通用工具函数
-│   ├── api.ts            # API 客户端
-│   ├── auth.ts           # 认证工具
-│   └── timezone-utils.ts # 时区处理工具
+│   ├── ui/               # 基础 UI 组件 (Shadcn/ui)
+│   ├── dashboard/        # 仪表板组件
+│   └── layout/           # 布局组件
+├── hooks/                # 统一的自定义 Hooks
+│   ├── index.ts          # 统一导出入口
+│   ├── usePoints.ts      # 积分系统
+│   ├── useMall*.ts       # 商城系统
+│   └── useNotifications.ts # 通知系统
+├── lib/                  # 核心工具和配置
+│   ├── api/              # 统一API服务
+│   │   └── index.ts      # API统一入口
+│   ├── services/         # 专业API服务
+│   │   ├── mall-api.ts   # 商城API
+│   │   └── points-api.ts # 积分API
+│   ├── api-client.ts     # 统一HTTP客户端
+│   └── auth-context.tsx  # 认证上下文
 ├── public/               # 静态资源
-│   ├── favicon.ico       # 网站图标
-│   └── images/           # 图片资源
-├── styles/               # 样式文件
-│   └── globals.css       # 全局样式
 └── docs/                 # 技术文档
 ```
 

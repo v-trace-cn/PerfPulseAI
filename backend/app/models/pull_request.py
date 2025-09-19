@@ -1,11 +1,14 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Integer, Text, DateTime
-from sqlalchemy.orm import relationship
+
 from app.core.database import Base
+from sqlalchemy import Column, DateTime, Integer, String, Text
+from sqlalchemy.orm import relationship
+
 
 class PullRequest(Base):
     """存储 GitHub PR 详情的模型"""
+
     __tablename__ = 'pull_requests'
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -19,7 +22,7 @@ class PullRequest(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     merged_at = Column(DateTime(timezone=True), nullable=True)
-    
+
     # 新增 diff_url 字段
     diff_url = Column(String(500), nullable=True)
 

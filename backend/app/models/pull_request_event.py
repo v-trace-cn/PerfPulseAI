@@ -1,11 +1,14 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, DateTime, Text, ForeignKey
-from sqlalchemy.orm import relationship
+
 from app.core.database import Base
+from sqlalchemy import Column, DateTime, ForeignKey, String, Text
+from sqlalchemy.orm import relationship
+
 
 class PullRequestEvent(Base):
     """存储 PR 时间线事件的模型"""
+
     __tablename__ = 'pull_request_events'
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -24,4 +27,4 @@ class PullRequestEvent(Base):
             "event_type": self.event_type,
             "event_time": self.event_time.isoformat() if self.event_time else None,
             "details": self.details,
-        } 
+        }

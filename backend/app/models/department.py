@@ -1,8 +1,10 @@
-from datetime import datetime
 import json
-from sqlalchemy import Column, String, Integer, DateTime, Text, ForeignKey
-from sqlalchemy.orm import relationship
+from datetime import datetime
+
 from app.core.database import Base
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import relationship
+
 
 class Department(Base):
     __tablename__ = 'departments'

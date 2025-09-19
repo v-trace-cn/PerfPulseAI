@@ -56,7 +56,34 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/lib/auth-context-rq"
+import { useToast } from "@/components/ui/use-toast"
+import { exportMallItems } from "@/lib/mall-hooks"
+import {
+  useMallAdminItems,
+  useCreateMallItem,
+  useUpdateMallItem,
+  useDeleteMallItem,
+  useUpdateStock,
+  type CreateMallItemRequest,
+  type UpdateStockRequest
+} from "@/lib/mall-hooks"
+import {
+  useAdminMenuPermission,
+  canAccessAdminMenu,
+} from "@/hooks"
+
+// 类型定义
+interface MallProduct {
+  id: string
+  name: string
+  category: string
+  points_cost: number
+  stock: number
+  is_available: boolean
+  sales?: number
+  lastUpdated?: string
+}
 
 export default function MallManagement() {
   const [isAddProductOpen, setIsAddProductOpen] = useState(false)
@@ -64,131 +91,125 @@ export default function MallManagement() {
   const [isBatchOperationOpen, setIsBatchOperationOpen] = useState(false)
   const [isQuickEditOpen, setIsQuickEditOpen] = useState(false)
   const [isStockSettingsOpen, setIsStockSettingsOpen] = useState(false)
-  const [selectedProducts, setSelectedProducts] = useState<number[]>([])
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [sortBy, setSortBy] = useState("name")
   const [sortOrder, setSortOrder] = useState("asc")
   const [filterCategory, setFilterCategory] = useState("all")
-  const [restockQuantities, setRestockQuantities] = useState<{[key: number]: number}>({})
+  const [restockQuantities, setRestockQuantities] = useState<{[key: string]: number}>({})
   const [searchTerm, setSearchTerm] = useState("")
 
+  // 新商品表单状态
+  const [newProduct, setNewProduct] = useState({
+    name: '',
+    category: '',
+    points_cost: 0,
+    stock: 0,
+    description: '',
+    is_available: true
+  })
+
   const { user } = useAuth()
-  const [canMall, setCanMall] = useState(false)
-  const [permChecked, setPermChecked] = useState(false)
+  const { toast } = useToast()
 
-  useEffect(() => {
-    const token = typeof window !== 'undefined' ? (localStorage.getItem('token') || sessionStorage.getItem('token')) : null
-    const headers: Record<string, string> = token ? { 'X-User-Id': token } : {}
-    const run = async () => {
-      try {
-        const res = await fetch(`/api/roles/permissions/can_view_admin_menus?companyId=${user?.companyId ?? ''}`, { headers })
-        const json = await res.json()
-        setCanMall(Boolean(json?.data?.canMall))
-      } catch (_) {
-        setCanMall(false)
-      } finally {
-        setPermChecked(true)
-      }
+  // 使用React Query检查权限
+  const { data: permissionData, isLoading: permissionLoading } = useAdminMenuPermission(user?.companyId?.toString())
+  const canMall = canAccessAdminMenu(permissionData, 'mall')
+  const permChecked = !permissionLoading
+
+  // 使用极简 React Query hooks
+  const { data: products = [], isLoading } = useMallAdminItems()
+  const createMutation = useCreateMallItem()
+  const updateMutation = useUpdateMallItem()
+  const deleteMutation = useDeleteMallItem()
+  const updateStockMutation = useUpdateStock()
+
+  // 处理商品状态切换
+  const handleToggleProductStatus = (productId: string, newStatus: boolean) => {
+    // 添加触觉反馈（如果支持）
+    if (navigator.vibrate) {
+      navigator.vibrate(50)
     }
-    if (user?.companyId) run()
-  }, [user?.companyId])
 
-  const products = [
-    {
-      id: 1,
-      name: "iPhone 15 Pro",
-      category: "电子产品",
-      points: 15000,
-      stock: 25,
-      status: "上架",
-      sales: 156,
-      lastUpdated: "2024-01-15",
-    },
-    {
-      id: 2,
-      name: "星巴克咖啡券",
-      category: "餐饮券",
-      points: 500,
-      stock: 200,
-      status: "上架",
-      sales: 892,
-      lastUpdated: "2024-01-14",
-    },
-    {
-      id: 3,
-      name: "Nike运动鞋",
-      category: "服装鞋帽",
-      points: 3000,
-      stock: 50,
-      status: "下架",
-      sales: 234,
-      lastUpdated: "2024-01-13",
-    },
-    {
-      id: 4,
-      name: "京东购物卡",
-      category: "购物卡",
-      points: 1000,
-      stock: 100,
-      status: "上架",
-      sales: 567,
-      lastUpdated: "2024-01-12",
-    },
-    {
-      id: 5,
-      name: "AirPods Pro",
-      category: "电子产品",
-      points: 2000,
-      stock: 5,
-      status: "上架",
-      sales: 89,
-      lastUpdated: "2024-01-11",
-    },
-  ]
+    // 添加状态变化动画
+    const statusElement = document.getElementById(`status-${productId}`)?.parentElement
+    if (statusElement) {
+      statusElement.classList.add('status-change-animation')
+      setTimeout(() => {
+        statusElement.classList.remove('status-change-animation')
+      }, 300)
+    }
 
-  const promotions = [
-    {
-      id: 1,
-      name: "新年特惠",
-      type: "限时折扣",
-      discount: "8折",
-      startDate: "2024-01-01",
-      endDate: "2024-01-31",
-      status: "进行中",
-      appliedProducts: 12,
-      totalSales: 2340,
-    },
-    {
-      id: 2,
-      name: "会员专享",
-      type: "会员福利",
-      discount: "额外9折",
-      startDate: "2024-01-15",
-      endDate: "2024-12-31",
-      status: "进行中",
-      appliedProducts: 8,
-      totalSales: 1560,
-    },
-    {
-      id: 3,
-      name: "清仓大促",
-      type: "库存清理",
-      discount: "5折",
-      startDate: "2024-02-01",
-      endDate: "2024-02-15",
-      status: "即将开始",
-      appliedProducts: 5,
-      totalSales: 0,
-    },
-  ]
+    updateMutation.mutate({
+      itemId: productId,
+      data: { is_available: newStatus }
+    }, {
+      onSuccess: () => {
+        toast({
+          title: "状态更新成功",
+          description: `商品已${newStatus ? '上架' : '下架'}`,
+          className: "animate-in slide-in-from-top-2 duration-300"
+        })
+      },
+      onError: (error: any) => {
+        toast({
+          title: "状态更新失败",
+          description: error.message || "请稍后重试",
+          variant: "destructive",
+          className: "animate-in slide-in-from-top-2 duration-300"
+        })
+      }
+    })
+  }
 
-  const handleSelectProduct = (productId: number) => {
+  // 处理创建商品
+  const handleCreateProduct = () => {
+    if (!newProduct.name || !newProduct.category || newProduct.points_cost <= 0) {
+      toast({
+        title: "表单验证失败",
+        description: "请填写完整的商品信息",
+        variant: "destructive"
+      })
+      return
+    }
+
+    createMutation.mutate(newProduct, {
+      onSuccess: () => {
+        setIsAddProductOpen(false)
+        setNewProduct({
+          name: '',
+          category: '',
+          points_cost: 0,
+          stock: 0,
+          description: '',
+          is_available: true
+        })
+      }
+    })
+  }
+
+  // 数据转换：将API数据转换为组件需要的格式
+  const transformedProducts: MallProduct[] = products.map((item: any) => ({
+    id: item.id,
+    name: item.name,
+    category: item.category,
+    points_cost: item.points_cost,
+    stock: item.stock,
+    is_available: item.is_available,
+    sales: 0, // 暂时设为0，后续可以从API获取
+    lastUpdated: item.updated_at || new Date().toISOString().split('T')[0]
+  }))
+
+  // TODO: 实现促销活动的React Query hooks
+  const promotions: any[] = []
+
+  const handleSelectProduct = (productId: string) => {
     setSelectedProducts((prev) =>
       prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId],
     )
   }
 
   const handleSelectAll = () => {
-    setSelectedProducts(selectedProducts.length === products.length ? [] : products.map((p) => p.id))
+    setSelectedProducts(selectedProducts.length === transformedProducts.length ? [] : transformedProducts.map((p: MallProduct) => p.id))
   }
 
   // 处理排序
@@ -201,43 +222,55 @@ export default function MallManagement() {
     }
   }
 
-  // 处理导出数据
-  const handleExportData = () => {
-    // 模拟导出功能
-    const dataToExport = filteredProducts.map(product => ({
-      商品名称: product.name,
-      分类: product.category,
-      积分价格: product.points,
-      库存: product.stock,
-      状态: product.status,
-      销量: product.sales,
-      最后更新: product.lastUpdated
-    }))
-
-    console.log("导出数据:", dataToExport)
-    // 这里可以实现实际的导出逻辑，比如下载CSV文件
+  // 处理导出数据 - 极简实现
+  const handleExportData = async () => {
+    try {
+      await exportMallItems('csv')
+      toast({
+        title: "导出成功",
+        description: "商品数据已导出到CSV文件",
+      })
+    } catch (error) {
+      toast({
+        title: "导出失败",
+        description: error instanceof Error ? error.message : "导出过程中发生错误",
+        variant: "destructive",
+      })
+    }
   }
 
-  // 处理批量导入
+  // 处理批量导入 - 使用文件上传
   const handleBatchImport = () => {
-    // 模拟批量导入功能
-    console.log("打开批量导入界面")
-    // 这里可以实现文件上传和解析逻辑
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.csv,.xlsx'
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (file) {
+        // TODO: 实现批量导入API
+        toast({
+          title: "功能开发中",
+          description: "批量导入功能正在开发中",
+        })
+      }
+    }
+    input.click()
   }
 
-  // 处理库存补货
-  const handleRestock = (productId: number) => {
+  // 处理库存补货 - 极简实现
+  const handleRestock = async (productId: string) => {
     const quantity = restockQuantities[productId] || 0
     if (quantity > 0) {
-      console.log(`为商品 ${productId} 补货 ${quantity} 件`)
-      // 这里可以实现实际的补货逻辑
-      // 清空输入框
+      updateStockMutation.mutate({
+        itemId: productId,
+        data: { stock_change: quantity, reason: '手动补货' }
+      })
       setRestockQuantities(prev => ({ ...prev, [productId]: 0 }))
     }
   }
 
   // 更新补货数量
-  const updateRestockQuantity = (productId: number, quantity: number) => {
+  const updateRestockQuantity = (productId: string, quantity: number) => {
     setRestockQuantities(prev => ({ ...prev, [productId]: quantity }))
   }
 
@@ -269,15 +302,15 @@ export default function MallManagement() {
   }
 
   // 过滤和排序商品
-  const filteredProducts = products.filter((product) => {
+  const filteredProducts = transformedProducts.filter((product: MallProduct) => {
     const matchesCategory = filterCategory === "all" || product.category === filterCategory
     const matchesSearch = searchTerm === "" ||
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.category.toLowerCase().includes(searchTerm.toLowerCase())
     return matchesCategory && matchesSearch
-  }).sort((a, b) => {
-    const aValue = a[sortBy as keyof typeof a]
-    const bValue = b[sortBy as keyof typeof b]
+  }).sort((a: MallProduct, b: MallProduct) => {
+    const aValue = a[sortBy as keyof MallProduct] || 0
+    const bValue = b[sortBy as keyof MallProduct] || 0
     if (sortOrder === "asc") {
       return aValue > bValue ? 1 : -1
     } else {
@@ -314,7 +347,6 @@ export default function MallManagement() {
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">商城管理</h1>
-                  <p className="text-gray-600">管理商品、库存和促销活动</p>
                 </div>
               </div>
               <div className="flex items-center space-x-2">
@@ -428,7 +460,7 @@ export default function MallManagement() {
                             </TableCell>
                             <TableCell className="font-medium">{product.name}</TableCell>
                             <TableCell>{product.category}</TableCell>
-                            <TableCell>{product.points.toLocaleString()} 积分</TableCell>
+                            <TableCell>{(product.points_cost || 0).toLocaleString()} 积分</TableCell>
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 {product.stock}
@@ -436,7 +468,53 @@ export default function MallManagement() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Badge variant={product.status === "上架" ? "default" : "secondary"}>{product.status}</Badge>
+                              <div className="flex items-center space-x-3 group">
+                                <div className="relative">
+                                  <Switch
+                                    id={`status-${product.id}`}
+                                    checked={product.is_available}
+                                    onCheckedChange={(checked) => handleToggleProductStatus(product.id, checked)}
+                                    disabled={updateMutation.isPending}
+                                    className="switch-enhanced transition-all duration-300 ease-in-out group-hover:shadow-md"
+                                  />
+                                  {updateMutation.isPending && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-full">
+                                      <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full switch-spinner"></div>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex flex-col transition-all duration-200 ease-in-out">
+                                  <div className="flex items-center space-x-2">
+                                    <Label
+                                      htmlFor={`status-${product.id}`}
+                                      className={`text-sm font-medium cursor-pointer transition-all duration-200 ease-in-out ${
+                                        product.is_available
+                                          ? 'text-green-700 hover:text-green-800'
+                                          : 'text-gray-600 hover:text-gray-700'
+                                      }`}
+                                    >
+                                      {product.is_available ? '已上架' : '已下架'}
+                                    </Label>
+                                    <Badge
+                                      variant={product.is_available ? "default" : "secondary"}
+                                      className={`text-xs transition-all duration-300 ease-in-out transform hover:scale-105 ${
+                                        product.is_available
+                                          ? 'bg-green-100 text-green-800 border-green-200'
+                                          : 'bg-gray-100 text-gray-600 border-gray-200'
+                                      }`}
+                                    >
+                                      {product.is_available ? '在售' : '停售'}
+                                    </Badge>
+                                  </div>
+                                  <span className={`text-xs transition-all duration-200 ease-in-out ${
+                                    updateMutation.isPending
+                                      ? 'text-blue-600 animate-pulse'
+                                      : 'text-muted-foreground group-hover:text-gray-600'
+                                  }`}>
+                                    {updateMutation.isPending ? '更新中...' : '点击切换状态'}
+                                  </span>
+                                </div>
+                              </div>
                             </TableCell>
                             <TableCell className="text-sm text-gray-500">{product.lastUpdated}</TableCell>
                             <TableCell>
@@ -447,22 +525,18 @@ export default function MallManagement() {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                  <DropdownMenuItem>
+                                  {/* <DropdownMenuItem>
                                     <Eye className="w-4 h-4 mr-2" />
                                     查看详情
-                                  </DropdownMenuItem>
+                                  </DropdownMenuItem> */}
                                   <DropdownMenuItem onClick={() => setIsQuickEditOpen(true)}>
                                     <Edit className="w-4 h-4 mr-2" />
                                     快速编辑
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem>
-                                    <Copy className="w-4 h-4 mr-2" />
-                                    复制商品
-                                  </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem>
                                     <TrendingUp className="w-4 h-4 mr-2" />
-                                    查看销售数据
+                                    查看兑换数据
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem className="text-red-600">
@@ -501,7 +575,7 @@ export default function MallManagement() {
                         <AlertTriangle className="w-5 h-5 text-red-500" />
                         <div>
                           <p className="text-sm text-gray-600">库存不足</p>
-                          <p className="text-xl font-bold text-red-600">{products.filter((p) => p.stock < 10).length}</p>
+                          <p className="text-xl font-bold text-red-600">{transformedProducts.filter((p: MallProduct) => p.stock < 10).length}</p>
                         </div>
                       </div>
                     </CardContent>
@@ -512,7 +586,7 @@ export default function MallManagement() {
                         <Warehouse className="w-5 h-5 text-green-500" />
                         <div>
                           <p className="text-sm text-gray-600">库存充足</p>
-                          <p className="text-xl font-bold text-green-600">{products.filter((p) => p.stock >= 10).length}</p>
+                          <p className="text-xl font-bold text-green-600">{transformedProducts.filter((p: MallProduct) => p.stock >= 10).length}</p>
                         </div>
                       </div>
                     </CardContent>
@@ -523,7 +597,7 @@ export default function MallManagement() {
                         <TrendingUp className="w-5 h-5 text-purple-500" />
                         <div>
                           <p className="text-sm text-gray-600">总库存值</p>
-                          <p className="text-xl font-bold">{products.reduce((sum, p) => sum + p.stock, 0)}</p>
+                          <p className="text-xl font-bold">{transformedProducts.reduce((sum: number, p: MallProduct) => sum + p.stock, 0)}</p>
                         </div>
                       </div>
                     </CardContent>
@@ -561,7 +635,7 @@ export default function MallManagement() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {products.map((product) => (
+                      {transformedProducts.map((product: MallProduct) => (
                         <div key={product.id} className="flex items-center justify-between p-4 border rounded-lg">
                           <div className="flex items-center gap-4">
                             <div>
@@ -735,19 +809,24 @@ export default function MallManagement() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="name">商品名称</Label>
-                      <Input id="name" placeholder="输入商品名称" />
+                      <Input
+                        id="name"
+                        placeholder="输入商品名称"
+                        value={newProduct.name}
+                        onChange={(e) => setNewProduct(prev => ({ ...prev, name: e.target.value }))}
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="category">商品分类</Label>
-                      <Select>
+                      <Select value={newProduct.category} onValueChange={(value) => setNewProduct(prev => ({ ...prev, category: value }))}>
                         <SelectTrigger>
                           <SelectValue placeholder="选择分类" />
                         </SelectTrigger>
                         <SelectContent className="z-[9999]">
-                          <SelectItem value="electronics">电子产品</SelectItem>
-                          <SelectItem value="food">餐饮券</SelectItem>
-                          <SelectItem value="clothing">服装鞋帽</SelectItem>
-                          <SelectItem value="gift-card">购物卡</SelectItem>
+                          <SelectItem value="电子产品">电子产品</SelectItem>
+                          <SelectItem value="餐饮券">餐饮券</SelectItem>
+                          <SelectItem value="服装鞋帽">服装鞋帽</SelectItem>
+                          <SelectItem value="购物卡">购物卡</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -755,19 +834,40 @@ export default function MallManagement() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="points">积分价格</Label>
-                      <Input id="points" type="number" placeholder="输入积分价格" />
+                      <Input
+                        id="points"
+                        type="number"
+                        placeholder="输入积分价格"
+                        value={newProduct.points_cost || ''}
+                        onChange={(e) => setNewProduct(prev => ({ ...prev, points_cost: parseInt(e.target.value) || 0 }))}
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="stock">初始库存</Label>
-                      <Input id="stock" type="number" placeholder="输入库存数量" />
+                      <Input
+                        id="stock"
+                        type="number"
+                        placeholder="输入库存数量"
+                        value={newProduct.stock || ''}
+                        onChange={(e) => setNewProduct(prev => ({ ...prev, stock: parseInt(e.target.value) || 0 }))}
+                      />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="description">商品描述</Label>
-                    <Textarea id="description" placeholder="输入商品描述" />
+                    <Textarea
+                      id="description"
+                      placeholder="输入商品描述"
+                      value={newProduct.description}
+                      onChange={(e) => setNewProduct(prev => ({ ...prev, description: e.target.value }))}
+                    />
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Switch id="status" />
+                    <Switch
+                      id="status"
+                      checked={newProduct.is_available}
+                      onCheckedChange={(checked) => setNewProduct(prev => ({ ...prev, is_available: checked }))}
+                    />
                     <Label htmlFor="status">立即上架</Label>
                   </div>
                 </div>
@@ -775,7 +875,12 @@ export default function MallManagement() {
                   <Button variant="outline" onClick={() => setIsAddProductOpen(false)}>
                     取消
                   </Button>
-                  <Button onClick={() => setIsAddProductOpen(false)}>添加商品</Button>
+                  <Button
+                    onClick={handleCreateProduct}
+                    disabled={createMutation.isPending}
+                  >
+                    {createMutation.isPending ? '创建中...' : '添加商品'}
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -859,11 +964,11 @@ export default function MallManagement() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="quick-points">积分价格</Label>
-                      <Input id="quick-points" type="number" defaultValue="1500" placeholder="输入积分价格" />
+                      <Input id="quick-points" type="number" defaultValue="0" placeholder="输入积分价格" />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="quick-stock">库存数量</Label>
-                      <Input id="quick-stock" type="number" defaultValue="25" placeholder="输入库存数量" />
+                      <Label htmlFor="quick-stock">初始库存数量</Label>
+                      <Input id="quick-stock" type="number" defaultValue="0" placeholder="输入库存数量" />
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">

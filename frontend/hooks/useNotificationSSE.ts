@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react'
-import { useAuth } from '@/lib/auth-context'
+import { useAuth } from '@/lib/auth-context-rq'
 import { useToast } from '@/components/ui/use-toast'
 import { getBackendApiUrl } from '@/lib/config/api-config'
 

@@ -3,9 +3,10 @@
 import type React from "react"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
-import { AuthProvider } from "@/lib/auth-context"
+import { AuthProvider } from "@/lib/auth-context-rq"
 import { ToastProvider } from "@/lib/toast-context"
 import { AuthDialogProvider } from "@/lib/auth-dialog-context"
+import { PermissionProvider } from "@/lib/permission-system"
 import SiteHeader from "@/components/site-header";
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/use-toast';
@@ -36,19 +37,19 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <AuthProvider>
-        <QueryClientProvider client={queryClient}>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <AuthProvider>
+            <PermissionProvider>
               <ToastProvider>
                 <AuthDialogProvider>
                   <div className="relative flex min-h-screen flex-col">
-                    <SiteHeader 
+                    <SiteHeader
                       onHelpClick={handleHelpClick}
                       onSettingsClick={handleSettingsClick}
                     />
@@ -61,11 +62,11 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
                   <Toaster />
                 </AuthDialogProvider>
               </ToastProvider>
-            </AuthProvider>
-          </ThemeProvider>
-          <ReactQueryDevtools initialIsOpen={false} />
-        </QueryClientProvider>
-      </AuthProvider>
+            </PermissionProvider>
+          </AuthProvider>
+        </ThemeProvider>
+        <ReactQueryDevtools initialIsOpen={false} />
+      </QueryClientProvider>
     </>
   );
 }

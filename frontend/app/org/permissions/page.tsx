@@ -27,7 +27,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Shield, Plus, Edit, Trash2, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/lib/auth-context-rq"
+import { useCanViewAdminMenus } from "@/hooks"
 
 // 后端数据
 export default function PermissionManagement() {

@@ -55,11 +55,11 @@ class DateTimePrecisionNormalizer:
     
     async def analyze_precision_usage(self, db: AsyncSession):
         """分析当前数据库中时间精度的使用情况"""
-        print("🔍 分析时间精度使用情况...")
+        print("分析时间精度使用情况...")
 
         # 检测数据库类型
         dialect_name = db.bind.dialect.name
-        print(f"🔍 检测到数据库类型: {dialect_name}")
+        print(f"检测到数据库类型: {dialect_name}")
 
         total_records = 0
         microsecond_records = 0
@@ -243,7 +243,7 @@ class DateTimePrecisionNormalizer:
     
     async def verify_normalization(self, db: AsyncSession):
         """验证标准化结果"""
-        print("🔍 验证标准化结果...")
+        print("验证标准化结果...")
 
         # 检测数据库类型
         dialect_name = db.bind.dialect.name

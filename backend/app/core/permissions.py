@@ -1,27 +1,25 @@
-"""
-权限验证中间件和装饰器
-"""
+"""权限验证中间件和装饰器."""
 from functools import wraps
-from fastapi import HTTPException, Depends, Request
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
+from typing import Callable, Optional
+
 from app.core.database import get_db
-from app.models.user import User
 from app.models.company import Company
-from typing import List, Optional, Callable, Any
-import asyncio
+from app.models.user import User
+from fastapi import Depends, HTTPException, Request
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 
 class PermissionChecker:
-    """权限检查器"""
+    """权限检查器."""
 
-    def __init__(self, required_permissions: List[str] = None, require_company_access: bool = True):
+    def __init__(self, required_permissions: list[str] = None, require_company_access: bool = True):
         self.required_permissions = required_permissions or []
         self.require_company_access = require_company_access
 
     async def __call__(self, request: Request, db: AsyncSession = Depends(get_db)):
-        """检查用户权限"""
+        """检查用户权限."""
         # 从请求中获取用户ID（这里简化处理，实际应该从JWT token中获取）
         user_id = request.headers.get("X-User-Id")
         if not user_id:
@@ -61,7 +59,7 @@ class PermissionChecker:
         return user
 
     def _extract_company_id(self, request: Request) -> Optional[int]:
-        """从请求中提取公司ID"""
+        """从请求中提取公司ID."""
         # 从路径参数中提取
         if hasattr(request, 'path_params') and 'company_id' in request.path_params:
             try:
@@ -80,8 +78,8 @@ class PermissionChecker:
         return None
 
 
-def require_permissions(permissions: List[str], require_company_access: bool = True):
-    """权限验证装饰器"""
+def require_permissions(permissions: list[str], require_company_access: bool = True):
+    """权限验证装饰器."""
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -92,14 +90,14 @@ def require_permissions(permissions: List[str], require_company_access: bool = T
 
 
 def get_current_user(request: Request) -> User:
-    """获取当前用户"""
+    """获取当前用户."""
     if hasattr(request.state, 'current_user'):
         return request.state.current_user
     raise HTTPException(status_code=401, detail="用户未认证")
 
 
 async def check_company_creator_permission(user_id: int, company_id: int, db: AsyncSession) -> bool:
-    """检查用户是否是公司的创建者或管理员"""
+    """检查用户是否是公司的创建者或管理员."""
     # 检查用户是否是公司的创建者
     result = await db.execute(
         select(Company)
@@ -116,14 +114,14 @@ async def check_company_creator_permission(user_id: int, company_id: int, db: As
 
 
 async def ensure_company_creator_permission(user_id: int, company_id: int, db: AsyncSession):
-    """确保用户是公司的创建者或管理员，否则抛出异常"""
+    """确保用户是公司的创建者或管理员，否则抛出异常."""
     if not await check_company_creator_permission(user_id, company_id, db):
         raise HTTPException(status_code=403, detail="只有公司管理员才能执行此操作")
 
 
 async def ensure_company_creator_or_super_admin(user_id: int, company_id: int, db: AsyncSession):
     """确保当前用户为公司创建者或超级管理员，否则抛出 403。
-    兼容未完成迁移（users.is_super_admin 列缺失）场景：此时按“非超管”处理。
+    兼容未完成迁移（users.is_super_admin 列缺失）场景：此时按“非超管”处理。.
     """
     # 超级管理员放行（容错：列缺失时不报 500）
     try:
@@ -146,10 +144,10 @@ async def ensure_company_creator_or_super_admin(user_id: int, company_id: int, d
 
 
 class CompanyCreatorChecker:
-    """公司创建者权限检查器"""
+    """公司创建者权限检查器."""
 
     async def __call__(self, request: Request, db: AsyncSession = Depends(get_db)):
-        """检查用户是否是公司创建者"""
+        """检查用户是否是公司创建者."""
         # 获取用户ID
         user_id = request.headers.get("X-User-ID")
         if not user_id:
@@ -208,10 +206,10 @@ company_creator_required = CompanyCreatorChecker()
 
 
 class SimpleUserChecker:
-    """简单用户身份检查器 - 只验证用户身份，不验证权限"""
+    """简单用户身份检查器 - 只验证用户身份，不验证权限."""
 
     async def __call__(self, request: Request, db: AsyncSession = Depends(get_db)):
-        """只检查用户身份，不验证权限"""
+        """只检查用户身份，不验证权限."""
         # 从请求中获取用户ID
         user_id = request.headers.get("X-User-Id")
         if not user_id:

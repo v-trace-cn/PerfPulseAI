@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth, useLogin, useRegister, useResetPassword } from "@/lib/auth-context-rq"
 import {
   Dialog,
   DialogContent,
@@ -18,12 +18,14 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useTheme } from "next-themes"
 import { useToast } from "@/components/ui/use-toast"
-import { authApi } from "@/lib/unified-api"
 import { useAuthDialog } from "@/lib/auth-dialog-context"
 import { Loader2 } from "lucide-react"
 
 export default function ClientPage({ children }: { children?: React.ReactNode }) {
-  const { user, isAuthenticated, isLoading, error, login, register, logout } = useAuth()
+  const { user, isAuthenticated, isLoading, error } = useAuth()
+  const loginMutation = useLogin()
+  const registerMutation = useRegister()
+  const resetPasswordMutation = useResetPassword()
   const router = useRouter()
   const { toast } = useToast()
   const [formData, setFormData] = useState({
@@ -145,54 +147,53 @@ export default function ClientPage({ children }: { children?: React.ReactNode })
 
     try {
       if (authMode === "login") {
-        const success = await login(formData.email, formData.password);
-        if (success) {
-          toast({ title: "登录成功", description: "欢迎回来！", variant: "default" });
+        await loginMutation.mutateAsync({
+          email: formData.email,
+          password: formData.password,
+          remember: rememberCreds
+        });
 
-          if (typeof window !== "undefined") {
-            localStorage.setItem("login_remember_creds", rememberCreds ? "1" : "0");
-            if (rememberCreds) {
-              localStorage.setItem("login_saved_email", formData.email);
-              try {
-                localStorage.setItem("login_saved_pwd", window.btoa(formData.password));
-              } catch {
-                // ignore btoa errors
-              }
-            } else {
-              localStorage.removeItem("login_saved_email");
-              localStorage.removeItem("login_saved_pwd");
+        // 保存记住密码的设置
+        if (typeof window !== "undefined") {
+          localStorage.setItem("login_remember_creds", rememberCreds ? "1" : "0");
+          if (rememberCreds) {
+            localStorage.setItem("login_saved_email", formData.email);
+            try {
+              localStorage.setItem("login_saved_pwd", window.btoa(formData.password));
+            } catch {
+              // ignore btoa errors
             }
+          } else {
+            localStorage.removeItem("login_saved_email");
+            localStorage.removeItem("login_saved_pwd");
           }
-          setAuthDialogOpen(false);
-        } else {
-          toast({ title: "登录失败", description: error || "请检查您的邮箱和密码", variant: "destructive" });
         }
+        setAuthDialogOpen(false);
+
       } else if (authMode === "register") {
-        const success = await register(formData.email, formData.password, user?.name);
-        if (success) {
-          toast({ title: "注册成功", description: "账号已创建，欢迎加入！", variant: "default" });
-          setRegistrationStatus("注册成功，即将跳转到工作台...");
-          setAuthDialogOpen(false);
-          // 注册成功后直接跳转到dashboard
-          setTimeout(() => {
-            router.push('/');
-          }, 1000);
-        } else {
-          toast({ title: "注册失败", description: error || "请稍后再试", variant: "destructive" });
-          setRegistrationStatus(`注册失败: ${error || "未知错误"}`);
-        }
+        await registerMutation.mutateAsync({
+          email: formData.email,
+          password: formData.password,
+          name: user?.name
+        });
+
+        setRegistrationStatus("注册成功，即将跳转到工作台...");
+        setAuthDialogOpen(false);
+        // 注册成功后直接跳转到dashboard
+        setTimeout(() => {
+          router.push('/');
+        }, 1000);
+
       } else if (authMode === "reset-password") {
-        const response = await authApi.resetPassword(formData.email, formData.password);
-        if (response.success) {
-          toast({ title: "密码重置成功", description: "您的密码已成功重置。", variant: "default" });
-          setAuthDialogOpen(false);
-        } else {
-          toast({ title: "密码重置失败", description: response.message || "请稍后再试。", variant: "destructive" });
-        }
+        await resetPasswordMutation.mutateAsync({
+          email: formData.email,
+          password: formData.password
+        });
+        setAuthDialogOpen(false);
       }
     } catch (err: any) {
-
-      toast({ title: "操作失败", description: err.message || "请稍后再试。", variant: "destructive" });
+      // 错误处理已经在 mutation 的 onError 中处理了
+      console.error('Auth operation failed:', err);
     }
   };
 

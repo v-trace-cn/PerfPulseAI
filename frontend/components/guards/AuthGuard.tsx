@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect } from "react"
-import { useAuth } from "@/lib/auth-context"
+import { useEffect, useState } from "react"
+import { useAuth } from "@/lib/auth-context-rq"
 import { useAuthDialog } from "@/lib/auth-dialog-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -15,9 +15,15 @@ interface AuthGuardProps {
 export default function AuthGuard({ children, fallback }: AuthGuardProps) {
   const { user, isAuthenticated, isLoading } = useAuth()
   const { openLoginDialog } = useAuthDialog()
+  const [isMounted, setIsMounted] = useState(false)
 
-  // Show loading state while checking authentication
-  if (isLoading) {
+  // 确保组件在客户端挂载后才进行权限检查
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  // 在客户端挂载之前，始终显示加载状态以避免 hydration 错误
+  if (!isMounted || isLoading) {
     return (
       <div className="min-h-screen bg-gray-50/50 flex items-center justify-center">
         <Card className="w-full max-w-md">

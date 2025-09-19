@@ -1,11 +1,19 @@
-"""
-Role model for role-based access control.
+"""Role model for role-based access control.
 """
 from datetime import datetime
-from sqlalchemy import Column, String, Integer, DateTime, Text, Boolean, ForeignKey, Table
-from sqlalchemy.orm import relationship
-from app.core.database import Base
 
+from app.core.database import Base
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Table,
+    Text,
+)
+from sqlalchemy.orm import relationship
 
 # 用户角色关联表
 user_roles = Table(
@@ -18,8 +26,9 @@ user_roles = Table(
 
 class Role(Base):
     """Role model for defining user roles within a company."""
+
     __tablename__ = 'roles'
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False)
     description = Column(Text, nullable=True)
@@ -28,23 +37,23 @@ class Role(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=lambda: datetime.utcnow().replace(microsecond=0))
     updated_at = Column(DateTime, default=lambda: datetime.utcnow().replace(microsecond=0), onupdate=lambda: datetime.utcnow().replace(microsecond=0))
-    
+
     # 关联关系
     company = relationship('Company', backref='roles')
     users = relationship('User', secondary=user_roles, back_populates='roles')
-    
+
     def __init__(self, name: str, company_id: int, description: str = None, is_system_role: bool = False):
         self.name = name
         self.company_id = company_id
         self.description = description
         self.is_system_role = is_system_role
-    
+
     def to_dict(self, include_relations=True):
-        """
-        转换为字典格式
+        """转换为字典格式
 
         Args:
             include_relations: 是否包含关联对象（permissions, users），默认为True
+
         """
         base_dict = {
             "id": self.id,

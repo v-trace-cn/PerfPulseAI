@@ -20,15 +20,23 @@ export default function InviteCodeGuard({ children, fallback }: InviteCodeGuardP
   const [isVerified, setIsVerified] = useState(false)
   const [isVerifying, setIsVerifying] = useState(false)
   const [hasCheckedStorage, setHasCheckedStorage] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
+
+  // 确保组件在客户端挂载后才进行检查
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   // 检查本地存储中是否已有验证记录
   useEffect(() => {
+    if (!isMounted) return
+
     const verified = localStorage.getItem('invite_code_verified')
     if (verified === 'true') {
       setIsVerified(true)
     }
     setHasCheckedStorage(true)
-  }, [])
+  }, [isMounted])
 
   const handleVerifyInviteCode = async () => {
     if (!inviteCode.trim()) {
@@ -75,8 +83,8 @@ export default function InviteCodeGuard({ children, fallback }: InviteCodeGuardP
     }
   }
 
-  // 如果还在检查本地存储，显示加载状态
-  if (!hasCheckedStorage) {
+  // 如果还未挂载或还在检查本地存储，显示加载状态
+  if (!isMounted || !hasCheckedStorage) {
     return (
       <div className="min-h-screen bg-gray-50/50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>

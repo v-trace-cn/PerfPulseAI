@@ -1,19 +1,16 @@
 from datetime import datetime
-from typing import Optional, List, Dict, Any
-
-from fastapi import APIRouter, Depends, HTTPException, Query, Body
-from pydantic import BaseModel, Field
-from sqlalchemy import select, func, and_, desc
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Any, Optional
 
 from app.api.auth import get_current_user, require_company_member
 from app.core.database import get_db
-from app.models.scoring import PointTransaction, TransactionType, PointPurchase
+from app.models.scoring import PointPurchase, PointTransaction, TransactionType
 from app.models.user import User
-from app.services.point_service import PointService
 from app.services.mall_service import MallService
-
-from app.services.point_service import PointConverter
+from app.services.point_service import PointConverter, PointService
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
+from sqlalchemy import desc, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/api", tags=["points-spec"], dependencies=[Depends(require_company_member)])
 
@@ -30,7 +27,7 @@ class LedgerItem(BaseModel):
 
 
 class LedgerResponse(BaseModel):
-    list: List[LedgerItem]
+    list: list[LedgerItem]
     total: int
 
 
@@ -79,7 +76,7 @@ async def points_overview(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """按规范返回 { totalEarned, totalSpent, balance }"""
+    """按规范返回 { totalEarned, totalSpent, balance }."""
     if current_user.company_id is None:
         raise HTTPException(status_code=403, detail="NO_COMPANY")
     svc = PointService(db)
@@ -102,7 +99,7 @@ async def points_ledger(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """按规范返回分页流水 { list, total }"""
+    """按规范返回分页流水 { list, total }."""
     offset = (page - 1) * pageSize
 
     # 仅允许已加入公司的用户访问
@@ -157,14 +154,14 @@ async def points_ledger(
 
     # 获取数据
     res = await db.execute(query.order_by(desc(PointTransaction.created_at)).limit(pageSize).offset(offset))
-    txns: List[PointTransaction] = res.scalars().all()
+    txns: list[PointTransaction] = res.scalars().all()
 
     # 为 activity 交易解析 showId（兼容历史数据 reference_id 可能为 Activity.id 或 show_id）
-    show_id_by_ref: Dict[str, str] = {}
+    show_id_by_ref: dict[str, str] = {}
     activity_refs = [t.reference_id for t in txns if (t.reference_type or '').lower() == 'activity' and t.reference_id]
     if activity_refs:
-        from sqlalchemy import or_
         from app.models.activity import Activity
+        from sqlalchemy import or_
         act_res = await db.execute(
             select(Activity.show_id, Activity.id).filter(
                 or_(Activity.show_id.in_(activity_refs), Activity.id.in_(activity_refs))
@@ -187,7 +184,7 @@ async def points_accrue(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """根据规范进行积分入账（当前限制：仅允许本人触发；公司校验为当前公司）。"""
+    """根据规范进行积分入账（当前限制：仅允许本人触发；公司校验为当前公司）。."""
     # 基本鉴权：用户需为本人
     if req.userId != current_user.id:
         raise HTTPException(status_code=403, detail="无权限为其他用户入账")
@@ -232,7 +229,7 @@ async def points_redeem(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """根据规范兑换奖励，返回订单ID与最新余额。"""
+    """根据规范兑换奖励，返回订单ID与最新余额。."""
     mall = MallService(db)
     svc = PointService(db)
     try:
@@ -253,7 +250,7 @@ async def points_redeem(
 
 @router.get("/rewards")
 async def list_rewards(db: AsyncSession = Depends(get_db)):
-    """规范别名：使用商城静态商品作为可兑换项，返回 { id, title, cost, stock, status }。"""
+    """规范别名：使用商城静态商品作为可兑换项，返回 { id, title, cost, stock, status }。."""
     items = await MallService(db).get_mall_items()
     return {
         "list": [
@@ -282,7 +279,7 @@ async def list_redeem_orders(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """规范别名：返回兑换订单列表 { list, total }。"""
+    """规范别名：返回兑换订单列表 { list, total }。."""
     offset = (page - 1) * pageSize
 
     # 基础查询（按当前用户）
@@ -330,7 +327,7 @@ async def list_redeem_orders(
     orders = res.scalars().all()
 
     # 映射到规范结构
-    def _map_order(o: PointPurchase) -> Dict[str, Any]:
+    def _map_order(o: PointPurchase) -> dict[str, Any]:
         return {
             "id": o.id,
             "rewardId": o.item_id,

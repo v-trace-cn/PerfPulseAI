@@ -1,9 +1,9 @@
-import React, { memo, useMemo, useEffect } from 'react';
-import { useAuth } from '@/lib/auth-context';
+import React, { memo, useMemo } from 'react';
+import { useAuth } from '@/lib/auth-context-rq';
 import { PointsSummaryCards } from './PointsSummaryCards';
 import { PointsTabs } from './PointsTabs';
 
-import { useAllPointsData, usePrefetchPointsData } from '@/hooks/usePointsData';
+import { usePointsSummary, usePointsTransactions, usePointsMonthlyStats, usePointsRedemptionStats, useUserLevel } from '@/hooks/usePoints';
 
 interface PointsOverviewWithStatsProps {
   userId?: string;
@@ -19,38 +19,30 @@ export const PointsOverviewWithStats = memo<PointsOverviewWithStatsProps>(({
   const { user } = useAuth();
   const targetUserId = userId || user?.id;
 
-  // 获取所有积分数据
-  const {
-    summary,
-    monthlyStats,
-    redemptionStats,
-    isError
-  } = useAllPointsData(targetUserId, page, pageSize);
+  // 获取积分数据
+  const summary = usePointsSummary();
+  const monthlyStats = usePointsMonthlyStats();
+  const redemptionStats = usePointsRedemptionStats();
+  const userLevel = useUserLevel();
+  const transactions = usePointsTransactions({ page, page_size: pageSize });
 
-  // 预取数据
-  const { prefetchAll } = usePrefetchPointsData(targetUserId);
-
-  // 预取下一页数据
-  useEffect(() => {
-    if (targetUserId) {
-      prefetchAll();
-    }
-  }, [targetUserId, prefetchAll]);
+  const isError = summary.isError || monthlyStats.isError || redemptionStats.isError;
 
   // 使用 useMemo 缓存计算结果
   const summaryData = useMemo(() => ({
     currentPoints: summary.data?.currentBalance || user?.total_points || user?.points || 0,
     totalEarned: summary.data?.totalEarned || 0,
     totalSpent: summary.data?.totalSpent || 0,
-    level: summary.data?.currentLevel?.level || user?.level || 1,
-    nextLevelPoints: summary.data?.pointsToNext || 0,
+    level: userLevel.data?.level || user?.level || 1,
+    nextLevelPoints: userLevel.data?.pointsToNext || 0,
     monthlyEarned: monthlyStats.data?.monthlyEarned || 0,
     monthlySpent: monthlyStats.data?.monthlySpent || 0,
     redeemCount: redemptionStats.data?.monthlyRedemptions || 0,
-    progressPercentage: summary.data?.progressPercentage || 0
+    progressPercentage: userLevel.data?.progressPercentage || 0
   }), [
     summary.data,
     user,
+    userLevel.data,
     monthlyStats.data,
     redemptionStats.data
   ]);

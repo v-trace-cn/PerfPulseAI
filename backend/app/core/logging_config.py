@@ -1,7 +1,7 @@
 import logging
 import os
-from logging.handlers import TimedRotatingFileHandler
 import sys
+from logging.handlers import TimedRotatingFileHandler
 
 LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'logs')
 os.makedirs(LOG_DIR, exist_ok=True)
@@ -73,4 +73,4 @@ def get_logger(name=None):
     return logging.getLogger(name)
 
 # 推荐用法：from app.core.logging_config import logger
-logger = get_logger('PerfPulseAI') 
+logger = get_logger('PerfPulseAI')

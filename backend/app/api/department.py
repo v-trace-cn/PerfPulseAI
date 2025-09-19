@@ -1,18 +1,18 @@
-"""
-Department management API endpoints.
-"""
-from fastapi import APIRouter, Depends, HTTPException, Body
-from sqlalchemy.ext.asyncio import AsyncSession
+"""Department management API endpoints."""
+
+from fastapi import Body, Depends
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from app.core.database import get_db
+from datetime import datetime
+
 from app.core.base_api import BaseAPIRouter
+from app.core.database import get_db
 from app.core.decorators import handle_api_errors, transaction
+from app.core.permissions import check_company_creator_permission, simple_user_required
+from app.models.company import Company
 from app.models.department import Department
 from app.models.user import User
-from app.models.company import Company
-from app.core.permissions import simple_user_required, check_company_creator_permission
-from datetime import datetime
 
 # Initialize router using base class
 base_router = BaseAPIRouter(prefix="/api/departments", tags=["department"])
@@ -25,7 +25,7 @@ async def get_departments(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(simple_user_required)
 ):
-    """获取组织列表"""
+    """获取组织列表."""
     query = select(Department).options(
         selectinload(Department.company)
     )
@@ -69,9 +69,9 @@ async def create_department(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(simple_user_required)
 ):
-    """创建新组织"""
+    """创建新组织."""
     name = data.get("name")
-    description = data.get("description", "")
+    data.get("description", "")
     company_id = data.get("companyId") or current_user.company_id
 
     if not name:
@@ -119,7 +119,7 @@ async def get_department_detail(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(simple_user_required)
 ):
-    """获取组织详情"""
+    """获取组织详情."""
     result = await db.execute(
         select(Department)
         .options(selectinload(Department.company))
@@ -153,7 +153,7 @@ async def update_department(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(simple_user_required)
 ):
-    """更新组织信息"""
+    """更新组织信息."""
     result = await db.execute(select(Department).filter(Department.id == department_id))
     department = result.scalars().first()
 
@@ -215,7 +215,7 @@ async def delete_department(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(simple_user_required)
 ):
-    """删除组织"""
+    """删除组织."""
     result = await db.execute(select(Department).filter(Department.id == department_id))
     department = result.scalars().first()
 
@@ -241,7 +241,7 @@ async def get_department_members(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(simple_user_required)
 ):
-    """获取组织成员列表"""
+    """获取组织成员列表."""
     # 检查组织是否存在
     result = await db.execute(select(Department).filter(Department.id == department_id))
     department = result.scalars().first()
@@ -288,7 +288,7 @@ async def add_department_admin(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(simple_user_required)
 ):
-    """添加部门管理员"""
+    """添加部门管理员."""
     user_id = data.get("userId")
     if not user_id:
         base_router.error_response("用户ID不能为空", 400)
@@ -335,7 +335,7 @@ async def remove_department_admin(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(simple_user_required)
 ):
-    """移除部门管理员"""
+    """移除部门管理员."""
     # 检查部门是否存在
     result = await db.execute(select(Department).filter(Department.id == department_id))
     department = result.scalars().first()
@@ -365,7 +365,7 @@ async def get_department_admins(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(simple_user_required)
 ):
-    """获取部门管理员列表"""
+    """获取部门管理员列表."""
     # 检查部门是否存在
     result = await db.execute(select(Department).filter(Department.id == department_id))
     department = result.scalars().first()

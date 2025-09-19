@@ -1,31 +1,26 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from app.core.database import get_db, AsyncSessionLocal
-from app.models.pull_request import PullRequest
-from app.models.activity import Activity
-from app.models.pull_request_result import PullRequestResult
-from app.core.ai_service import perform_pr_analysis, calculate_points_from_analysis
-from app.models.user import User
-from app.services.point_service import PointService
-from app.models.scoring import TransactionType
-from datetime import datetime, timezone
-from typing import List
-from fastapi.responses import StreamingResponse
 import asyncio
 import json
-from app.core.logging_config import logger
+from datetime import datetime, timezone
+
+from app.core.ai_service import calculate_points_from_analysis, perform_pr_analysis
+from app.core.database import AsyncSessionLocal, get_db
+from app.models.activity import Activity
+from app.models.pull_request import PullRequest
+from app.models.pull_request_result import PullRequestResult
+from app.models.scoring import TransactionType
+from app.services.point_service import PointService
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi.responses import StreamingResponse
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/api/pr", tags=["Pull Requests"])
 
 # 用于存储活跃的 SSE 客户端连接
-connections: dict[str, List[asyncio.Queue]] = {}
+connections: dict[str, list[asyncio.Queue]] = {}
 
 async def _full_pr_analysis_and_save(activity_show_id: str):
-    """
-    在后台执行完整的 PR AI 分析并保存结果到数据库。
-    """
+    """在后台执行完整的 PR AI 分析并保存结果到数据库。."""
     async with AsyncSessionLocal() as db:
         try:
             activity_result = await db.execute(select(Activity).filter(Activity.show_id == activity_show_id))
@@ -135,9 +130,7 @@ async def _full_pr_analysis_and_save(activity_show_id: str):
                     notify_clients(activity_show_id, {"status": "analysis_failed", "message": "AI 分析发生严重错误，请查看日志。"})
 
 async def _event_generator(activity_show_id: str):
-    """
-    用于 SSE 的事件生成器。
-    """
+    """用于 SSE 的事件生成器。."""
     # 为当前连接创建一个专属队列
     q = asyncio.Queue()
     if activity_show_id not in connections:
@@ -163,9 +156,7 @@ async def _event_generator(activity_show_id: str):
             del connections[activity_show_id]
 
 def notify_clients(activity_show_id: str, data: dict):
-    """
-    向所有订阅了特定 activity_show_id 的客户端发送通知。
-    """
+    """向所有订阅了特定 activity_show_id 的客户端发送通知。."""
     if activity_show_id in connections:
         # 使用 asyncio.create_task 确保发送操作是非阻塞的
         for q in connections[activity_show_id]:
@@ -176,16 +167,12 @@ def notify_clients(activity_show_id: str, data: dict):
 
 @router.get("/stream-analysis-updates/{activity_show_id}")
 async def stream_analysis_updates(activity_show_id: str):
-    """
-    SSE 端点，用于客户端订阅 AI 分析状态更新。
-    """
+    """SSE 端点，用于客户端订阅 AI 分析状态更新。."""
     return StreamingResponse(_event_generator(activity_show_id), media_type="text/event-stream")
 
 @router.get("/{pr_node_id}")
 async def get_pull_request_details(pr_node_id: str, db: AsyncSession = Depends(get_db)):
-    """
-    根据 PR 的 Node ID 获取其详细信息和时间线事件。
-    """
+    """根据 PR 的 Node ID 获取其详细信息和时间线事件。."""
     # 分别查询PullRequest和Events，避免dynamic关系的eager loading问题
     result = await db.execute(
         select(PullRequest).filter(PullRequest.pr_node_id == pr_node_id)
@@ -206,7 +193,7 @@ async def get_pull_request_details(pr_node_id: str, db: AsyncSession = Depends(g
 
     # 手动设置events属性（转换为列表以便排序）
     pr._events_list = events
-        
+
     return pr.to_dict()
 
 @router.post("/{activity_show_id}/calculate-points")
@@ -214,9 +201,8 @@ async def calculate_pr_points(
     activity_show_id: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    根据 AI 评分结果计算并授予指定 PR 的积分。
-    确保一个活动只能兑换一次积分。
+    """根据 AI 评分结果计算并授予指定 PR 的积分。
+    确保一个活动只能兑换一次积分。.
     """
     try:
         # 分别查询Activity和PullRequestResult，避免复杂的关联加载
@@ -341,9 +327,8 @@ async def analyze_pull_request(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    触发指定 PR 的 AI 评分。
-    该接口将立即返回，AI 分析在后台异步执行。
+    """触发指定 PR 的 AI 评分。
+    该接口将立即返回，AI 分析在后台异步执行。.
     """
     print(f"Received analyze request for activity_show_id: {activity_show_id}")
     try:
@@ -351,7 +336,7 @@ async def analyze_pull_request(
         activity = activity_result.scalars().first()
         if not activity:
             raise HTTPException(status_code=404, detail=f"Activity with show ID {activity_show_id} not found.")
-        
+
         # 将耗时的 AI 分析和数据库保存操作放到后台任务中
         background_tasks.add_task(_full_pr_analysis_and_save, activity_show_id)
 
@@ -367,9 +352,7 @@ async def recalculate_pr_points(
     activity_show_id: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    重新计算指定活动的积分，支持积分调整
-    """
+    """重新计算指定活动的积分，支持积分调整."""
     try:
         # 分别查询Activity和PullRequestResult，避免复杂的关联加载
         activity_result = await db.execute(
@@ -492,7 +475,7 @@ async def recalculate_pr_points(
             await db.refresh(activity)
 
             return {
-                "message": f"首次授予积分",
+                "message": "首次授予积分",
                 "points": new_points,
                 "activityShowId": activity_show_id
             }

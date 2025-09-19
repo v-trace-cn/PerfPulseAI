@@ -1,17 +1,10 @@
-import os
+import importlib
+import pkgutil # 自动批量注册 api 路由
+
+from app.api import __path__ as api_path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
-from starlette.staticfiles import StaticFiles
-
-# 自动批量注册 api 路由
-import pkgutil
-import importlib
-from app.api import __path__ as api_path
-from app.core.database import async_engine, Base
-from sqlalchemy.ext.asyncio import AsyncEngine
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy import inspect, text 
 
 app = FastAPI(title="PerfPulseAI API")
 

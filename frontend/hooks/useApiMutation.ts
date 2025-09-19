@@ -1,118 +1,151 @@
-import { useMutation, UseMutationOptions, useQueryClient } from '@tanstack/react-query';
-import { useToast } from '@/components/ui/use-toast';
-import { ApiResponse, ApiError } from './useApiQuery';
+/**
+ * 临时兼容层 - useApiMutation Hook
+ * 为了快速修复导入错误而创建的兼容版本
+ * 
+ * TODO: 逐步迁移到新的API系统
+ */
 
-export interface UseApiMutationOptions<TData, TVariables> extends Omit<
-  UseMutationOptions<TData, ApiError, TVariables>,
-  'mutationFn'
-> {
-  successMessage?: string;
-  errorMessage?: string;
-  invalidateQueries?: string[];
-  showSuccessToast?: boolean;
-  showErrorToast?: boolean;
+import { useMutation, useQueryClient, UseMutationOptions } from '@tanstack/react-query'
+import { useToast } from '@/components/ui/use-toast'
+import { ApiError } from './useApiQuery'
+
+// 成功消息常量
+export const SUCCESS_MESSAGES = {
+  CREATE: '创建成功',
+  UPDATE: '更新成功',
+  DELETE: '删除成功',
+  SAVE: '保存成功',
+  SUBMIT: '提交成功',
+}
+
+// Mutation选项接口
+interface ApiMutationOptions<TData = any, TVariables = any> {
+  successMessage?: string
+  errorMessage?: string
+  invalidateQueries?: string[]
+  onSuccess?: (data: TData, variables: TVariables) => void
+  onError?: (error: ApiError, variables: TVariables) => void
 }
 
 /**
- * 统一的API变更Hook
- * @param mutationFn - 执行变更的函数
- * @param options - 配置选项
+ * 兼容版本的useApiMutation Hook
  */
-export function useApiMutation<TData = any, TVariables = void>(
-  mutationFn: (variables: TVariables) => Promise<ApiResponse<TData>>,
-  options?: UseApiMutationOptions<TData, TVariables>
+export function useApiMutation<TData = any, TVariables = any>(
+  mutationFn: (variables: TVariables) => Promise<TData>,
+  options: ApiMutationOptions<TData, TVariables> = {}
 ) {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
   
   const {
-    successMessage = "操作成功",
-    errorMessage = "操作失败",
+    successMessage,
+    errorMessage,
     invalidateQueries = [],
-    showSuccessToast = true,
-    showErrorToast = true,
     onSuccess,
     onError,
-    ...mutationOptions
-  } = options || {};
-  
+  } = options
+
   return useMutation<TData, ApiError, TVariables>({
     mutationFn: async (variables: TVariables) => {
       try {
-        const response = await mutationFn(variables);
+        const response = await mutationFn(variables)
         
-        if (!response.success) {
-          throw new Error(response.message || errorMessage);
+        // 如果响应有success字段且为false，抛出错误
+        if (response?.success === false) {
+          throw new Error(response.message || '操作失败')
         }
         
-        return response.data;
-      } catch (error: any) {
+        return response?.data || response
+      } catch (error) {
+        // 转换错误格式
         const apiError: ApiError = {
-          message: error.response?.data?.message || error.message || errorMessage,
-          status_code: error.response?.status || 500
-        };
-        throw apiError;
+          message: error?.message || error?.response?.data?.message || '操作失败',
+          status_code: error?.response?.status || 500,
+          details: error?.response?.data || error,
+        }
+        throw apiError
       }
     },
-    onSuccess: (data, variables, context) => {
-      // 显示成功提示
-      if (showSuccessToast) {
+    onSuccess: (data, variables) => {
+      // 显示成功消息
+      if (successMessage) {
         toast({
-          title: successMessage,
+          title: "操作成功",
+          description: successMessage,
           variant: "default",
-        });
+        })
       }
       
-      // 使相关查询失效
-      if (invalidateQueries.length > 0) {
-        invalidateQueries.forEach(queryKey => {
-          queryClient.invalidateQueries({ queryKey: [queryKey] });
-        });
-      }
+      // 刷新相关查询
+      invalidateQueries.forEach(queryKey => {
+        queryClient.invalidateQueries({ queryKey: [queryKey] })
+      })
       
-      // 调用自定义成功处理
-      onSuccess?.(data, variables, context);
+      // 调用自定义成功回调
+      onSuccess?.(data, variables)
     },
-    onError: (error, variables, context) => {
-      // 显示错误提示
-      if (showErrorToast) {
-        toast({
-          title: errorMessage,
-          description: error.message,
-          variant: "destructive",
-        });
-      }
+    onError: (error, variables) => {
+      // 显示错误消息
+      const message = errorMessage || error.message || '操作失败'
+      toast({
+        title: "操作失败",
+        description: message,
+        variant: "destructive",
+      })
       
-      // 调用自定义错误处理
-      onError?.(error, variables, context);
+      // 调用自定义错误回调
+      onError?.(error, variables)
     },
-    ...mutationOptions,
-  });
+  })
 }
 
 /**
- * 预定义的成功消息
+ * 创建操作的Hook
  */
-export const SUCCESS_MESSAGES = {
-  CREATE: "创建成功",
-  UPDATE: "更新成功",
-  DELETE: "删除成功",
-  SAVE: "保存成功",
-  SUBMIT: "提交成功",
-  UPLOAD: "上传成功",
-  SEND: "发送成功",
-} as const;
+export function useCreateMutation<TData = any, TVariables = any>(
+  createFn: (variables: TVariables) => Promise<TData>,
+  options: Omit<ApiMutationOptions<TData, TVariables>, 'successMessage'> & { 
+    entityName?: string 
+  } = {}
+) {
+  const { entityName = '项目', ...restOptions } = options
+  
+  return useApiMutation(createFn, {
+    successMessage: `${entityName}${SUCCESS_MESSAGES.CREATE}`,
+    ...restOptions,
+  })
+}
 
 /**
- * 预定义的错误消息
+ * 更新操作的Hook
  */
-export const ERROR_MESSAGES = {
-  CREATE: "创建失败",
-  UPDATE: "更新失败",
-  DELETE: "删除失败",
-  SAVE: "保存失败",
-  SUBMIT: "提交失败",
-  UPLOAD: "上传失败",
-  SEND: "发送失败",
-  NETWORK: "网络错误，请稍后重试",
-} as const;
+export function useUpdateMutation<TData = any, TVariables = any>(
+  updateFn: (variables: TVariables) => Promise<TData>,
+  options: Omit<ApiMutationOptions<TData, TVariables>, 'successMessage'> & { 
+    entityName?: string 
+  } = {}
+) {
+  const { entityName = '项目', ...restOptions } = options
+  
+  return useApiMutation(updateFn, {
+    successMessage: `${entityName}${SUCCESS_MESSAGES.UPDATE}`,
+    ...restOptions,
+  })
+}
+
+/**
+ * 删除操作的Hook
+ */
+export function useDeleteMutation<TData = any, TVariables = any>(
+  deleteFn: (variables: TVariables) => Promise<TData>,
+  options: Omit<ApiMutationOptions<TData, TVariables>, 'successMessage'> & { 
+    entityName?: string 
+  } = {}
+) {
+  const { entityName = '项目', ...restOptions } = options
+  
+  return useApiMutation(deleteFn, {
+    successMessage: `${entityName}${SUCCESS_MESSAGES.DELETE}`,
+    ...restOptions,
+  })
+}

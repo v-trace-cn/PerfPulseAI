@@ -1,17 +1,7 @@
-from .database import async_engine, Base
-from app.models.user     import User
-from app.models.activity import Activity
-from app.models.reward   import Reward
-from app.models.scoring  import ScoringFactor
-from app.models.pull_request_result import PullRequestResult
-from app.models.pull_request import PullRequest
-from app.models.pull_request_event import PullRequestEvent
-from app.models.company import Company
-from app.models.department import Department
-from app.models.role import Role
 
-
+from .database import Base, async_engine
 from .seed_data import seed_data
+
 
 async def init_db():
     # 创建所有表

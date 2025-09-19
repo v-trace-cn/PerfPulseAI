@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/lib/auth-context-rq"
 import { useNotifications, type Notification } from "@/hooks/useNotifications"
 import { formatRelativeTime } from "@/lib/timezone-utils"
 import { useToast } from "@/components/ui/use-toast"

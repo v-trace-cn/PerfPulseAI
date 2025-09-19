@@ -1,18 +1,19 @@
-"""
-User model for the PerfPulseAI application.
+"""User model for the PerfPulseAI application.
 """
 from datetime import datetime
-from passlib.context import CryptContext
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Date, Boolean
-from sqlalchemy.orm import relationship, backref
+
 from app.core.database import Base
+from passlib.context import CryptContext
+from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, String
+from sqlalchemy.orm import relationship
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 class User(Base):
     """User model representing a user in the system."""
+
     __tablename__ = 'users'
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False)
     email = Column(String(100), unique=True, nullable=False)
@@ -48,11 +49,11 @@ class User(Base):
     # 关联关系
     activities = relationship('Activity', back_populates='user', lazy=True)
     roles = relationship('Role', secondary='user_roles', back_populates='users')
-    
+    identities = relationship('UserIdentity', back_populates='user', cascade='all, delete-orphan')
+
     def __init__(self, name, email, password=None, company_id=None, department=None, position=None,
                  phone=None, join_date=None, points=0, level=1, github_url=None, avatar_url=None, department_id=None):
-        """
-        Initialize a new User.
+        """Initialize a new User.
         """
         self.name = name
         self.email = email
@@ -69,11 +70,11 @@ class User(Base):
         self.pending_tasks = 0
         self.github_url = github_url
         self.avatar_url = avatar_url
-    
+
     def set_password(self, password):
         """设置密码哈希"""
         self.password_hash = pwd_context.hash(password)
-    
+
     def check_password(self, password):
         """验证密码"""
         return pwd_context.verify(password, self.password_hash)
@@ -107,11 +108,11 @@ class User(Base):
         pass
 
     def to_dict(self):
-        """
-        Convert the user object to a dictionary.
+        """Convert the user object to a dictionary.
 
         Returns:
             dict: Dictionary representation of the user
+
         """
         # 安全地获取关联数据，避免懒加载问题
         department_name = None

@@ -1,44 +1,43 @@
-"""
-通知服务层 - 处理通知相关的业务逻辑
-"""
-import uuid
-from datetime import datetime, timedelta
-from typing import Optional, List, Dict, Any
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, desc, or_
-from sqlalchemy.orm import joinedload
+"""通知服务层 - 处理通知相关的业务逻辑."""
 import logging
+from datetime import datetime, timedelta
+from typing import Any, Optional
 
-from app.models.user import User
 from app.models.department import Department
-from app.models.notification import Notification, NotificationCategory, NotificationPriority, NotificationStatus
+from app.models.notification import (
+    Notification,
+    NotificationCategory,
+    NotificationPriority,
+    NotificationStatus,
+)
+from app.models.user import User
+from sqlalchemy import and_, desc, func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
 
 class NotificationService:
-    """通知服务类"""
-    
+    """通知服务类."""
+
     def __init__(self, db: AsyncSession):
         self.db = db
-    
+
     async def create_notification(
         self,
         user_id: int,
         category: NotificationCategory,
         title: str,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         summary: Optional[str] = None,
         priority: NotificationPriority = NotificationPriority.NORMAL,
         action_url: Optional[str] = None,
         action_label: Optional[str] = None,
         expires_at: Optional[datetime] = None,
         source: Optional[str] = None,
-        tags: Optional[List[str]] = None
+        tags: Optional[list[str]] = None
     ) -> Notification:
-        """创建通知 - 使用新的模型结构"""
-        from datetime import timezone
-
+        """创建通知 - 使用新的模型结构."""
         notification = Notification(
             user_id=user_id,
             category=category,
@@ -66,7 +65,7 @@ class NotificationService:
         return notification
 
     async def _broadcast_new_notification(self, notification: Notification):
-        """广播新通知到 SSE 连接"""
+        """广播新通知到 SSE 连接."""
         try:
             # 导入广播函数（避免循环导入）
             from app.api.notifications import broadcast_notification_to_user
@@ -100,7 +99,7 @@ class NotificationService:
             # 不抛出异常，避免影响通知创建
 
     async def _find_hr_contact(self, company_id: int) -> tuple[Optional[str], Optional[str]]:
-        """查找人力资源部的第一个在职人员，返回(联系人姓名, 部门名称)"""
+        """查找人力资源部的第一个在职人员，返回(联系人姓名, 部门名称)."""
         try:
             hr_dept_query = select(Department).where(
                 and_(
@@ -145,7 +144,7 @@ class NotificationService:
         redemption_code: str,
         points_cost: float
     ) -> Notification:
-        """创建兑换成功通知 - 使用新的模型结构"""
+        """创建兑换成功通知 - 使用新的模型结构."""
         # 获取用户的公司ID
         user_query = select(User.company_id).where(User.id == user_id)
         user_result = await self.db.execute(user_query)
@@ -187,7 +186,7 @@ class NotificationService:
             source="mall_service",
             tags=["redemption", "transaction", "high_value"]
         )
-    
+
     async def create_points_notification(
         self,
         user_id: int,
@@ -196,8 +195,7 @@ class NotificationService:
         current_balance: int,
         source_description: str = "积分变动"
     ) -> Notification:
-        """创建积分变动通知 - 使用新的模型结构"""
-
+        """创建积分变动通知 - 使用新的模型结构."""
         # 判断是获得还是消耗积分
         is_gain = points_change > 0
 
@@ -226,7 +224,7 @@ class NotificationService:
             source="points_system",
             tags=["points", "gain" if is_gain else "spend"]
         )
-    
+
     async def get_user_notifications(
         self,
         user_id: int,
@@ -235,8 +233,8 @@ class NotificationService:
         priority: Optional[NotificationPriority] = None,
         limit: int = 50,
         offset: int = 0
-    ) -> List[Notification]:
-        """获取用户通知列表 - 使用新的模型结构"""
+    ) -> list[Notification]:
+        """获取用户通知列表 - 使用新的模型结构."""
         query = select(Notification).where(Notification.user_id == user_id)
 
         if category:
@@ -252,9 +250,9 @@ class NotificationService:
 
         result = await self.db.execute(query)
         return result.scalars().all()
-    
+
     async def get_unread_count(self, user_id: int) -> int:
-        """获取用户未读通知数量"""
+        """获取用户未读通知数量."""
         query = select(func.count(Notification.id)).where(
             and_(
                 Notification.user_id == user_id,
@@ -263,9 +261,9 @@ class NotificationService:
         )
         result = await self.db.execute(query)
         return result.scalar() or 0
-    
+
     async def mark_as_read(self, notification_id: str, user_id: int) -> bool:
-        """标记通知为已读"""
+        """标记通知为已读."""
         query = select(Notification).where(
             and_(
                 Notification.id == notification_id,
@@ -274,17 +272,17 @@ class NotificationService:
         )
         result = await self.db.execute(query)
         notification = result.scalar_one_or_none()
-        
+
         if notification:
             notification.mark_as_read()
             await self.db.commit()
             logger.info(f"用户 {user_id} 标记通知 {notification_id} 为已读")
             return True
-        
+
         return False
-    
+
     async def mark_all_as_read(self, user_id: int) -> int:
-        """标记用户所有通知为已读"""
+        """标记用户所有通知为已读."""
         query = select(Notification).where(
             and_(
                 Notification.user_id == user_id,
@@ -298,15 +296,15 @@ class NotificationService:
         for notification in notifications:
             notification.mark_as_read()
             count += 1
-        
+
         if count > 0:
             await self.db.commit()
             logger.info(f"用户 {user_id} 标记 {count} 条通知为已读")
-        
+
         return count
-    
+
     async def delete_notification(self, notification_id: str, user_id: int) -> bool:
-        """删除通知"""
+        """删除通知."""
         query = select(Notification).where(
             and_(
                 Notification.id == notification_id,
@@ -315,13 +313,13 @@ class NotificationService:
         )
         result = await self.db.execute(query)
         notification = result.scalar_one_or_none()
-        
+
         if notification:
             await self.db.delete(notification)
             await self.db.commit()
             logger.info(f"用户 {user_id} 删除通知 {notification_id}")
             return True
-        
+
         return False
 
     async def create_achievement_notification(
@@ -329,14 +327,14 @@ class NotificationService:
         user_id: int,
         achievement_name: str,
         points_earned: int,
-        achievement_data: Dict[str, Any]
+        achievement_data: dict[str, Any]
     ) -> Notification:
-        """创建成就通知"""
+        """创建成就通知."""
         return await self.create_notification(
             user_id=user_id,
             category=NotificationCategory.ACHIEVEMENT,
             priority=NotificationPriority.NORMAL,
-            title=f"新成就",
+            title="新成就",
             summary=f"您获得了「{achievement_name}」成就，奖励{points_earned}积分",
             payload={
                 "achievementName": achievement_name,
@@ -354,10 +352,10 @@ class NotificationService:
         user_id: int,
         workflow_type: str,
         title: str,
-        workflow_data: Dict[str, Any],
+        workflow_data: dict[str, Any],
         deadline: Optional[datetime] = None
     ) -> Notification:
-        """创建工作流通知"""
+        """创建工作流通知."""
         priority = NotificationPriority.HIGH if deadline else NotificationPriority.NORMAL
 
         return await self.create_notification(
@@ -379,9 +377,9 @@ class NotificationService:
         user_id: int,
         alert_type: str,
         title: str,
-        alert_data: Dict[str, Any]
+        alert_data: dict[str, Any]
     ) -> Notification:
-        """创建警告通知"""
+        """创建警告通知."""
         return await self.create_notification(
             user_id=user_id,
             category=NotificationCategory.ALERT,

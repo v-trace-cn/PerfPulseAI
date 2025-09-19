@@ -1,19 +1,19 @@
-"""
-Activity model for the PerfPulseAI application.
+"""Activity model for the PerfPulseAI application.
 """
 
-from datetime import datetime, timezone
 import uuid
-from sqlalchemy import Column, String, Text, Integer, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
+from datetime import datetime, timezone
+
 from app.core.database import Base
-from app.models.user import User
-from app.models.pull_request_result import PullRequestResult
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import relationship
+
 
 class Activity(Base):
     """Activity model representing an activity in the system."""
+
     __tablename__ = 'activities'
-    
+
     id = Column(String(200), primary_key=True)
     show_id = Column(String(36), unique=True, index=True, nullable=False, default=lambda: str(uuid.uuid4()))
     title = Column(String(200), nullable=False)
@@ -31,11 +31,10 @@ class Activity(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(microsecond=0))
     completed_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(microsecond=0), onupdate=lambda: datetime.now(timezone.utc).replace(microsecond=0))
-    
-    def __init__(self, title=None, description=None, points=0, user_id=None, 
+
+    def __init__(self, title=None, description=None, points=0, user_id=None,
                  status="pending", created_at=None, completed_at=None, activity_type='individual'):
-        """
-        Initialize a new Activity.
+        """Initialize a new Activity.
         """
         self.show_id = str(uuid.uuid4())
         self.title = title
@@ -44,7 +43,7 @@ class Activity(Base):
         self.user_id = user_id
         self.status = status
         self.activity_type = activity_type
-        
+
         # 简化时间处理，统一使用秒级精度
         if created_at is not None:
             if isinstance(created_at, str):
@@ -65,13 +64,13 @@ class Activity(Base):
                     self.completed_at = None
             else:
                 self.completed_at = completed_at.replace(microsecond=0)
-        
+
     def to_dict(self):
-        """
-        Convert the activity object to a dictionary.
+        """Convert the activity object to a dictionary.
 
         Returns:
             dict: Dictionary representation of the activity
+
         """
         user_data = None
         try:
@@ -115,17 +114,17 @@ class Activity(Base):
             "aiAnalysisCompletedAt": ai_analysis_completed_at,
             "pointsCalculatedAt": self.completed_at.isoformat() if self.completed_at else None,
         }
-    
+
     @classmethod
     def from_dict(cls, data):
-        """
-        Create an activity object from a dictionary.
+        """Create an activity object from a dictionary.
         
         Args:
             data (dict): Dictionary containing activity data
             
         Returns:
             Activity: New activity object
+
         """
         return cls(
             title=data.get("title"),

@@ -1,111 +1,219 @@
+"""商城相关数据模型 - 按照编码共识标准设计
 """
-Reward model for the PerfPulseAI application.
-"""
-from datetime import datetime
-from sqlalchemy import Column, String, Text, Integer, Boolean, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
-from app.core.database import Base
+import uuid
+from datetime import datetime, timezone
 
-class Reward(Base):
-    """Reward model representing a reward in the system."""
-    __tablename__ = 'rewards'
-    
-    id = Column(String(36), primary_key=True)
-    name = Column(String(100), nullable=False)
-    description = Column(Text)
-    cost = Column(Integer, nullable=False)
-    icon = Column(String(200))
-    available = Column(Boolean, default=True)
-    category = Column(String(50))
-    likes = Column(Integer, default=0)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow().replace(microsecond=0))
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow().replace(microsecond=0), onupdate=lambda: datetime.utcnow().replace(microsecond=0))
-    
+from app.core.database import Base
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+)
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm import relationship
+
+
+class MallItem(Base):
+    """商城商品模型 - 按照编码共识设计的专业商品管理
+
+    设计理念：
+    - 支持多公司商品隔离
+    - 完整的库存管理
+    - 灵活的定价策略
+    - 丰富的商品属性
+    - 性能优化的索引设计
+    """
+
+    __tablename__ = 'mall_items'
+
+    # 主键和基础信息
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String(200), nullable=False, index=True)
+    description = Column(Text, nullable=True)
+    short_description = Column(String(500), nullable=True)  # 简短描述，用于列表展示
+
+    # 定价信息（使用后端存储格式，放大10倍）
+    points_cost = Column(Integer, nullable=False, default=0, index=True)  # 积分成本
+    original_price = Column(Float, nullable=True)  # 原价（用于显示折扣）
+
+    # 分类和标签
+    category = Column(String(50), nullable=False, index=True)
+    subcategory = Column(String(50), nullable=True)
+    tags = Column(JSON, nullable=True)  # 标签数组
+
+    # 库存管理
+    stock = Column(Integer, nullable=False, default=0, index=True)
+    initial_stock = Column(Integer, nullable=False, default=0)  # 初始库存
+    low_stock_threshold = Column(Integer, nullable=False, default=10)  # 低库存阈值
+
+    # 状态管理
+    is_available = Column(Boolean, nullable=False, default=True, index=True)
+    is_featured = Column(Boolean, nullable=False, default=False)  # 是否推荐
+    is_limited = Column(Boolean, nullable=False, default=False)  # 是否限量
+
+    # 多媒体资源
+    image_url = Column(String(500), nullable=True)
+    image_urls = Column(JSON, nullable=True)  # 多图片支持
+    icon = Column(String(200), nullable=True)  # 图标
+
+    # 公司隔离
+    company_id = Column(Integer, ForeignKey('companies.id'), nullable=True, index=True)  # null表示全局商品
+
+    # 统计信息
+    view_count = Column(Integer, nullable=False, default=0)
+    purchase_count = Column(Integer, nullable=False, default=0)
+    like_count = Column(Integer, nullable=False, default=0)
+
+    # 排序和展示
+    sort_order = Column(Integer, nullable=False, default=0, index=True)
+
+    # 时间戳
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(microsecond=0))
+    updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(microsecond=0),
+                       onupdate=lambda: datetime.now(timezone.utc).replace(microsecond=0))
+
+    # 软删除
+    deleted_at = Column(DateTime, nullable=True)
+
     # 关联关系
-    redemptions = relationship('Redemption', back_populates='reward')
-    
-    def __init__(self, id, name, description, cost, icon=None, available=True):
-        """
-        Initialize a new Reward.
-        """
-        self.id = id
-        self.name = name
-        self.description = description
-        self.cost = cost
-        self.icon = icon
-        self.available = available
-        
-    def to_dict(self):
-        """
-        Convert the reward object to a dictionary.
-        
+    purchases = relationship('PointPurchase', foreign_keys='PointPurchase.item_id',
+                           primaryjoin='MallItem.id == PointPurchase.item_id')
+
+    # 复合索引优化查询性能
+    __table_args__ = (
+        Index('idx_mall_items_company_category', 'company_id', 'category'),
+        Index('idx_mall_items_available_stock', 'is_available', 'stock'),
+        Index('idx_mall_items_featured_sort', 'is_featured', 'sort_order'),
+    )
+
+    @hybrid_property
+    def points_cost_display(self) -> float:
+        """返回前端展示格式的积分成本"""
+        from app.services.point_service import PointConverter
+        return PointConverter.to_display(self.points_cost)
+
+    @hybrid_property
+    def is_in_stock(self) -> bool:
+        """检查是否有库存"""
+        return self.stock > 0
+
+    @hybrid_property
+    def is_low_stock(self) -> bool:
+        """检查是否库存不足"""
+        return self.stock <= self.low_stock_threshold
+
+    @hybrid_property
+    def stock_status(self) -> str:
+        """获取库存状态"""
+        if self.stock <= 0:
+            return "out_of_stock"
+        elif self.stock <= self.low_stock_threshold:
+            return "low_stock"
+        else:
+            return "in_stock"
+
+    def to_dict(self) -> dict:
+        """转换为字典格式，用于API响应
+
         Returns:
-            dict: Dictionary representation of the reward
+            dict: 商品信息字典
+
         """
         return {
             "id": self.id,
             "name": self.name,
             "description": self.description,
-            "cost": self.cost,
-            "icon": self.icon,
-            "available": self.available,
+            "shortDescription": self.short_description,
+            "pointsCost": self.points_cost_display,  # 前端展示格式
+            "originalPrice": self.original_price,
             "category": self.category,
-            "likes": self.likes or 0,
+            "subcategory": self.subcategory,
+            "tags": self.tags or [],
+            "stock": self.stock,
+            "initialStock": self.initial_stock,
+            "lowStockThreshold": self.low_stock_threshold,
+            "isAvailable": self.is_available and self.is_in_stock,
+            "isFeatured": self.is_featured,
+            "isLimited": self.is_limited,
+            "imageUrl": self.image_url,
+            "imageUrls": self.image_urls or [],
+            "icon": self.icon,
+            "companyId": self.company_id,
+            "viewCount": self.view_count,
+            "purchaseCount": self.purchase_count,
+            "likeCount": self.like_count,
+            "sortOrder": self.sort_order,
+            "stockStatus": self.stock_status,
+            "isInStock": self.is_in_stock,
+            "isLowStock": self.is_low_stock,
+            "createdAt": self.created_at.isoformat() if self.created_at else None,
+            "updatedAt": self.updated_at.isoformat() if self.updated_at else None
+        }
+
+    def to_api_response(self) -> dict:
+        """转换为API响应格式（兼容现有前端）
+
+        Returns:
+            dict: API响应格式
+
+        """
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "points_cost": self.points_cost_display,
+            "category": self.category,
+            "image": self.image_url or "/images/default-product.png",
+            "stock": self.stock,
+            "is_available": self.is_available and self.is_in_stock,
+            "tags": self.tags or []
+        }
+
+
+class MallCategory(Base):
+    """商城分类模型 - 支持层级分类管理
+    """
+
+    __tablename__ = 'mall_categories'
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String(100), nullable=False)
+    description = Column(Text, nullable=True)
+    icon = Column(String(200), nullable=True)
+    parent_id = Column(String(36), ForeignKey('mall_categories.id'), nullable=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    company_id = Column(Integer, ForeignKey('companies.id'), nullable=True)  # null表示全局分类
+
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(microsecond=0))
+    updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(microsecond=0),
+                       onupdate=lambda: datetime.now(timezone.utc).replace(microsecond=0))
+
+    # 自关联关系
+    children = relationship('MallCategory', backref='parent', remote_side=[id])
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "icon": self.icon,
+            "parentId": self.parent_id,
+            "sortOrder": self.sort_order,
+            "isActive": self.is_active,
+            "companyId": self.company_id,
             "createdAt": self.created_at.isoformat() if self.created_at else None,
             "updatedAt": self.updated_at.isoformat() if self.updated_at else None
         }
 
 
-class Redemption(Base):
-    """Redemption model representing a reward redemption in the system."""
-    __tablename__ = 'redemptions'
-    
-    id = Column(String(36), primary_key=True)
-    user_id = Column(String(36), ForeignKey('users.id'), nullable=False)
-    reward_id = Column(String(36), ForeignKey('rewards.id'), nullable=False)
-    timestamp = Column(DateTime, default=datetime.utcnow)
-    status = Column(String(20), default='pending')
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    reward = relationship('Reward', back_populates='redemptions')
-    
-    def __init__(self, id, user_id, reward_id, timestamp=None, status="pending"):
-        """
-        Initialize a new Redemption.
-        """
-        self.id = id
-        self.user_id = user_id
-        self.reward_id = reward_id
-        
-        # 处理日期字段
-        if isinstance(timestamp, str):
-            try:
-                self.timestamp = datetime.fromisoformat(timestamp)
-            except ValueError:
-                self.timestamp = datetime.utcnow()
-        elif timestamp is None:
-            self.timestamp = datetime.utcnow()
-        else:
-            self.timestamp = timestamp
-            
-        self.status = status
-        
-    def to_dict(self):
-        """
-        Convert the redemption object to a dictionary.
-        
-        Returns:
-            dict: Dictionary representation of the redemption
-        """
-        return {
-            "id": self.id,
-            "user_id": self.user_id,
-            "reward_id": self.reward_id,
-            "timestamp": self.timestamp.isoformat() if isinstance(self.timestamp, datetime) else self.timestamp,
-            "status": self.status,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None
-        }
+
 
 

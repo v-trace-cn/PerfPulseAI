@@ -1,26 +1,25 @@
-"""
-Activity Service - 活动管理服务
-提供活动的CRUD操作和业务逻辑
+"""Activity Service - 活动管理服务
+提供活动的CRUD操作和业务逻辑.
 """
 
+import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any
+from typing import Any, Optional
+
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete, and_, or_, desc
-from sqlalchemy.orm import selectinload
-import logging
 
 # 简化导入，避免循环依赖
 logger = logging.getLogger(__name__)
 
 
 class ActivityService:
-    """活动服务类 - 简化版本"""
+    """活动服务类 - 简化版本."""
 
     def __init__(self, db: AsyncSession):
         self.db = db
-    
+
     async def create_activity(
         self,
         title: str,
@@ -31,7 +30,7 @@ class ActivityService:
         activity_type: str = "individual",
         status: str = "pending"
     ):
-        """创建新活动"""
+        """创建新活动."""
         try:
             from app.models.activity import Activity
 
@@ -59,9 +58,9 @@ class ActivityService:
             logger.error(f"Error creating activity: {e}")
             await self.db.rollback()
             raise
-    
+
     async def get_by_show_id(self, show_id: str):
-        """根据show_id获取活动"""
+        """根据show_id获取活动."""
         try:
             from app.models.activity import Activity
             from sqlalchemy.orm import joinedload
@@ -75,13 +74,13 @@ class ActivityService:
         except Exception as e:
             logger.error(f"Error getting activity by show_id {show_id}: {e}")
             return None
-    
+
     async def update_activity(
         self,
         activity_id: str,
-        update_data: Dict[str, Any]
+        update_data: dict[str, Any]
     ):
-        """更新活动信息"""
+        """更新活动信息."""
         try:
             from app.models.activity import Activity
 
@@ -105,9 +104,9 @@ class ActivityService:
             logger.error(f"Error updating activity {activity_id}: {e}")
             await self.db.rollback()
             raise
-    
+
     async def get_by_id(self, activity_id: str):
-        """根据ID获取活动"""
+        """根据ID获取活动."""
         try:
             from app.models.activity import Activity
             from sqlalchemy.orm import joinedload
@@ -123,7 +122,7 @@ class ActivityService:
             return None
 
     async def delete(self, activity_id: str) -> bool:
-        """删除活动"""
+        """删除活动."""
         try:
             from app.models.activity import Activity
 
@@ -142,11 +141,12 @@ class ActivityService:
             await self.db.rollback()
             return False
 
-    async def reset_activity_points(self, activity_id: str) -> Dict[str, Any]:
-        """重置活动积分并回退用户积分
+    async def reset_activity_points(self, activity_id: str) -> dict[str, Any]:
+        """重置活动积分并回退用户积分.
 
         Args:
             activity_id: 可以是activity.id或activity.show_id
+
         """
         try:
             # 先尝试通过show_id获取活动，如果失败再尝试通过id获取
@@ -164,8 +164,8 @@ class ActivityService:
             reverted_transaction = None
             if old_points > 0 and activity.user_id:
                 try:
-                    from app.services.point_service import PointService
                     from app.models.scoring import TransactionType
+                    from app.services.point_service import PointService
 
                     point_service = PointService(self.db)
 
@@ -230,9 +230,9 @@ class ActivityService:
         activity_id: str,
         points: int,
         description: Optional[str] = None,
-        extra_data: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
-        """为活动授予积分（集成积分系统）"""
+        extra_data: Optional[dict[str, Any]] = None
+    ) -> dict[str, Any]:
+        """为活动授予积分（集成积分系统）."""
         try:
             # 获取活动信息
             activity = await self.get_by_id(activity_id)
@@ -294,8 +294,8 @@ class ActivityService:
             logger.error(f"Error awarding points for activity {activity_id}: {e}")
             raise
 
-    async def get_activity_points_status(self, activity_id: str) -> Dict[str, Any]:
-        """获取活动的积分状态"""
+    async def get_activity_points_status(self, activity_id: str) -> dict[str, Any]:
+        """获取活动的积分状态."""
         try:
             activity = await self.get_by_id(activity_id)
             if not activity:
@@ -304,8 +304,8 @@ class ActivityService:
             # 检查是否有相关的积分交易记录
             points_transaction = None
             if activity.user_id and activity.show_id:
-                from app.services.point_service import PointService
                 from app.models.scoring import TransactionType
+                from app.services.point_service import PointService
 
                 point_service = PointService(self.db)
                 # 按公司维度检查是否有积分交易

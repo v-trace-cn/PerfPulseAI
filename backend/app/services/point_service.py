@@ -1,47 +1,46 @@
-"""
-积分服务层 - 处理所有积分相关的业务逻辑
-"""
+"""积分服务层 - 处理所有积分相关的业务逻辑."""
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Optional, List, Dict, Any, Tuple, Union
-from decimal import Decimal
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, desc, case, delete
-from sqlalchemy.orm import joinedload
-import logging
-
 from functools import wraps
+from typing import Any, Optional, Union
 
 from app.models.scoring import (
-    PointTransaction, PointDispute, UserLevel, PointPurchase,
-    TransactionType, DisputeStatus, PurchaseStatus
+    PointPurchase,
+    PointTransaction,
+    PurchaseStatus,
+    TransactionType,
+    UserLevel,
 )
 from app.models.user import User
+from sqlalchemy import and_, case, delete, desc, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 
 class PointConverter:
-    """积分转换工具类 - 处理积分的放大和缩小"""
+    """积分转换工具类 - 处理积分的放大和缩小."""
 
     # 积分放大倍数：后端存储时放大10倍，前端正常展示
     SCALE_FACTOR = 10
 
     @classmethod
     def to_storage(cls, display_points: Union[int, float]) -> int:
-        """将前端展示的积分转换为后端存储的积分（放大10倍）"""
+        """将前端展示的积分转换为后端存储的积分（放大10倍）."""
         if display_points is None:
             return 0
         return int(float(display_points) * cls.SCALE_FACTOR)
 
     @classmethod
     def to_display(cls, storage_points: Union[int, float]) -> float:
-        """将后端存储的积分转换为前端展示的积分"""
+        """将后端存储的积分转换为前端展示的积分."""
         if storage_points is None:
             return 0.0
         return float(storage_points) / cls.SCALE_FACTOR
 
     @classmethod
     def format_for_api(cls, storage_points: Union[int, float]) -> float:
-        """格式化积分用于API返回（保留1位小数）"""
+        """格式化积分用于API返回（保留1位小数）."""
         display_points = cls.to_display(storage_points)
         return round(display_points, 1)
 
@@ -55,7 +54,7 @@ CACHE_EXPIRE_SECONDS = 300  # 5分钟缓存过期
 
 
 def cache_user_balance(func):
-    """用户积分余额缓存装饰器"""
+    """用户积分余额缓存装饰器."""
     @wraps(func)
     async def wrapper(self, user_id: int, *args, **kwargs):
         cache_key = f"balance_{user_id}"
@@ -79,21 +78,21 @@ def cache_user_balance(func):
 
 
 def invalidate_user_balance_cache(user_id: int):
-    """清除用户积分余额缓存"""
+    """清除用户积分余额缓存."""
     cache_key = f"balance_{user_id}"
     _balance_cache.pop(cache_key, None)
     _cache_ttl.pop(cache_key, None)
 
 
 class PointService:
-    """积分服务类"""
+    """积分服务类."""
 
     def __init__(self, db: AsyncSession):
         self.db = db
 
     @cache_user_balance
     async def get_user_balance(self, user_id: int) -> int:
-        """获取用户当前积分余额（后端存储格式，放大10倍）"""
+        """获取用户当前积分余额（后端存储格式，放大10倍）."""
         # 优先从用户表获取，作为缓存
         user_result = await self.db.execute(
             select(User.points).filter(User.id == user_id)
@@ -107,22 +106,22 @@ class PointService:
         return await self.calculate_user_balance(user_id)
 
     async def get_user_balance_for_display(self, user_id: int) -> float:
-        """获取用户当前积分余额（前端展示格式，缩小10倍）"""
+        """获取用户当前积分余额（前端展示格式，缩小10倍）."""
         storage_balance = await self.get_user_balance(user_id)
         return PointConverter.format_for_api(storage_balance)
     async def get_user_balance_by_company(self, user_id: int, company_id: int) -> int:
-        """按公司维度获取用户积分余额（后端存储格式），不使用全局缓存。"""
+        """按公司维度获取用户积分余额（后端存储格式），不使用全局缓存。."""
         return await self.calculate_user_balance(user_id, company_id)
 
     async def get_user_balance_for_display_by_company(self, user_id: int, company_id: int) -> float:
-        """按公司维度获取用户积分余额（前端展示格式），不使用全局缓存。"""
+        """按公司维度获取用户积分余额（前端展示格式），不使用全局缓存。."""
         storage = await self.calculate_user_balance(user_id, company_id)
         return PointConverter.format_for_api(storage)
 
 
     async def calculate_user_balance(self, user_id: int, company_id: Optional[int] = None) -> int:
         """通过交易记录计算用户积分余额（后端存储格式）
-        当提供 company_id 时，按公司维度计算余额；否则为全量。
+        当提供 company_id 时，按公司维度计算余额；否则为全量。.
         """
         query = select(func.sum(PointTransaction.amount)).filter(PointTransaction.user_id == user_id)
         if company_id is not None:
@@ -131,8 +130,8 @@ class PointService:
         balance = result.scalar()
         return int(balance) if balance is not None else 0
 
-    async def verify_user_balance_consistency(self, user_id: int) -> Tuple[bool, int, int]:
-        """验证用户积分一致性"""
+    async def verify_user_balance_consistency(self, user_id: int) -> tuple[bool, int, int]:
+        """验证用户积分一致性."""
         user_balance = await self.get_user_balance(user_id)
         calculated_balance = await self.calculate_user_balance(user_id)
         is_consistent = user_balance == calculated_balance
@@ -145,18 +144,19 @@ class PointService:
         reference_id: Optional[str] = None,
         reference_type: Optional[str] = None,
         description: Optional[str] = None,
-        extra_data: Optional[Dict[str, Any]] = None,
+        extra_data: Optional[dict[str, Any]] = None,
         company_id: int = None,
         dispute_deadline_days: int = 90,
         is_display_amount: bool = True
     ) -> PointTransaction:
-        """用户获得积分（可选公司维度）
+        """用户获得积分（可选公司维度）.
 
         Args:
             user_id: 用户ID
             amount: 积分数量
             is_display_amount: 如果为True，表示amount是前端展示格式（需要放大10倍存储）
                               如果为False，表示amount已经是后端存储格式（不需要转换）
+
         """
         if amount <= 0:
             raise ValueError("积分数量必须大于0")
@@ -217,17 +217,18 @@ class PointService:
         reference_id: Optional[str] = None,
         reference_type: Optional[str] = None,
         description: Optional[str] = None,
-        extra_data: Optional[Dict[str, Any]] = None,
+        extra_data: Optional[dict[str, Any]] = None,
         company_id: int = None,
         is_display_amount: bool = True
     ) -> PointTransaction:
-        """用户消费积分（可选公司维度）
+        """用户消费积分（可选公司维度）.
 
         Args:
             user_id: 用户ID
             amount: 积分数量
             is_display_amount: 如果为True，表示amount是前端展示格式（需要放大10倍存储）
                               如果为False，表示amount已经是后端存储格式（不需要转换）
+
         """
         if amount <= 0:
             raise ValueError("积分数量必须大于0")
@@ -282,16 +283,17 @@ class PointService:
         reference_id: Optional[str] = None,
         reference_type: Optional[str] = None,
         description: Optional[str] = None,
-        extra_data: Optional[Dict[str, Any]] = None,
+        extra_data: Optional[dict[str, Any]] = None,
         company_id: int = None,
         is_display_amount: bool = True
     ) -> PointTransaction:
-        """积分调整（支持AI重新评分等场景）
+        """积分调整（支持AI重新评分等场景）.
 
         Args:
             user_id: 用户ID
             amount: 调整积分数量（可以是正数或负数）
             is_display_amount: 如果为True，表示amount是前端展示格式
+
         """
         if amount == 0:
             raise ValueError("调整积分数量不能为0")
@@ -347,8 +349,8 @@ class PointService:
         offset: int = 0,
         transaction_type: Optional[TransactionType] = None,
         include_disputes: bool = False
-    ) -> Tuple[List[PointTransaction], int]:
-        """获取用户积分交易记录（优化版，返回总数）"""
+    ) -> tuple[list[PointTransaction], int]:
+        """获取用户积分交易记录（优化版，返回总数）."""
         # 构建基础查询
         base_query = select(PointTransaction).filter(PointTransaction.user_id == user_id)
 
@@ -374,8 +376,8 @@ class PointService:
 
         return transactions, total_count
 
-    async def get_user_transactions_summary(self, user_id: int) -> Dict[str, Any]:
-        """获取用户交易摘要（性能优化版）"""
+    async def get_user_transactions_summary(self, user_id: int) -> dict[str, Any]:
+        """获取用户交易摘要（性能优化版）."""
         # 使用单个查询获取所有统计信息
         result = await self.db.execute(
             select(
@@ -396,8 +398,8 @@ class PointService:
             "lastTransactionDate": stats.last_transaction_date.isoformat() if stats.last_transaction_date else None
         }
 
-    async def get_user_monthly_stats(self, user_id: int) -> Dict[str, Any]:
-        """获取用户本月积分统计"""
+    async def get_user_monthly_stats(self, user_id: int) -> dict[str, Any]:
+        """获取用户本月积分统计."""
         from datetime import datetime, timezone
 
         # 获取本月开始时间
@@ -428,8 +430,8 @@ class PointService:
             "monthStart": month_start.isoformat()
         }
 
-    async def get_user_redemption_stats(self, user_id: int) -> Dict[str, Any]:
-        """获取用户兑换统计"""
+    async def get_user_redemption_stats(self, user_id: int) -> dict[str, Any]:
+        """获取用户兑换统计."""
         from datetime import datetime, timezone
 
         # 获取本月开始时间
@@ -470,9 +472,9 @@ class PointService:
             "monthStart": month_start.isoformat()
         }
 
-    async def get_user_weekly_stats(self, user_id: int) -> Dict[str, Any]:
-        """获取用户本周积分统计"""
-        from datetime import datetime, timezone, timedelta
+    async def get_user_weekly_stats(self, user_id: int) -> dict[str, Any]:
+        """获取用户本周积分统计."""
+        from datetime import datetime, timedelta, timezone
 
         # 获取本周开始时间（周一）
         now = datetime.now(timezone.utc)
@@ -503,8 +505,8 @@ class PointService:
             "weekStart": week_start.isoformat()
         }
 
-    async def get_user_statistics(self, user_id: int, company_id: int) -> Dict[str, Any]:
-        """获取用户积分统计信息（返回前端展示格式）"""
+    async def get_user_statistics(self, user_id: int, company_id: int) -> dict[str, Any]:
+        """获取用户积分统计信息（返回前端展示格式）."""
         try:
             # 获取当前余额（后端存储格式）——公司维度强制
             current_balance_storage = await self.calculate_user_balance(user_id, company_id)
@@ -567,7 +569,7 @@ class PointService:
             }
 
     async def _update_user_points(self, user_id: int, new_balance: int):
-        """更新用户积分"""
+        """更新用户积分."""
         result = await self.db.execute(select(User).filter(User.id == user_id))
         user = result.scalars().first()
         if user:
@@ -576,7 +578,7 @@ class PointService:
             invalidate_user_balance_cache(user_id)
 
     async def _check_level_upgrade(self, user_id: int, points: int):
-        """检查并更新用户等级"""
+        """检查并更新用户等级."""
         # 使用等级服务来处理等级升级
         from app.services.level_service import LevelService
         level_service = LevelService(self.db)
@@ -589,13 +591,13 @@ class PointService:
             await self._notify_level_change(user_id, old_level, new_level)
 
     async def _notify_level_change(self, user_id: int, old_level: Optional[UserLevel], new_level: Optional[UserLevel]):
-        """通知用户等级变化"""
+        """通知用户等级变化."""
         # TODO: 实现等级变化通知逻辑
         # 可以发送邮件、站内消息等
         pass
 
-    async def get_unified_user_data(self, user_id: int) -> Dict[str, Any]:
-        """统一获取用户积分相关的所有数据（单一数据源）"""
+    async def get_unified_user_data(self, user_id: int) -> dict[str, Any]:
+        """统一获取用户积分相关的所有数据（单一数据源）."""
         try:
             # 获取基础积分统计
             stats = await self.get_user_statistics(user_id)
@@ -638,8 +640,8 @@ class PointService:
                 "error": str(e)
             }
 
-    async def check_consistency(self, user_id: int) -> Dict[str, Any]:
-        """检查用户积分一致性"""
+    async def check_consistency(self, user_id: int) -> dict[str, Any]:
+        """检查用户积分一致性."""
         current_balance = await self.get_user_balance(user_id)
         calculated_balance = await self.calculate_user_balance(user_id)
 
@@ -661,8 +663,8 @@ class PointService:
             }
         }
 
-    async def validate_and_fix_user_data(self, user_id: int, auto_fix: bool = False) -> Dict[str, Any]:
-        """验证并修复用户积分数据"""
+    async def validate_and_fix_user_data(self, user_id: int, auto_fix: bool = False) -> dict[str, Any]:
+        """验证并修复用户积分数据."""
         validation_result = {
             "user_id": user_id,
             "issues": [],
@@ -715,8 +717,8 @@ class PointService:
 
         return validation_result
 
-    async def _validate_transaction_integrity(self, user_id: int) -> List[Dict[str, Any]]:
-        """验证交易记录的完整性"""
+    async def _validate_transaction_integrity(self, user_id: int) -> list[dict[str, Any]]:
+        """验证交易记录的完整性."""
         issues = []
 
         # 检查交易记录的余额字段是否正确
@@ -746,7 +748,7 @@ class PointService:
 
     async def replay_company_running_balance(self, user_id: int, company_id: int) -> None:
         """按公司维度回放并更新该用户所有交易的 balance_after（后端存储格式）。
-        以 created_at、id 的稳定顺序重算余额，确保账实一致。
+        以 created_at、id 的稳定顺序重算余额，确保账实一致。.
         """
         result = await self.db.execute(
             select(PointTransaction)
@@ -767,13 +769,13 @@ class PointService:
         new_points_display: float,
     ) -> PointTransaction:
         """将活动对应的首条 EARN 交易金额更新为新值（展示格式），并回放公司维度余额。
-        更新后会同时刷新用户全量缓存积分（users.points）。
+        更新后会同时刷新用户全量缓存积分（users.points）。.
         """
         # 定位活动 EARN 交易（按公司维度，兼容 reference_id 可能为 show_id 或 Activity.id）
         candidate_refs = {reference_id}
         try:
-            from sqlalchemy import or_
             from app.models.activity import Activity
+            from sqlalchemy import or_
             act_res = await self.db.execute(
                 select(Activity.id, Activity.show_id).filter(
                     or_(Activity.show_id == reference_id, Activity.id == reference_id)
@@ -832,8 +834,8 @@ class PointService:
         await self.db.refresh(txn)
         return txn
 
-    async def _validate_level_consistency(self, user_id: int) -> List[Dict[str, Any]]:
-        """验证等级一致性"""
+    async def _validate_level_consistency(self, user_id: int) -> list[dict[str, Any]]:
+        """验证等级一致性."""
         issues = []
 
         try:
@@ -872,8 +874,8 @@ class PointService:
 
         return issues
 
-    async def _validate_redemption_consistency(self, user_id: int) -> List[Dict[str, Any]]:
-        """验证兑换记录一致性"""
+    async def _validate_redemption_consistency(self, user_id: int) -> list[dict[str, Any]]:
+        """验证兑换记录一致性."""
         issues = []
 
         # 检查兑换记录是否有对应的积分交易记录
@@ -903,8 +905,8 @@ class PointService:
 
         return issues
 
-    async def validate_all_users_data(self, auto_fix: bool = False, limit: int = 100) -> Dict[str, Any]:
-        """批量验证所有用户的积分数据"""
+    async def validate_all_users_data(self, auto_fix: bool = False, limit: int = 100) -> dict[str, Any]:
+        """批量验证所有用户的积分数据."""
         # 获取所有用户
         result = await self.db.execute(
             select(User.id).limit(limit)
@@ -944,8 +946,8 @@ class PointService:
 
         return validation_results
 
-    async def get_system_health_report(self) -> Dict[str, Any]:
-        """获取积分系统健康报告"""
+    async def get_system_health_report(self) -> dict[str, Any]:
+        """获取积分系统健康报告."""
         try:
             # 基础统计
             user_count_result = await self.db.execute(select(func.count(User.id)))
@@ -1033,7 +1035,7 @@ class PointService:
         transaction_type: TransactionType,
         company_id: int
     ) -> Optional[PointTransaction]:
-        """检查重复交易（按公司维度）"""
+        """检查重复交易（按公司维度）."""
         query = select(PointTransaction).filter(
             PointTransaction.user_id == user_id,
             PointTransaction.reference_id == reference_id,
@@ -1051,14 +1053,15 @@ class PointService:
         item_name: str,
         item_description: str,
         points_cost: Union[int, float],
-        delivery_info: Optional[Dict] = None,
+        delivery_info: Optional[dict] = None,
         redemption_code: Optional[str] = None,
         company_id: Optional[int] = None
     ) -> PointPurchase:
-        """创建购买记录
+        """创建购买记录.
 
         Args:
             points_cost: 前端展示格式的积分成本
+
         """
         transaction = None
 

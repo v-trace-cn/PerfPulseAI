@@ -26,8 +26,9 @@ import {
 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
-import { unifiedApi } from "@/lib/unified-api"
-import { useAuth } from "@/lib/auth-context-rq"
+// 迁移到新的纯 React Query 实现
+import { useDepartment, useDepartmentMembers } from "@/lib/queries"
+import { useAuth } from "@/lib/auth-context"
 import NotFoundPage from "@/components/common/NotFoundPage"
 
 
@@ -83,7 +84,7 @@ function DepartmentDetailsViewContent() {
       if (!departmentId || !user?.id) {
         return [];
       }
-      const response = await unifiedApi.department.getMembers(parseInt(departmentId), user.id.toString());
+      const response = await fetch(`/api/departments/${departmentId}/members?userId=${user.id}`).then(res => res.json());
       return response.data || [];
     },
     enabled: !!departmentId && !!user?.id && isValidToken === true,

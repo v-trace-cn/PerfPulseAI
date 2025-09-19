@@ -123,44 +123,6 @@ export default function MallManagement() {
   const deleteMutation = useDeleteMallItem()
   const updateStockMutation = useUpdateStock()
 
-  // 处理商品状态切换
-  const handleToggleProductStatus = (productId: string, newStatus: boolean) => {
-    // 添加触觉反馈（如果支持）
-    if (navigator.vibrate) {
-      navigator.vibrate(50)
-    }
-
-    // 添加状态变化动画
-    const statusElement = document.getElementById(`status-${productId}`)?.parentElement
-    if (statusElement) {
-      statusElement.classList.add('status-change-animation')
-      setTimeout(() => {
-        statusElement.classList.remove('status-change-animation')
-      }, 300)
-    }
-
-    updateMutation.mutate({
-      itemId: productId,
-      data: { is_available: newStatus }
-    }, {
-      onSuccess: () => {
-        toast({
-          title: "状态更新成功",
-          description: `商品已${newStatus ? '上架' : '下架'}`,
-          className: "animate-in slide-in-from-top-2 duration-300"
-        })
-      },
-      onError: (error: any) => {
-        toast({
-          title: "状态更新失败",
-          description: error.message || "请稍后重试",
-          variant: "destructive",
-          className: "animate-in slide-in-from-top-2 duration-300"
-        })
-      }
-    })
-  }
-
   // 处理创建商品
   const handleCreateProduct = () => {
     if (!newProduct.name || !newProduct.category || newProduct.points_cost <= 0) {
@@ -460,7 +422,7 @@ export default function MallManagement() {
                             </TableCell>
                             <TableCell className="font-medium">{product.name}</TableCell>
                             <TableCell>{product.category}</TableCell>
-                            <TableCell>{(product.points_cost || 0).toLocaleString()} 积分</TableCell>
+                            <TableCell>{product.points.toLocaleString()} 积分</TableCell>
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 {product.stock}
@@ -468,53 +430,13 @@ export default function MallManagement() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center space-x-3 group">
-                                <div className="relative">
-                                  <Switch
-                                    id={`status-${product.id}`}
-                                    checked={product.is_available}
-                                    onCheckedChange={(checked) => handleToggleProductStatus(product.id, checked)}
-                                    disabled={updateMutation.isPending}
-                                    className="switch-enhanced transition-all duration-300 ease-in-out group-hover:shadow-md"
-                                  />
-                                  {updateMutation.isPending && (
-                                    <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-full">
-                                      <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full switch-spinner"></div>
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="flex flex-col transition-all duration-200 ease-in-out">
-                                  <div className="flex items-center space-x-2">
-                                    <Label
-                                      htmlFor={`status-${product.id}`}
-                                      className={`text-sm font-medium cursor-pointer transition-all duration-200 ease-in-out ${
-                                        product.is_available
-                                          ? 'text-green-700 hover:text-green-800'
-                                          : 'text-gray-600 hover:text-gray-700'
-                                      }`}
-                                    >
-                                      {product.is_available ? '已上架' : '已下架'}
-                                    </Label>
-                                    <Badge
-                                      variant={product.is_available ? "default" : "secondary"}
-                                      className={`text-xs transition-all duration-300 ease-in-out transform hover:scale-105 ${
-                                        product.is_available
-                                          ? 'bg-green-100 text-green-800 border-green-200'
-                                          : 'bg-gray-100 text-gray-600 border-gray-200'
-                                      }`}
-                                    >
-                                      {product.is_available ? '在售' : '停售'}
-                                    </Badge>
-                                  </div>
-                                  <span className={`text-xs transition-all duration-200 ease-in-out ${
-                                    updateMutation.isPending
-                                      ? 'text-blue-600 animate-pulse'
-                                      : 'text-muted-foreground group-hover:text-gray-600'
-                                  }`}>
-                                    {updateMutation.isPending ? '更新中...' : '点击切换状态'}
-                                  </span>
-                                </div>
-                              </div>
+                              {/* <Badge variant={product.is_available ? "default" : "secondary"}>
+                                {product.is_available ? "上架" : "下架"}
+                              </Badge> */}
+                              <div className="flex items-center space-x-2">
+                              <Switch id="quick-status" defaultChecked />
+                              <Label htmlFor="quick-status">商品状态（上架/下架）</Label>
+                             </div>
                             </TableCell>
                             <TableCell className="text-sm text-gray-500">{product.lastUpdated}</TableCell>
                             <TableCell>

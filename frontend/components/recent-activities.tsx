@@ -4,10 +4,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { CheckCircle2, Code, FileText, GitCommit, MessageSquare } from "lucide-react"
 import Link from "next/link"
 import { useState, memo } from "react"
-import { useAuth } from "@/lib/auth-context-rq"
 import { getRelativeDate, cn } from "@/lib/utils"
-import { unifiedApi } from "@/lib/unified-api"
-import { useQuery } from "@tanstack/react-query"
+import { useRecentActivities, type Activity } from "@/lib/queries"
 import {
   Tooltip,
   TooltipContent,
@@ -16,23 +14,7 @@ import {
 } from "@/components/ui/tooltip"
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 
-interface Activity {
-  id: string;
-  show_id: string;
-  title: string;
-  description: string;
-  points: number;
-  user_id: string;
-  status: string;
-  created_at: string;
-  completed_at: string | null;
-  user: {
-    name: string;
-    avatar: string;
-    initials: string;
-  };
-  type: string;
-}
+// Activity interface is now imported from queries
 
 const getActivityIcon = (type: string) => {
   switch (type) {
@@ -53,16 +35,8 @@ export const RecentActivities = memo(() => {
   const [currentPage, setCurrentPage] = useState(1);
   const perPage = 10; // 每页显示数量
 
-  const { user } = useAuth();
-
-  // 使用 React Query 来管理 API 调用
-  const { data: fetchedData, isLoading: apiLoading, error: apiError } = useQuery({
-    queryKey: ['recentActivities', user?.id, currentPage, perPage],
-    queryFn: () => unifiedApi.activity.getRecentActivities(user!.id, currentPage, perPage),
-    enabled: !!user?.id,
-    staleTime: 30000, // 30秒缓存
-    refetchOnWindowFocus: false, // 避免窗口聚焦时重复请求
-  });
+  // 使用新的纯 React Query 实现
+  const { data: fetchedData, isLoading: apiLoading, error: apiError } = useRecentActivities(currentPage, perPage);
 
   // 处理数据映射
   const activities: Activity[] = fetchedData?.success && fetchedData.data?.activities
@@ -94,8 +68,7 @@ export const RecentActivities = memo(() => {
   }
 
   if (apiError) {
-    const errorMessage = apiError instanceof Error ? apiError.message : String(apiError);
-    return <div className="text-center text-destructive">错误: {errorMessage}</div>;
+    return <div className="text-center text-destructive">错误: {apiError instanceof Error ? apiError.message : String(apiError)}</div>;
   }
 
   if (!fetchedData || !fetchedData.success || !fetchedData.data || !fetchedData.data.activities || fetchedData.data.activities.length === 0) {

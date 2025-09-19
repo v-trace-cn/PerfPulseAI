@@ -4,7 +4,6 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useToast } from '@/components/ui/use-toast'
-import { api } from '@/lib/api-client'
 import { User } from '@/lib/types'
 
 // ==================== 类型定义 ====================

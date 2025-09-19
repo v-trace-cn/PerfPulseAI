@@ -66,7 +66,7 @@ export default function ActivityDetailPage() {
 
   const { data: userProfileData, isLoading: profileLoading, error: profileError } = useQuery({
     queryKey: ['userProfile', activity?.userId],
-    queryFn: () => unifiedApi.user.getProfile(String(activity?.userId)),
+    queryFn: () => fetch(`/api/users/${activity?.userId}`).then(res => res.json()),
     enabled: !!activity?.userId,
     staleTime: 5 * 60 * 1000,
   });

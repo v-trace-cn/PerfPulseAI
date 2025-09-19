@@ -11,11 +11,11 @@ import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context-rq"
 import { cn } from "@/lib/utils"
-import { unifiedApi } from "@/lib/unified-api"
 import { User } from "@/lib/types"
 import { GovernanceCard, WeeklyGoalsCard, PointsCard, ComplianceCard } from "@/components/ui/metric-card"
 import { useToast } from "@/components/ui/use-toast"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQueryClient } from "@tanstack/react-query"
+import { useDashboardData, useCurrentCompanyDepartments } from "@/lib/queries"
 
 // 积分相关类型定义 - 移动到 @/lib/types/points
 import { formatPoints } from '@/lib/types/points';
@@ -58,16 +58,8 @@ export default function Dashboard() {
   const [selectedDepartment, setSelectedDepartment] = useState<string | undefined>(undefined)
   const [achievements] = useState<any[]>([]) // Placeholder for achievements
 
-  // 使用 useQuery 获取部门列表 - 只有在用户有公司ID时才执行
-  const { data: departmentsData, isLoading: isLoadingDepartments } = useQuery({
-    queryKey: ["departments", user?.companyId],
-    queryFn: async () => {
-      const res = await unifiedApi.department.getAll(user?.id?.toString());
-      if (!res.success) throw new Error(res.message);
-      return res.data;
-    },
-    enabled: !!user?.companyId && !!user?.id,
-  });
+  // 使用新的纯 React Query 实现获取部门列表
+  const { data: departmentsData, isLoading: isLoadingDepartments } = useCurrentCompanyDepartments();
   const departments = Array.isArray(departmentsData) ? departmentsData : [];
 
   // Activity API removed - now handled by RecentActivities component
@@ -101,7 +93,11 @@ export default function Dashboard() {
       };
 
       if (user && user.id) {
-        const result = await unifiedApi.user.updateUserInfo(user.id, updatedInfo);
+        const result = await fetch(`/api/users/${user.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedInfo)
+        }).then(res => res.json());
 
         if (result.success) {
           toast({

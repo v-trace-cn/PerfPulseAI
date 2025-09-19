@@ -35,7 +35,8 @@ import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context-rq"
 import { useCanViewAdminMenus } from "@/hooks"
-import unifiedApi from "@/lib/unified-api"
+// 迁移到新的纯 React Query 实现
+import { usePointsOverview, usePointsTransactions } from "@/lib/queries"
 
 
 // 积分商品数据
@@ -297,11 +298,11 @@ export default function RedemptionPage() {
 	    const loadHrContact = async () => {
 	      if (!user?.id) return;
 	      try {
-	        const deptRes = await unifiedApi.department.getAll(String(user.id), (user as any)?.companyId)
+	        const deptRes = await fetch(`/api/departments?userId=${user.id}&companyId=${(user as any)?.companyId}`).then(res => res.json())
 	        const depts = (deptRes as any)?.data || []
 	        const hrDept = depts.find((d: any) => /人力|HR/i.test(d.name))
 	        if (!hrDept) return
-	        const memRes = await unifiedApi.department.getMembers(hrDept.id, String(user.id))
+	        const memRes = await fetch(`/api/departments/${hrDept.id}/members?userId=${user.id}`).then(res => res.json())
 	        const members = (memRes as any)?.data || []
 	        if (!members.length) return
 	        const firstActive = members.find((m: any) => (m.performanceScore ?? m.overallPerformance ?? 0) > 0) || members[0]

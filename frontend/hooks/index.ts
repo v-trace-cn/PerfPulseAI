@@ -213,9 +213,7 @@ export {
 } from './use-mobile'
 
 // ==================== 基础管理Hooks ====================
-export {
-  BaseManagementHooks
-} from './useBaseManagement'
+// 基础管理功能已迁移到 @/lib/queries 中的通用查询系统
 
 // ==================== 常用组合Hooks ====================
 

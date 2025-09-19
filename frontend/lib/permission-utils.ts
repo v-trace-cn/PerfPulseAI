@@ -1,27 +1,14 @@
 /**
- * 声明式权限系统 - 企业级权限控制架构
- *
- * 设计理念：
- * 1. 声明式权限定义 - 权限即代码，清晰可维护
- * 2. 零闪烁体验 - 权限检查前置，避免渲染后隐藏
- * 3. 智能缓存 - 权限数据预加载和智能失效
- * 4. 类型安全 - 完整的TypeScript类型支持
- * 5. 性能优先 - 最小化权限检查开销
+ * 权限检查相关的工具函数和hooks
  */
-import {
-  useApiQuery,
+import { 
+  useApiQuery, 
   createQueryKey,
-  apiRequest
+  apiRequest 
 } from '@/lib/react-query-utils'
-import { useAuth } from '@/lib/auth-context-rq'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useMemo, useCallback } from 'react'
 
-// ==================== 核心类型定义 ====================
+// ==================== 类型定义 ====================
 
-/**
- * 权限检查结果
- */
 export interface PermissionCheck {
   hasPermission: boolean
   permission: string
@@ -29,9 +16,6 @@ export interface PermissionCheck {
   companyId?: string
 }
 
-/**
- * 管理菜单权限详情
- */
 export interface AdminMenuPermission {
   success: boolean
   data: {
@@ -42,44 +26,6 @@ export interface AdminMenuPermission {
     reason: string
   }
   message: string
-}
-
-/**
- * 权限状态枚举
- */
-export enum PermissionState {
-  LOADING = 'loading',
-  GRANTED = 'granted',
-  DENIED = 'denied',
-  ERROR = 'error'
-}
-
-/**
- * 权限检查配置
- */
-export interface PermissionConfig {
-  permission?: string
-  adminMenuType?: AdminMenuType
-  requireAdminMenu?: boolean
-  companyId?: string
-  userId?: string
-  fallback?: boolean
-  preload?: boolean
-}
-
-/**
- * 管理菜单类型
- */
-export type AdminMenuType = 'org' | 'mall' | 'redemption'
-
-/**
- * 权限检查结果详情
- */
-export interface PermissionResult {
-  state: PermissionState
-  hasAccess: boolean
-  reason?: string
-  data?: any
 }
 
 // ==================== 权限API函数 ====================

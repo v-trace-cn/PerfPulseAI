@@ -11,9 +11,7 @@ import { DataLoader } from "@/components/ui/data-loader"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/lib/auth-context-rq"
-import { OrgPermissionGuard } from "@/lib/client-permission-guard"
 import { useCanViewAdminMenus } from "@/hooks"
-import { PermissionIndicator } from "@/components/permission/PermissionStatus"
 import {
   useDepartments,
   useCreateDepartment,
@@ -29,7 +27,7 @@ import { DepartmentForm } from "@/components/department/DepartmentForm"
 import { DepartmentSettings } from "@/components/organization/DepartmentSettings"
 import Link from "next/link"
 
-function OrganizationManagementContent() {
+export default function OrganizationManagement() {
   const [searchTerm, setSearchTerm] = useState("")
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setEditDialogOpen] = useState(false)
@@ -42,7 +40,7 @@ function OrganizationManagementContent() {
 
   const { user } = useAuth()
 
-  // 使用优化的权限检查
+  // 使用React Query检查权限
   const { data: permissionData } = useCanViewAdminMenus(user?.companyId?.toString())
   const canMenus = permissionData?.data || { canView: false, canOrg: false, canMall: false, canRedemption: false }
 
@@ -55,7 +53,7 @@ function OrganizationManagementContent() {
   const associateCompanyMutation = useAssociateDepartmentsToCompany()
 
   // Filter departments based on search term
-  const filteredDepartments = departments?.filter((dept: Department) =>
+  const filteredDepartments = departments?.filter(dept =>
     dept.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     dept.description?.toLowerCase().includes(searchTerm.toLowerCase())
   ) || []
@@ -120,8 +118,10 @@ function OrganizationManagementContent() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50/90">
-      <main className="flex-1 p-4 md:p-8 space-y-8">
+    <AuthGuard>
+      <CompanyGuard>
+        <div className="flex flex-col min-h-screen bg-gray-50/90">
+          <main className="flex-1 p-4 md:p-8 space-y-8">
             <header className="flex flex-col md:flex-row items-start md:items-center justify-between space-y-4 md:space-y-0">
               <div className="flex items-center space-x-4">
                 <div className="flex items-center justify-center w-12 h-12 bg-blue-100 rounded-lg">
@@ -211,7 +211,7 @@ function OrganizationManagementContent() {
                 <DataLoader
                   data={filteredDepartments}
                   isLoading={isLoading}
-                  error={error as Error | null}
+                  error={error}
                   loadingComponent={
                     <div className="flex items-center justify-center py-12">
                       <div className="text-center">
@@ -305,20 +305,16 @@ function OrganizationManagementContent() {
               </AlertDialogContent>
             </AlertDialog>
 
-            {/* TODO: 部门成员对话框 - 需要重构 DepartmentSettings 组件 */}
-      </main>
-    </div>
-  );
-}
-
-// 使用客户端权限守卫包装组件
-export default function OrganizationManagement() {
-  return (
-    <AuthGuard>
-      <CompanyGuard>
-        <OrgPermissionGuard>
-          <OrganizationManagementContent />
-        </OrgPermissionGuard>
+            {/* 部门成员对话框 */}
+            {selectedDepartmentForMembers && (
+              <DepartmentSettings
+                open={membersDialogOpen}
+                onOpenChange={setMembersDialogOpen}
+                department={selectedDepartmentForMembers}
+              />
+            )}
+          </main>
+        </div>
       </CompanyGuard>
     </AuthGuard>
   );

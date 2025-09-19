@@ -4,7 +4,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useToast } from '@/components/ui/use-toast'
-import { api } from '@/lib/api-client'
+// 已经是纯 React Query 实现，使用内部fetch函数
 
 // ==================== 类型定义 ====================
 export interface MallItem {
@@ -69,7 +69,7 @@ export const mallKeys = {
 export function useMallItems(params?: { category?: string; is_available?: boolean }) {
   return useQuery({
     queryKey: mallKeys.items(),
-    queryFn: () => api.get('/api/mall/items', { params }),
+    queryFn: () => api.get('/api/mall', { params: { action: 'items', ...params } }),
     staleTime: 5 * 60 * 1000,
   })
 }
@@ -80,7 +80,7 @@ export function useMallItems(params?: { category?: string; is_available?: boolea
 export function usePublicMallItems(params?: { category?: string; is_available?: boolean }) {
   return useQuery({
     queryKey: [...mallKeys.items(), 'public', params],
-    queryFn: () => api.get('/api/mall/items/public', { params }),
+    queryFn: () => api.get('/api/mall', { params: { action: 'items-public', ...params } }),
     staleTime: 10 * 60 * 1000, // 公开数据缓存更久
   })
 }
@@ -114,7 +114,7 @@ export function useMallAdminItems(params?: any) {
 export function useMyPurchases(params?: { limit?: number; offset?: number; status?: string }) {
   return useQuery({
     queryKey: mallKeys.purchases(),
-    queryFn: () => api.get('/api/mall/purchases', { params }),
+    queryFn: () => api.get('/api/mall', { params: { action: 'purchases', ...params } }),
     staleTime: 1 * 60 * 1000,
   })
 }
@@ -125,7 +125,7 @@ export function useMyPurchases(params?: { limit?: number; offset?: number; statu
 export function useMallAnalytics() {
   return useQuery({
     queryKey: mallKeys.analytics(),
-    queryFn: () => api.get('/api/mall/analytics'),
+    queryFn: () => api.get('/api/mall', { params: { action: 'analytics' } }),
     staleTime: 5 * 60 * 1000,
   })
 }
@@ -140,7 +140,7 @@ export function usePurchaseItem() {
   const { toast } = useToast()
 
   return useMutation({
-    mutationFn: (data: PurchaseRequest) => api.post('/api/mall/purchase', data),
+    mutationFn: (data: PurchaseRequest) => api.post('/api/mall', data, { params: { action: 'purchase' } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: mallKeys.purchases() })
       toast({ title: "购买成功！" })
@@ -228,7 +228,7 @@ export function useVerifyRedemptionCode() {
   const { toast } = useToast()
 
   return useMutation({
-    mutationFn: (code: string) => api.post('/api/mall/verify-redemption-code', { redemption_code: code }),
+    mutationFn: (code: string) => api.post('/api/mall', { redemption_code: code }, { params: { action: 'verify-redemption-code' } }),
     onSuccess: () => {
       toast({ title: "兑换码验证成功" })
     }
@@ -243,7 +243,7 @@ export function useRedeemCode() {
   const { toast } = useToast()
 
   return useMutation({
-    mutationFn: (code: string) => api.post('/api/mall/redeem-code', { redemption_code: code }),
+    mutationFn: (code: string) => api.post('/api/mall', { redemption_code: code }, { params: { action: 'redeem-code' } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: mallKeys.purchases() })
       toast({ title: "兑换成功！" })

@@ -1,56 +1,28 @@
 /**
- * 积分系统相关的 hooks - 使用统一的API客户端
+ * 积分系统相关的 hooks - 纯 React Query 实现
  */
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useToast } from '@/components/ui/use-toast'
-import { useAuth } from '@/lib/auth-context-rq'
-// 迁移到新的纯 React Query 实现
-import {
+export {
   usePointsBalance,
   usePointsOverview,
   usePointsTransactions,
+  usePointsHistory,
+  usePointsLedger,
+  usePointsSummary,
+  usePointsWeeklyStats,
+  usePointsMonthlyStats,
+  usePointsRedemptionStats,
+  usePointsLevels,
+  useUserPointsLevel,
+  usePointsUnified,
   useTransferPoints,
-  useAccruePoints
-} from '@/lib/queries'
+  useAccruePoints,
+  useRedeemPoints,
+  type PointsBalance,
+  type PointsTransaction,
+  type PointsLevel
+} from '@/lib/queries';
 
-// 查询键常量
-export const POINTS_QUERY_KEYS = {
-  balance: (userId: string) => ['points-balance', userId],
-  summary: (userId: string) => ['points-summary', userId],
-  transactions: (userId: string, params?: any) => ['points-transactions', userId, params],
-  weeklyStats: (userId: string) => ['points-weekly-stats', userId],
-  monthlyStats: (userId: string, params?: any) => ['points-monthly-stats', userId, params],
-  redemptionStats: (userId: string) => ['points-redemption-stats', userId],
-  levels: () => ['points-levels'],
-  userLevel: (userId: string) => ['points-user-level', userId],
-  unified: (userId: string) => ['points-unified', userId],
-}
 
-// 基础查询 Hooks
-export function usePointsBalance() {
-  const { user } = useAuth()
-
-  return useQuery({
-    queryKey: POINTS_QUERY_KEYS.balance(String(user?.id)),
-    queryFn: () => api.get('/api/points/balance'),
-    enabled: !!user?.id,
-    staleTime: 30 * 1000, // 30秒缓存
-  })
-}
-
-export function usePointsSummary() {
-  const { user } = useAuth()
-
-  return useQuery({
-    queryKey: POINTS_QUERY_KEYS.summary(String(user?.id)),
-    queryFn: () => api.get('/api/points/summary'),
-    enabled: !!user?.id,
-    staleTime: 2 * 60 * 1000, // 2分钟缓存
-  })
-}
-
-export function usePointsUnified() {
-  const { user } = useAuth()
 
   return useQuery({
     queryKey: POINTS_QUERY_KEYS.unified(String(user?.id)),

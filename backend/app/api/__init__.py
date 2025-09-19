@@ -10,5 +10,5 @@
 - 商城系统 API (mall.py)
 - 通知系统 API (notifications.py)
 - 活动管理 API (activity.py)
-- GitHub 集成 API (webhook.py)
+- 第三方集成 API (webhook.py)
 """

@@ -1,21 +1,19 @@
-import asyncio
 from datetime import datetime
 from uuid import uuid4
+
+from app.core.ai_service import perform_pr_analysis
 from app.core.database import AsyncSessionLocal
+from app.core.logging_config import logger
 from app.models.activity import Activity
-from app.models.scoring import ScoreEntry
 from app.models.pull_request import PullRequest
 from app.models.pull_request_event import PullRequestEvent
-from app.core.ai_service import perform_pr_analysis
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 from app.models.pull_request_result import PullRequestResult
-from app.core.logging_config import logger
+from app.models.scoring import ScoreEntry
+from sqlalchemy import select
+
 
 async def process_pending_tasks():
-    """
-    处理所有 pending 状态的 Activity，一次性拉取 diff 并进行 AI 分析评分
-    """
+    """处理所有 pending 状态的 Activity，一次性拉取 diff 并进行 AI 分析评分."""
     async with AsyncSessionLocal() as db:
         try:
             pending_result = await db.execute(select(Activity).filter(Activity.status == 'pending'))
@@ -104,4 +102,4 @@ async def process_pending_tasks():
                     await db.rollback()
                     logger.error(f"[任务执行] PR {act.id} 分析失败：{e}")
         except Exception as e:
-            logger.error(f"[任务调度器] 处理待处理任务时发生异步操作错误，请检查数据库连接和事件循环配置: {e}") 
+            logger.error(f"[任务调度器] 处理待处理任务时发生异步操作错误，请检查数据库连接和事件循环配置: {e}")

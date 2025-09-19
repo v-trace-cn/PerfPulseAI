@@ -1,21 +1,22 @@
-"""
-通知API
-"""
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import StreamingResponse
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional
-from pydantic import BaseModel, Field
+"""通知API."""
 import asyncio
 import json
 import logging
 from datetime import datetime, timezone
+from typing import Optional
 
-from app.core.database import get_db
-from app.services.notification_service import NotificationService
-from app.models.notification import NotificationCategory, NotificationPriority, NotificationStatus
 from app.api.auth import get_current_user
+from app.core.database import get_db
+from app.models.notification import (
+    NotificationCategory,
+    NotificationStatus,
+)
 from app.models.user import User
+from app.services.notification_service import NotificationService
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/api", tags=["notifications"])
 
@@ -41,10 +42,10 @@ class NotificationSummaryResponse(BaseModel):
 
 
 class MarkAsReadRequest(BaseModel):
-    notification_ids: List[str] = Field(..., description="通知ID列表")
+    notification_ids: list[str] = Field(..., description="通知ID列表")
 
 
-@router.get("/notifications", response_model=List[NotificationResponse])
+@router.get("/notifications", response_model=list[NotificationResponse])
 async def get_notifications(
     type: Optional[str] = Query(None, description="通知类型过滤"),
     status: Optional[str] = Query(None, description="通知状态过滤"),
@@ -53,9 +54,9 @@ async def get_notifications(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """获取用户通知列表"""
+    """获取用户通知列表."""
     notification_service = NotificationService(db)
-    
+
     # 转换类型参数
     notification_category = None
     if type:
@@ -69,7 +70,7 @@ async def get_notifications(
             notification_status = NotificationStatus(status.upper())
         except ValueError:
             raise HTTPException(status_code=400, detail="无效的通知状态")
-    
+
     notifications = await notification_service.get_user_notifications(
         user_id=current_user.id,
         category=notification_category,
@@ -77,7 +78,7 @@ async def get_notifications(
         limit=limit,
         offset=offset
     )
-    
+
     return [
         NotificationResponse(
             id=notification.id,
@@ -102,7 +103,7 @@ async def get_notification_summary(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """获取通知摘要（仅未读数量）"""
+    """获取通知摘要（仅未读数量）."""
     notification_service = NotificationService(db)
 
     # 只查询未读数量，提升性能
@@ -119,14 +120,14 @@ async def mark_notification_as_read(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """标记单个通知为已读"""
+    """标记单个通知为已读."""
     notification_service = NotificationService(db)
-    
+
     success = await notification_service.mark_as_read(notification_id, current_user.id)
-    
+
     if not success:
         raise HTTPException(status_code=404, detail="通知不存在")
-    
+
     return {"message": "通知已标记为已读"}
 
 
@@ -135,11 +136,11 @@ async def mark_all_notifications_as_read(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """标记所有通知为已读"""
+    """标记所有通知为已读."""
     notification_service = NotificationService(db)
-    
+
     count = await notification_service.mark_all_as_read(current_user.id)
-    
+
     return {"message": f"已标记 {count} 条通知为已读"}
 
 
@@ -149,14 +150,14 @@ async def delete_notification(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """删除通知"""
+    """删除通知."""
     notification_service = NotificationService(db)
-    
+
     success = await notification_service.delete_notification(notification_id, current_user.id)
-    
+
     if not success:
         raise HTTPException(status_code=404, detail="通知不存在")
-    
+
     return {"message": "通知已删除"}
 
 
@@ -166,7 +167,7 @@ logger = logging.getLogger(__name__)
 
 
 async def notification_event_generator(user_id: int):
-    """为特定用户生成 SSE 事件流"""
+    """为特定用户生成 SSE 事件流."""
     queue = asyncio.Queue()
 
     # 将连接添加到管理器
@@ -216,7 +217,7 @@ async def notification_event_generator(user_id: int):
 
 
 def broadcast_notification_to_user(user_id: int, notification_data: dict):
-    """向特定用户的所有 SSE 连接广播通知"""
+    """向特定用户的所有 SSE 连接广播通知."""
     if user_id in notification_connections:
         for queue in notification_connections[user_id]:
             try:
@@ -233,9 +234,7 @@ async def get_current_user_for_sse(
     user_id: Optional[str] = Query(None, alias="user_id"),
     db: AsyncSession = Depends(get_db)
 ) -> User:
-    """
-    用于 SSE 的用户认证
-    """
+    """用于 SSE 的用户认证."""
     # 从查询参数获取用户ID
     if user_id:
         try:
@@ -268,7 +267,7 @@ async def get_current_user_for_sse(
 async def stream_notifications(
     current_user: User = Depends(get_current_user_for_sse)
 ):
-    """SSE 端点，用于实时推送通知"""
+    """SSE 端点，用于实时推送通知."""
     return StreamingResponse(
         notification_event_generator(current_user.id),
         media_type="text/event-stream",

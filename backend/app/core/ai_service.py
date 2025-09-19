@@ -1,14 +1,13 @@
+import asyncio
+import json
 import re
 import time
-import json
-import asyncio
-import httpx
 from functools import wraps
 
+import httpx
 from app.core.config import Settings
-from app.models.pull_request import PullRequest
 from app.core.logging_config import logger
-
+from app.models.pull_request import PullRequest
 
 DOUBAO_MODEL=Settings.DOUBAO_MODEL
 DOUBAO_API_KEY=Settings.DOUBAO_API_KEY
@@ -18,14 +17,14 @@ _httpx_client = None
 _openai_client = None
 
 async def get_httpx_client():
-    """获取或创建全局 httpx AsyncClient 实例"""
+    """获取或创建全局 httpx AsyncClient 实例."""
     global _httpx_client
     if _httpx_client is None:
         _httpx_client = httpx.AsyncClient(verify=False)
     return _httpx_client
 
 def get_openai_client():
-    """获取或创建全局 AsyncOpenAI 客户端实例"""
+    """获取或创建全局 AsyncOpenAI 客户端实例."""
     global _openai_client
     if _openai_client is None:
         from openai import AsyncOpenAI
@@ -53,14 +52,13 @@ def timeit(func):
         return wrapper
 
 def parse_unified_diff(patch_text: str):
-    """
-    将 unified diff 文本解析为结构化数据。
+    """将 unified diff 文本解析为结构化数据。
     返回: List[dict]，每个 dict 包含:
       - file_path: 文件相对路径
       - added_lines: List[List[int]]   每个 hunk 的新增行号列表
       - added_code: List[str]          每个 hunk 的新增代码（多行字符串）
       - deleted_lines: List[List[int]] 每个 hunk 的删除行号列表
-      - deleted_code: List[str]        每个 hunk 的删除代码（多行字符串）
+      - deleted_code: List[str]        每个 hunk 的删除代码（多行字符串）.
     """
     result = []
     current_file_entry = None
@@ -140,7 +138,7 @@ def parse_unified_diff(patch_text: str):
     return result
 
 def compress_diff(structured_diff, max_lines: int = 50):
-    """对结构化 diff 进行摘要，限制每个 hunk 的代码行数"""
+    """对结构化 diff 进行摘要，限制每个 hunk 的代码行数."""
     compressed = []
     for entry in structured_diff:
         new_entry = entry.copy()
@@ -163,9 +161,7 @@ def compress_diff(structured_diff, max_lines: int = 50):
 
 @timeit
 async def pr_score_agent(structured_diff, pr_info) -> dict:
-    """
-    评分agent：全方面分析结构化diff和PR信息，输出各维度评分和理由。
-    """
+    """评分agent：全方面分析结构化diff和PR信息，输出各维度评分和理由。."""
     prompt = f"""
 你是经验丰富、专业、严谨的代码评审评分专家， 能够给出最公正，诚实，客观的评分。
 请根据以下结构化diff和PR信息，从代码质量、可维护性、安全性、性能优化、创新性、可观测性六个维度，给出0-10之间的整数分数，并输出JSON：
@@ -200,7 +196,7 @@ PR 信息:
         ],
     )
     content = completion.choices[0].message.content
-    
+
     # 尝试提取完整的JSON对象
     json_match = re.search(r'(?s)\{.*\}', content)
     if json_match:
@@ -232,15 +228,15 @@ PR 信息:
                 if not overall_summary:
                     overall_summary = raw_overall_score.get("reason", "") or overall_summary
             except (ValueError, TypeError):
-                logger.warning("[pr_score_agent] Warning: overall_score dict contains invalid score: {}. Setting to 0.".format(raw_overall_score))
+                logger.warning(f"[pr_score_agent] Warning: overall_score dict contains invalid score: {raw_overall_score}. Setting to 0.")
                 overall_score_value = 0
         else:
             try:
                 overall_score_value = int(raw_overall_score)
             except (ValueError, TypeError):
-                logger.warning("[pr_score_agent] Warning: overall_score '{}' is not an integer. Setting to 0.".format(raw_overall_score))
+                logger.warning(f"[pr_score_agent] Warning: overall_score '{raw_overall_score}' is not an integer. Setting to 0.")
                 overall_score_value = 0
-    
+
     result["overall_score"] = overall_score_value
     result["summary"] = overall_summary
 
@@ -254,14 +250,14 @@ PR 信息:
                     try:
                         score_to_set = int(dim_val["score"])
                     except (ValueError, TypeError):
-                        logger.warning("[pr_score_agent] Warning: dimension '{}' score dict contains invalid score: {}. Setting to 0.".format(dim_key, dim_val))
+                        logger.warning(f"[pr_score_agent] Warning: dimension '{dim_key}' score dict contains invalid score: {dim_val}. Setting to 0.")
             elif isinstance(dim_val, (int, float)):
                 try:
                     score_to_set = int(dim_val)
                 except (ValueError, TypeError):
-                    logger.warning("[pr_score_agent] Warning: dimension '{}' value '{}' is not an integer. Setting to 0.".format(dim_key, dim_val))
+                    logger.warning(f"[pr_score_agent] Warning: dimension '{dim_key}' value '{dim_val}' is not an integer. Setting to 0.")
             else:
-                logger.warning("[pr_score_agent] Warning: dimension '{}' has unexpected type: {}. Setting to 0.".format(dim_key, type(dim_val)))
+                logger.warning(f"[pr_score_agent] Warning: dimension '{dim_key}' has unexpected type: {type(dim_val)}. Setting to 0.")
 
             # 存储所有维度分数，包括 innovation
             processed_dimensions[dim_key] = {"score": score_to_set}
@@ -270,15 +266,13 @@ PR 信息:
                 innovation_score_value = score_to_set
 
         result["dimensions"] = processed_dimensions
-    
+
     result["innovation_score"] = innovation_score_value
     return result
 
 @timeit
 async def pr_suggestion_agent(structured_diff, pr_info) -> list:
-    """
-    建议agent：针对所有结构化diff片段，进行单次AI调用，给出综合建议列表。
-    """
+    """建议agent：针对所有结构化diff片段，进行单次AI调用，给出综合建议列表。."""
     combined_diff_content = ""
     for idx, diff_item in enumerate(structured_diff):
         combined_diff_content += f"""
@@ -324,7 +318,7 @@ PR信息:
         ],
     )
     content = completion.choices[0].message.content
-    
+
     # 尝试提取完整的JSON数组
     json_match = re.search(r'(?s)\[.*\]', content)
     if json_match:
@@ -354,9 +348,7 @@ PR信息:
 
 @timeit
 async def perform_pr_analysis(pr: PullRequest) -> dict:
-    """
-    执行指定 PR 的 AI 分析，不触及数据库。
-    """
+    """执行指定 PR 的 AI 分析，不触及数据库。."""
     logger.info(f"[perform_pr_analysis] 开始执行 PR 分析 for PR {pr.pr_node_id}")
     owner, repo_name = pr.repository.split('/')
     pr_number = pr.pr_number
@@ -405,7 +397,7 @@ async def perform_pr_analysis(pr: PullRequest) -> dict:
         import traceback
         traceback.print_exc()
         raise ValueError(f"An unexpected error occurred while fetching diff from GitHub API: {e}")
-    
+
     if not diff_content:
         logger.warning(f"[perform_pr_analysis] No diff content for PR {pr.pr_node_id}, skipping analysis.")
         return {
@@ -421,11 +413,11 @@ async def perform_pr_analysis(pr: PullRequest) -> dict:
     # 结构化diff
     structured_diff = parse_unified_diff(diff_content)
     logger.debug(f"[perform_pr_analysis] 结构化 diff 完成。文件数量: {len(structured_diff)}。")
-    
+
     # 智能摘要 diff
     compressed_diff = compress_diff(structured_diff)
     logger.debug(f"[perform_pr_analysis] diff 已压缩，文件数: {len(compressed_diff)}")
-    
+
     pr_info = {
         "title": pr.title,
         "description": pr.commit_message,
@@ -445,7 +437,7 @@ async def perform_pr_analysis(pr: PullRequest) -> dict:
         ai_elapsed = time.time() - ai_start
         logger.info(f"[perform_pr_analysis] AI agent calls completed in {ai_elapsed:.2f}s")
 
-        
+
         overall_score = score_result.get("overall_score", 0)
         dimensions = score_result.get("dimensions", {})
         summary = score_result.get("summary", "No summary provided.")
@@ -467,7 +459,7 @@ async def perform_pr_analysis(pr: PullRequest) -> dict:
             "recommendation": merge_recommendation,
             "innovation_score": innovation_score,
         }
-        
+
         # 调用积分计算 Agent，并将结果加入 analysis_result
         points_data = await calculate_points_from_analysis(analysis_result)
         analysis_result["points"] = {
@@ -476,9 +468,9 @@ async def perform_pr_analysis(pr: PullRequest) -> dict:
         }
         analysis_result["innovation_bonus"] = points_data.get("innovation_bonus", 0)
 
-        logger.info(f"[perform_pr_analysis] AI 评价结果已生成")
+        logger.info("[perform_pr_analysis] AI 评价结果已生成")
         return analysis_result
-    
+
     except Exception as e:
         logger.error(f"[perform_pr_analysis] AI 分析过程中发生错误: {e}")
         import traceback
@@ -496,13 +488,11 @@ async def perform_pr_analysis(pr: PullRequest) -> dict:
 
 @timeit
 async def calculate_points_from_analysis(analysis_score_result: dict) -> dict:
-    """
-    根据 AI 评分结果来进行计算积分。
+    """根据 AI 评分结果来进行计算积分。.
 
     注意：这里计算的积分是前端展示格式，会在后续的积分服务中自动转换为后端存储格式。
     """
     # 导入积分转换器
-    from app.services.point_service import PointConverter
 
     overall_score = analysis_score_result.get("overall_score", 0)
     innovation_score = analysis_score_result.get("innovation_score", 0)
@@ -518,8 +508,7 @@ async def calculate_points_from_analysis(analysis_score_result: dict) -> dict:
 
     # 日志最多两位小数，避免浮点尾差
     logger.info(
-        "[calculate_points_from_analysis] 积分计算完成 - 总分: %.2f, 创新分: %.2f, 基础积分: %.2f, 创新加分: %.2f, 总积分: %.2f"
-        % (overall_score, innovation_score, round(bonus_display, 2), round(innovation_bonus_display, 2), round(total_points_display, 2))
+        f"[calculate_points_from_analysis] 积分计算完成 - 总分: {overall_score:.2f}, 创新分: {innovation_score:.2f}, 基础积分: {round(bonus_display, 2):.2f}, 创新加分: {round(innovation_bonus_display, 2):.2f}, 总积分: {round(total_points_display, 2):.2f}"
     )
 
     return {
@@ -529,7 +518,7 @@ async def calculate_points_from_analysis(analysis_score_result: dict) -> dict:
     }
 
 def _select_top_suggestions(suggestions: list[dict], max_count: int = 15) -> list[dict]:
-    """根据类型优先级挑选最重要的前 max_count 条建议。"""
+    """根据类型优先级挑选最重要的前 max_count 条建议。."""
     def priority(s: dict):
         t = (s.get("type") or s.get("类型") or "positive").lower()
         if t in {"negative", "建议"}:  # 最高优先
@@ -549,4 +538,4 @@ def _select_top_suggestions(suggestions: list[dict], max_count: int = 15) -> lis
             filtered.append(s)
         if len(filtered) >= max_count:
             break
-    return filtered 
+    return filtered

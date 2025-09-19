@@ -1,38 +1,37 @@
 import uuid
-from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, Body
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
 
 from app.core.database import get_db
-from app.models.scoring import ScoringFactor, ScoreEntry
-from app.models.user import User
 from app.models.activity import Activity
+from app.models.scoring import ScoreEntry, ScoringFactor
+from app.models.user import User
+from fastapi import APIRouter, Body, Depends
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/api/scoring", tags=["scoring"])
 
 # Sample scoring criteria
 scoring_criteria = [
     {
-        "id": "1", 
-        "category": "代码提交", 
-        "description": "提交高质量的代码到仓库", 
-        "base_points": 10, 
+        "id": "1",
+        "category": "代码提交",
+        "description": "提交高质量的代码到仓库",
+        "base_points": 10,
         "weight": 1.0
     },
     {
-        "id": "2", 
-        "category": "代码审查", 
-        "description": "对他人代码进行有效审查", 
-        "base_points": 5, 
+        "id": "2",
+        "category": "代码审查",
+        "description": "对他人代码进行有效审查",
+        "base_points": 5,
         "weight": 0.8
     },
     {
-        "id": "3", 
-        "category": "文档贡献", 
-        "description": "编写或更新项目文档", 
-        "base_points": 8, 
+        "id": "3",
+        "category": "文档贡献",
+        "description": "编写或更新项目文档",
+        "base_points": 8,
         "weight": 0.7
     }
 ]
@@ -97,9 +96,7 @@ class ScoringResult(BaseModel):
 
 @router.get("/dimensions")
 async def get_scoring_dimensions():
-    """
-    返回评分维度的显示标签
-    """
+    """返回评分维度的显示标签."""
     return {"data": DIMENSION_LABELS, "success": True}
 
 @router.get("/criteria")

@@ -24,7 +24,6 @@ from app.models.role import Role
 
 # 导入其他模型
 from app.models.activity import Activity
-from app.models.reward import Reward
 from app.models.scoring import ScoringFactor 
 from app.models.pull_request_result import PullRequestResult
 from app.models.pull_request import PullRequest

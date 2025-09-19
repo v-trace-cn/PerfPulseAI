@@ -1,15 +1,16 @@
-"""
-角色管理API - 基于角色的权限判断
-"""
-from fastapi import APIRouter, Depends, HTTPException, Body, Query
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
+"""角色管理API - 基于角色的权限判断."""
 from app.core.database import get_db
+from app.core.permissions import (
+    check_company_creator_permission,
+    ensure_company_creator_or_super_admin,
+    simple_user_required,
+)
 from app.models.role import Role, user_roles
 from app.models.user import User
-
-from app.core.permissions import simple_user_required, ensure_company_creator_or_super_admin, check_company_creator_permission
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 router = APIRouter(prefix="/api/roles", tags=["role"])
 
@@ -21,7 +22,7 @@ async def list_roles(
     current_user: User = Depends(simple_user_required),
 ):
     """按公司列出角色（包含用户数）。
-    允许公司创建者或超级管理员跨公司查看；否则必须属于该公司。
+    允许公司创建者或超级管理员跨公司查看；否则必须属于该公司。.
     """
     try:
         if current_user.company_id != companyId:
@@ -55,7 +56,7 @@ async def create_role(
     current_user: User = Depends(simple_user_required),
 ):
     """创建角色。仅公司创建者可创建。
-    请求体: { companyId: number, name: string, description?: string }
+    请求体: { companyId: number, name: string, description?: string }.
     """
     company_id = data.get("companyId")
     name = (data.get("name") or "").strip()
@@ -88,9 +89,8 @@ async def update_role(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(simple_user_required),
 ):
-    """
-    更新角色信息（名称/描述）
-    请求体: { name?: string, description?: string, isActive?: boolean }
+    """更新角色信息（名称/描述）
+    请求体: { name?: string, description?: string, isActive?: boolean }.
     """
     try:
         # 获取角色
@@ -111,7 +111,7 @@ async def update_role(
                 # 同公司内重名检查
                 dup_q = await db.execute(
                     select(Role).filter(
-                        Role.company_id == role.company_id, 
+                        Role.company_id == role.company_id,
                         Role.name == name,
                         Role.id != role_id
                     )
@@ -149,9 +149,8 @@ async def delete_role(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(simple_user_required),
 ):
-    """
-    删除角色。仅公司创建者可删除。
-    将清理角色与用户的关联后再删除角色本身。
+    """删除角色。仅公司创建者可删除。
+    将清理角色与用户的关联后再删除角色本身。.
     """
     try:
         # 获取角色
@@ -195,9 +194,8 @@ async def get_role_members(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(simple_user_required),
 ):
-    """
-    获取角色成员列表。仅公司创建者或超级管理员可获取。
-    返回 items: [{id,name,email}]。
+    """获取角色成员列表。仅公司创建者或超级管理员可获取。
+    返回 items: [{id,name,email}]。.
     """
     try:
         result = await db.execute(select(Role).filter(Role.id == role_id))
@@ -230,9 +228,8 @@ async def update_role_users(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(simple_user_required),
 ):
-    """
-    更新角色的用户分配。
-    请求体: { userIds: number[] }
+    """更新角色的用户分配。
+    请求体: { userIds: number[] }.
     """
     try:
         # 获取角色
@@ -256,20 +253,20 @@ async def update_role_users(
             # 验证用户是否属于同一公司
             users_result = await db.execute(
                 select(User).filter(
-                    User.id.in_(user_ids), 
+                    User.id.in_(user_ids),
                     User.company_id == role.company_id
                 )
             )
             users = users_result.scalars().all()
-            
+
             found_user_ids = {u.id for u in users}
             missing_user_ids = [uid for uid in user_ids if uid not in found_user_ids]
             if missing_user_ids:
                 raise HTTPException(
-                    status_code=400, 
+                    status_code=400,
                     detail=f"用户ID不存在或不属于当前公司: {missing_user_ids}"
                 )
-            
+
             role.users = users
 
         await db.commit()
@@ -278,8 +275,8 @@ async def update_role_users(
         # 返回更新后的用户列表
         user_list = [{"id": u.id, "name": u.name, "email": u.email} for u in (role.users or [])]
         return {
-            "success": True, 
-            "data": {"users": user_list, "userCount": len(user_list)}, 
+            "success": True,
+            "data": {"users": user_list, "userCount": len(user_list)},
             "message": "用户分配更新成功"
         }
 
@@ -291,7 +288,7 @@ async def update_role_users(
         error_msg = str(e)
         if "no such table" in error_msg.lower():
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail=f"数据库未初始化，请先执行迁移：{error_msg}"
             )
         raise HTTPException(
@@ -307,9 +304,8 @@ async def update_user_roles(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(simple_user_required),
 ):
-    """
-    更新用户的角色分配
-    请求体: { roleIds: number[] }
+    """更新用户的角色分配
+    请求体: { roleIds: number[] }.
     """
     try:
         role_ids = data.get("roleIds", [])
@@ -385,9 +381,8 @@ async def update_user_roles_legacy(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(simple_user_required),
 ):
-    """
-    更新用户角色的兼容接口
-    请求体: { userIds: number[] } - 实际上是 roleIds
+    """更新用户角色的兼容接口
+    请求体: { userIds: number[] } - 实际上是 roleIds.
     """
     # 转换参数格式并调用新接口
     role_ids = data.get("userIds", [])
@@ -402,9 +397,7 @@ async def get_user_roles(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(simple_user_required),
 ):
-    """
-    获取用户的角色列表
-    """
+    """获取用户的角色列表."""
     try:
         # 获取用户信息
         user_result = await db.execute(
@@ -448,8 +441,7 @@ async def can_view_admin_menus(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(simple_user_required),
 ):
-    """
-    判断用户是否可以查看管理员菜单（权限管理/商城管理/兑奖管理）
+    """判断用户是否可以查看管理员菜单（权限管理/商城管理/兑奖管理）.
 
     权限判断逻辑（基于 user_roles 关联表）：
     1. 超级管理员：可以查看所有公司的管理菜单

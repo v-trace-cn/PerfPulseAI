@@ -1,18 +1,16 @@
-"""
-积分系统API - 优化版
-"""
+"""积分系统API - 优化版."""
+from typing import Optional
+
+from app.api.auth import get_current_user, require_company_member
+from app.core.database import get_db
+from app.models.scoring import TransactionType
+from app.models.user import User
+from app.services.level_service import LevelService
+from app.services.point_service import PointService
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional
-from pydantic import BaseModel, Field
-
-from app.core.database import get_db
-from app.services.point_service import PointService
-from app.services.level_service import LevelService
-from app.models.scoring import TransactionType
-from app.api.auth import get_current_user, require_company_member
-from app.models.user import User
 
 router = APIRouter(prefix="/api", tags=["points"], dependencies=[Depends(require_company_member)])
 
@@ -33,7 +31,7 @@ class PointTransactionResponse(BaseModel):
 
 
 class PaginatedTransactionsResponse(BaseModel):
-    transactions: List[PointTransactionResponse]
+    transactions: list[PointTransactionResponse]
     totalCount: int
     page: int
     pageSize: int
@@ -65,7 +63,7 @@ async def get_my_points_balance(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """获取我的积分余额"""
+    """获取我的积分余额."""
     point_service = PointService(db)
     balance = await point_service.get_user_balance_for_display(current_user.id)
 
@@ -80,7 +78,7 @@ async def get_my_points_summary(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """获取我的积分摘要（公司维度）"""
+    """获取我的积分摘要（公司维度）."""
     try:
         point_service = PointService(db)
         level_service = LevelService(db)
@@ -120,7 +118,7 @@ async def get_my_transactions(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """获取我的积分交易记录（分页）"""
+    """获取我的积分交易记录（分页）."""
     try:
         point_service = PointService(db)
 
@@ -180,7 +178,7 @@ async def get_my_transactions_summary(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """获取我的交易摘要"""
+    """获取我的交易摘要."""
     point_service = PointService(db)
     summary = await point_service.get_user_transactions_summary(current_user.id)
 
@@ -192,7 +190,7 @@ async def get_my_monthly_stats(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """获取我的本月积分统计"""
+    """获取我的本月积分统计."""
     try:
         point_service = PointService(db)
         stats = await point_service.get_user_monthly_stats(current_user.id)
@@ -208,7 +206,7 @@ async def get_my_redemption_stats(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """获取我的兑换统计"""
+    """获取我的兑换统计."""
     try:
         point_service = PointService(db)
         stats = await point_service.get_user_redemption_stats(current_user.id)
@@ -224,7 +222,7 @@ async def get_my_weekly_stats(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """获取我的本周积分统计"""
+    """获取我的本周积分统计."""
     try:
         point_service = PointService(db)
         stats = await point_service.get_user_weekly_stats(current_user.id)
@@ -240,7 +238,7 @@ async def check_my_points_consistency(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """检查我的积分一致性"""
+    """检查我的积分一致性."""
     point_service = PointService(db)
     consistency = await point_service.check_consistency(current_user.id)
 
@@ -252,7 +250,7 @@ async def get_my_unified_points_data(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """获取统一的积分数据（推荐使用此接口）"""
+    """获取统一的积分数据（推荐使用此接口）."""
     try:
         point_service = PointService(db)
         unified_data = await point_service.get_unified_user_data(current_user.id)
@@ -268,7 +266,7 @@ async def validate_level_system(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """验证等级系统的完整性"""
+    """验证等级系统的完整性."""
     try:
         from app.services.level_service import LevelService
         level_service = LevelService(db)
@@ -285,7 +283,7 @@ async def auto_upgrade_all_users(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """自动为所有用户检查并升级等级（管理员功能）"""
+    """自动为所有用户检查并升级等级（管理员功能）."""
     try:
         # TODO: 添加管理员权限检查
         # if not current_user.is_admin:
@@ -308,7 +306,7 @@ async def validate_user_points_data(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """验证特定用户的积分数据"""
+    """验证特定用户的积分数据."""
     try:
         # TODO: 添加权限检查（用户只能验证自己的数据，管理员可以验证任何用户的数据）
         # if target_user_id != current_user.id and not current_user.is_admin:
@@ -330,7 +328,7 @@ async def validate_all_users_points_data(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """批量验证所有用户的积分数据（管理员功能）"""
+    """批量验证所有用户的积分数据（管理员功能）."""
     try:
         # TODO: 添加管理员权限检查
         # if not current_user.is_admin:
@@ -350,7 +348,7 @@ async def get_points_system_health_report(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """获取积分系统健康报告"""
+    """获取积分系统健康报告."""
     try:
         point_service = PointService(db)
         health_report = await point_service.get_system_health_report()
@@ -365,10 +363,10 @@ async def get_points_system_health_report(
 async def get_all_levels(
     db: AsyncSession = Depends(get_db)
 ):
-    """获取所有等级信息"""
+    """获取所有等级信息."""
     level_service = LevelService(db)
     levels = await level_service.get_all_levels()
-    
+
     return {
         "levels": [level.to_dict() for level in levels],
         "count": len(levels)
@@ -380,10 +378,10 @@ async def get_my_level_info(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """获取我的等级信息"""
+    """获取我的等级信息."""
     level_service = LevelService(db)
     level_info = await level_service.get_user_level_info(current_user.id)
-    
+
     return level_info
 
 
@@ -392,14 +390,14 @@ async def get_level_statistics(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """获取等级统计信息"""
+    """获取等级统计信息."""
     # TODO: 添加管理员权限检查
     # if not current_user.is_admin:
     #     raise HTTPException(status_code=403, detail="需要管理员权限")
-    
+
     level_service = LevelService(db)
     stats = await level_service.get_level_statistics()
-    
+
     return stats
 
 
@@ -411,7 +409,7 @@ async def admin_adjust_points(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """管理员积分调整（按用户所属公司维度）"""
+    """管理员积分调整（按用户所属公司维度）."""
     # TODO: 添加管理员权限检查
     # if not current_user.is_admin:
     #     raise HTTPException(status_code=403, detail="需要管理员权限")
@@ -450,11 +448,11 @@ async def admin_get_user_balance(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """管理员查看用户积分余额"""
+    """管理员查看用户积分余额."""
     # TODO: 添加管理员权限检查
     # if not current_user.is_admin:
     #     raise HTTPException(status_code=403, detail="需要管理员权限")
-    
+
     point_service = PointService(db)
 
     balance = await point_service.get_user_balance(target_user_id)

@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 BACKEND_DIR = Path(__file__).parent.parent.parent
@@ -11,12 +12,12 @@ class Settings:
     HOST: str      = os.getenv("HOST", "0.0.0.0")
     PORT: int      = int(os.getenv("PORT", 5000))
 
-    # GitHub App  
+    # GitHub App
     GITHUB_APP_ID: str          = os.getenv("GITHUB_APP_ID")
     GITHUB_WEBHOOK_SECRET: str  = os.getenv("GITHUB_WEBHOOK_SECRET")
     GITHUB_PRIVATE_KEY_PATH: str= os.getenv("GITHUB_PRIVATE_KEY_PATH")
     GITHUB_PAT: str             = os.getenv("GITHUB_PAT", "")
-    
+
     DATABASE_URL = f"sqlite+aiosqlite:///{str(BACKEND_DIR / 'db' / 'perf.db')}"
 
     # 豆包 AI API 配置

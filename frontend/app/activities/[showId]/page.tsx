@@ -19,10 +19,16 @@ import {
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { useState, useEffect, useMemo } from "react"
-import { unifiedApi } from "@/lib/unified-api"
 import { useToast } from "@/components/ui/use-toast"
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useAnalyzePr, useResetActivityPoints, useCalculatePrPoints } from '@/hooks'
+import { useQueryClient } from '@tanstack/react-query'
+import {
+  useActivityByShowId,
+  usePrDetails,
+  useAnalyzePr,
+  useCalculatePrPoints,
+  useResetActivityPoints,
+  useScoringDimensions
+} from "@/lib/queries"
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion"
 import { format, addHours } from "date-fns"
 
@@ -41,14 +47,7 @@ export default function ActivityDetailPage() {
   const showId = Array.isArray(params?.showId) ? params.showId[0] : params?.showId
   
   const queryClient = useQueryClient();
-  const { data: activityQueryResult, isLoading, error } = useQuery({
-    queryKey: ['activity', showId],
-    queryFn: () => unifiedApi.activity.getActivityByShowId(showId as string),
-    enabled: !!showId,
-    refetchOnWindowFocus: false,
-    staleTime: 5 * 60 * 1000,
-  });
-
+  const { data: activityQueryResult, isLoading, error } = useActivityByShowId(showId as string);
   const activity = activityQueryResult?.data;
 
   // 解析 aiAnalysis 如果它是字符串
@@ -80,30 +79,8 @@ export default function ActivityDetailPage() {
   
   const { toast } = useToast();
 
-  const { data: prDetails, isLoading: prLoading } = useQuery({
-    queryKey: ['prDetails', activity?.id],
-    queryFn: () => unifiedApi.pr.getPullRequestDetails(String(activity?.id)),
-    enabled: !!activity?.id,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const fetchScoringDimensions = async () => {
-    try {
-      const labels = await unifiedApi.scoring.getDimensions();
-      setDimensionLabels(labels.data);
-    } catch (err) {
-      console.error("获取维度标签失败", err);
-      toast({
-        title: "错误",
-        description: "无法加载评分维度标签，请稍后重试。",
-        variant: "destructive",
-      });
-    }
-  };
-
-  useEffect(() => {
-    fetchScoringDimensions();
-  }, [toast]);
+  const { data: prDetails, isLoading: prLoading } = usePrDetails(String(activity?.id));
+  const { data: scoringDimensions } = useScoringDimensions();
 
   const handleAnalyzeClick = () => {
     if (!showId) return;
@@ -117,7 +94,8 @@ export default function ActivityDetailPage() {
     resetActivityPoints(showId);
   };
 
-  const [dimensionLabels, setDimensionLabels] = useState<{ [key: string]: string }>({});
+  // 使用从查询获取的维度标签
+  const dimensionLabels = scoringDimensions?.data || {};
 
   const [isCalculatingPointsManual, setIsCalculatingPointsManual] = useState(false);
 

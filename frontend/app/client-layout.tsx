@@ -6,7 +6,6 @@ import { Toaster } from "@/components/ui/toaster"
 import { AuthProvider } from "@/lib/auth-context-rq"
 import { ToastProvider } from "@/lib/toast-context"
 import { AuthDialogProvider } from "@/lib/auth-dialog-context"
-import { PermissionProvider } from "@/lib/permission-system"
 import SiteHeader from "@/components/site-header";
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/use-toast';
@@ -45,24 +44,22 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
           disableTransitionOnChange
         >
           <AuthProvider>
-            <PermissionProvider>
-              <ToastProvider>
-                <AuthDialogProvider>
-                  <div className="relative flex min-h-screen flex-col">
-                    <SiteHeader
-                      onHelpClick={handleHelpClick}
-                      onSettingsClick={handleSettingsClick}
-                    />
-                    <main className="flex-1">
-                      <ClientPage>
-                        {children}
-                      </ClientPage>
-                    </main>
-                  </div>
-                  <Toaster />
-                </AuthDialogProvider>
-              </ToastProvider>
-            </PermissionProvider>
+            <ToastProvider>
+              <AuthDialogProvider>
+                <div className="relative flex min-h-screen flex-col">
+                  <SiteHeader
+                    onHelpClick={handleHelpClick}
+                    onSettingsClick={handleSettingsClick}
+                  />
+                  <main className="flex-1">
+                    <ClientPage>
+                      {children}
+                    </ClientPage>
+                  </main>
+                </div>
+                <Toaster />
+              </AuthDialogProvider>
+            </ToastProvider>
           </AuthProvider>
         </ThemeProvider>
         <ReactQueryDevtools initialIsOpen={false} />

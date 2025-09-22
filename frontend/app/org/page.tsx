@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState } from "react"
+import React, { useState } from "react"
 import AuthGuard from "@/components/guards/AuthGuard"
 import CompanyGuard from "@/components/guards/CompanyGuard"
 import { Building, Plus, Search, Settings, Gift, LogOut, Link as LinkIcon, ChevronDown, Shield, Package } from "lucide-react"
@@ -11,7 +11,10 @@ import { DataLoader } from "@/components/ui/data-loader"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/lib/auth-context-rq"
-// import { useCanViewAdminMenus } from "@/hooks" // 暂未实现
+import {
+  useAdminMenuPermission,
+  canAccessAdminMenu,
+} from "@/hooks"
 import {
   useDepartments,
   useCreateDepartment,
@@ -39,9 +42,14 @@ export default function OrganizationManagement() {
 
   const { user } = useAuth()
 
-  // 权限检查暂未实现，默认允许所有操作
-  // const { data: permissionData } = useCanViewAdminMenus(user?.companyId?.toString())
-  const canMenus = { canView: true, canOrg: true, canMall: true, canRedemption: true }
+  // 权限检查 - 使用真实的权限验证
+  const { data: permissionData, isLoading: permissionLoading } = useAdminMenuPermission(user?.companyId?.toString())
+  const canMenus = {
+    canView: true, // 基础查看权限
+    canOrg: true,  // 组织管理权限
+    canMall: canAccessAdminMenu(permissionData, 'mall'),
+    canRedemption: canAccessAdminMenu(permissionData, 'redemption')
+  }
 
   // API hooks
   const { data: departments, isLoading, error } = useDepartments()
@@ -51,10 +59,10 @@ export default function OrganizationManagement() {
   const associateCompanyMutation = useBatchAssociateDepartments()
 
   // Filter departments based on search term
-  const filteredDepartments = departments?.filter(dept =>
+  const filteredDepartments = (departments || []).filter((dept: Department) =>
     dept.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     dept.description?.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || []
+  )
 
   // Event handlers
   const handleCreateDepartment = (data: DepartmentFormData) => {

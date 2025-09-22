@@ -1,11 +1,6 @@
 /**
  * 积分商城兑换相关的 hooks
  */
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useToast } from '@/components/ui/use-toast'
-import { useAuth } from '@/lib/auth-context-rq'
-import { POINTS_QUERY_KEYS } from './usePoints'
-import { notificationEventHelpers } from '@/lib/notification-events'
 
 // 类型定义
 export interface MallItem {
@@ -49,6 +44,7 @@ export interface RedemptionResponse {
 export {
   useMallItems,
   usePurchaseItem as useRedeemItem,
+  usePurchaseItem as usePurchaseMallItem,
   useMyPurchases
 } from '@/lib/mall-hooks'
 

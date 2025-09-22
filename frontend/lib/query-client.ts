@@ -37,6 +37,12 @@ export const getRequestHeaders = (): Record<string, string> => {
  * 构建URL和查询参数
  */
 export const buildUrl = (url: string, params?: Record<string, any>): string => {
+  // 检查 URL 是否包含 undefined
+  if (url.includes('undefined')) {
+    console.error('URL contains undefined:', url)
+    throw new Error(`Invalid URL: ${url}`)
+  }
+
   if (!params) return url
 
   const searchParams = new URLSearchParams()
@@ -74,7 +80,14 @@ export const request = async <T = any>(
     throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`)
   }
 
-  return response.json()
+  const responseData = await response.json()
+
+  // 如果响应有 data 字段，返回 data，否则返回整个响应
+  if (responseData && typeof responseData === 'object' && 'data' in responseData) {
+    return responseData.data
+  }
+
+  return responseData
 }
 
 // ==================== 类型定义 ====================

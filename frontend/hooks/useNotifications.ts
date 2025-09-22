@@ -48,7 +48,6 @@ export function useNotifications(category?: string) {
 
   const fetchNotifications = async () => {
     if (!user?.id) {
-      console.log('useNotifications: 用户未登录')
       return
     }
 

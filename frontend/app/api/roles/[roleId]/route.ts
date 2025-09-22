@@ -9,13 +9,14 @@ function getUserId(req: NextRequest): string | null {
   return headerId || qpId || cookieId || null
 }
 
-export async function PUT(request: NextRequest, context: { params: { roleId: string } }) {
+export async function PUT(request: NextRequest, context: { params: Promise<{ roleId: string }> }) {
   try {
     const userId = getUserId(request)
     if (!userId) {
       return NextResponse.json({ success: false, message: '\u672a\u63d0\u4f9b\u7528\u6237ID' }, { status: 401 })
     }
-    const { roleId } = context.params
+    const params = await context.params
+    const { roleId } = params
     const body = await request.json()
 
     const resp = await fetch(`${getBackendApiUrl()}/api/roles/${encodeURIComponent(roleId)}`, {
@@ -34,13 +35,14 @@ export async function PUT(request: NextRequest, context: { params: { roleId: str
   }
 }
 
-export async function DELETE(request: NextRequest, context: { params: { roleId: string } }) {
+export async function DELETE(request: NextRequest, context: { params: Promise<{ roleId: string }> }) {
   try {
     const userId = getUserId(request)
     if (!userId) {
       return NextResponse.json({ success: false, message: '\u672a\u63d0\u4f9b\u7528\u6237ID' }, { status: 401 })
     }
-    const { roleId } = context.params
+    const params = await context.params
+    const { roleId } = params
 
     const resp = await fetch(`${getBackendApiUrl()}/api/roles/${encodeURIComponent(roleId)}`, {
       method: 'DELETE',

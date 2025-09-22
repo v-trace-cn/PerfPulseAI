@@ -1,31 +1,10 @@
 /**
- * 统一积分API路由 - 合并所有积分相关端点
- * 支持的路径：
- * - /api/points/balance - 获取积分余额
- * - /api/points/summary - 获取积分摘要
- * - /api/points/transactions - 获取交易记录
- * - /api/points/history - 获取积分历史
- * - /api/points/ledger - 获取积分账本
- * - /api/points/levels - 获取等级信息
- * - /api/points/weekly-stats - 获取周统计
- * - /api/points/monthly-stats - 获取月统计
- * - /api/points/redemption-stats - 获取兑换统计
- * - /api/points/unified - 获取统一数据
- * - /api/points/transfer - 转账积分
- * - /api/points/accrue - 增加积分
- * - /api/points/deduct - 扣除积分
+ * 积分API路由代理
+ * 将前端请求转发到后端API
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getBackendApiUrl } from '@/lib/config/api-config'
-
-// 获取用户ID的通用函数
-function getUserId(request: NextRequest): string | null {
-  return request.headers.get('X-User-Id') ||
-         request.nextUrl.searchParams.get('userId') ||
-         request.cookies.get('userId')?.value ||
-         null
-}
 
 // 构建后端API URL
 function buildBackendUrl(path: string, searchParams?: URLSearchParams): string {
@@ -52,7 +31,7 @@ async function forwardRequest(
   method: string = 'GET'
 ) {
   try {
-    const userId = getUserId(request)
+    const userId = request.headers.get('X-User-Id') || request.cookies.get('userId')?.value
     if (!userId) {
       return NextResponse.json(
         { error: '未提供用户ID，请先登录' },
@@ -97,33 +76,37 @@ async function forwardRequest(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const path = params.path.join('/')
+  const resolvedParams = await params
+  const path = resolvedParams.path.join('/')
   return forwardRequest(request, path, 'GET')
 }
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const path = params.path.join('/')
+  const resolvedParams = await params
+  const path = resolvedParams.path.join('/')
   return forwardRequest(request, path, 'POST')
 }
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const path = params.path.join('/')
+  const resolvedParams = await params
+  const path = resolvedParams.path.join('/')
   return forwardRequest(request, path, 'PUT')
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const path = params.path.join('/')
+  const resolvedParams = await params
+  const path = resolvedParams.path.join('/')
   return forwardRequest(request, path, 'DELETE')
 }
 

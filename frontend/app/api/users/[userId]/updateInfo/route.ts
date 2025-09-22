@@ -3,7 +3,7 @@ import { getBackendApiUrl } from '@/lib/config/api-config';
 
 export async function POST(
   request: NextRequest,
-  context: { params: { userId: string } }
+  context: { params: Promise<{ userId: string }> }
 ) {
   try {
     // 获取用户ID和请求数据

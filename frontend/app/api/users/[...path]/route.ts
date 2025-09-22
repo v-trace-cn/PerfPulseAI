@@ -1,42 +1,14 @@
 /**
- * 统一用户API路由 - 合并所有用户相关端点
- * 支持的路径：
- * - /api/users/[userId] - 获取/更新用户信息
- * - /api/users/by-id/[userId] - 通过ID获取用户信息（兼容旧路由）
- * - /api/users/company-members - 获取公司成员
- * - /api/users/profile - 获取当前用户资料
- * - /api/users/activities/[userId] - 获取用户活动
- * - /api/users/leaderboard - 获取排行榜
- * - /api/users/search - 搜索用户
- * - /api/users/batch-import - 批量导入用户
- * - /api/users/join-company - 加入公司
- * - /api/users/leave-company - 离开公司
- * - /api/users/join-department - 加入部门
+ * 用户API路由代理
+ * 将前端请求转发到后端API
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getBackendApiUrl } from '@/lib/config/api-config'
 
-// 获取用户ID的通用函数
-function getUserId(request: NextRequest): string | null {
-  return request.headers.get('X-User-Id') ||
-         request.nextUrl.searchParams.get('userId') ||
-         request.nextUrl.searchParams.get('authUserId') ||
-         request.cookies.get('userId')?.value ||
-         null
-}
-
 // 构建后端API URL
 function buildBackendUrl(path: string, searchParams?: URLSearchParams): string {
-  // 处理路径映射
-  let backendPath = path
-  
-  // 兼容旧的 by-id 路由
-  if (path.startsWith('by-id/')) {
-    backendPath = path.replace('by-id/', '')
-  }
-  
-  const baseUrl = `${getBackendApiUrl()}/api/users/${backendPath}`
+  const baseUrl = `${getBackendApiUrl()}/api/users/${path}`
   if (searchParams && searchParams.toString()) {
     return `${baseUrl}?${searchParams.toString()}`
   }
@@ -54,8 +26,8 @@ function handleError(error: any, defaultMessage: string) {
 
 // 通用请求转发
 async function forwardRequest(
-  request: NextRequest, 
-  path: string, 
+  request: NextRequest,
+  path: string,
   method: string = 'GET'
 ) {
   try {
@@ -66,11 +38,10 @@ async function forwardRequest(
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'Origin': getBackendApiUrl()
     }
 
-    // 添加用户认证信息
-    const userId = getUserId(request)
+    // 添加用户认证信息（从请求头或cookie中获取）
+    const userId = request.headers.get('X-User-Id') || request.cookies.get('userId')?.value
     if (userId) {
       headers['X-User-Id'] = userId
     }
@@ -129,45 +100,50 @@ async function forwardRequest(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const path = params.path.join('/')
+  const resolvedParams = await params
+  const path = resolvedParams.path.join('/')
   console.log('Users GET API Route called:', { path, url: request.url })
   return forwardRequest(request, path, 'GET')
 }
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const path = params.path.join('/')
+  const resolvedParams = await params
+  const path = resolvedParams.path.join('/')
   console.log('Users POST API Route called:', { path, url: request.url })
   return forwardRequest(request, path, 'POST')
 }
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const path = params.path.join('/')
+  const resolvedParams = await params
+  const path = resolvedParams.path.join('/')
   console.log('Users PUT API Route called:', { path, url: request.url })
   return forwardRequest(request, path, 'PUT')
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const path = params.path.join('/')
+  const resolvedParams = await params
+  const path = resolvedParams.path.join('/')
   console.log('Users DELETE API Route called:', { path, url: request.url })
   return forwardRequest(request, path, 'DELETE')
 }
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const path = params.path.join('/')
+  const resolvedParams = await params
+  const path = resolvedParams.path.join('/')
   console.log('Users PATCH API Route called:', { path, url: request.url })
   return forwardRequest(request, path, 'PATCH')
 }

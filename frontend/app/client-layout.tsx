@@ -35,36 +35,22 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <AuthProvider>
-            <ToastProvider>
-              <AuthDialogProvider>
-                <div className="relative flex min-h-screen flex-col">
-                  <SiteHeader
-                    onHelpClick={handleHelpClick}
-                    onSettingsClick={handleSettingsClick}
-                  />
-                  <main className="flex-1">
-                    <ClientPage>
-                      {children}
-                    </ClientPage>
-                  </main>
-                </div>
-                <Toaster />
-              </AuthDialogProvider>
-            </ToastProvider>
-          </AuthProvider>
-        </ThemeProvider>
-        <ReactQueryDevtools initialIsOpen={false} />
-      </QueryClientProvider>
-    </>
+    <AuthProvider>
+      <AuthDialogProvider>
+        <div className="relative flex min-h-screen flex-col">
+          <SiteHeader
+            onHelpClick={handleHelpClick}
+            onSettingsClick={handleSettingsClick}
+          />
+          <main className="flex-1">
+            <ClientPage>
+              {children}
+            </ClientPage>
+          </main>
+        </div>
+        <Toaster />
+      </AuthDialogProvider>
+    </AuthProvider>
   );
 }
 
@@ -74,10 +60,18 @@ export default function ClientLayout({
   children: React.ReactNode
 }) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <ToastProvider>
-        <LayoutContent>{children}</LayoutContent>
-      </ToastProvider>
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="system"
+        enableSystem
+        disableTransitionOnChange
+      >
+        <ToastProvider>
+          <LayoutContent>{children}</LayoutContent>
+        </ToastProvider>
+      </ThemeProvider>
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
   );
 }

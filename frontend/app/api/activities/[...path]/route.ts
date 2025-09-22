@@ -1,25 +1,10 @@
 /**
- * 统一活动API路由 - 合并所有活动相关端点
- * 支持的路径：
- * - /api/activities/recent - 获取最近活动
- * - /api/activities/show/[showId] - 通过showId获取活动详情
- * - /api/activities/[activityId] - 获取/更新/删除活动
- * - /api/activities/user/[userId] - 获取用户活动
- * - /api/activities/analyze - 分析PR
- * - /api/activities/calculate-points - 计算积分
- * - /api/activities/reset-points - 重置积分
+ * 活动API路由代理
+ * 将前端请求转发到后端API
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getBackendApiUrl } from '@/lib/config/api-config'
-
-// 获取用户ID的通用函数
-function getUserId(request: NextRequest): string | null {
-  return request.headers.get('X-User-Id') ||
-         request.nextUrl.searchParams.get('userId') ||
-         request.cookies.get('userId')?.value ||
-         null
-}
 
 // 构建后端API URL
 function buildBackendUrl(path: string, searchParams?: URLSearchParams): string {
@@ -56,8 +41,8 @@ async function forwardRequest(
       'Origin': getBackendApiUrl()
     }
 
-    // 添加用户认证信息
-    const userId = getUserId(request)
+    // 添加用户认证信息（从请求头或cookie中获取）
+    const userId = request.headers.get('X-User-Id') || request.cookies.get('userId')?.value
     if (userId) {
       headers['X-User-Id'] = userId
     }
@@ -116,45 +101,50 @@ async function forwardRequest(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const path = params.path.join('/')
+  const resolvedParams = await params
+  const path = resolvedParams.path.join('/')
   console.log('Activities GET API Route called:', { path, url: request.url })
   return forwardRequest(request, path, 'GET')
 }
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const path = params.path.join('/')
+  const resolvedParams = await params
+  const path = resolvedParams.path.join('/')
   console.log('Activities POST API Route called:', { path, url: request.url })
   return forwardRequest(request, path, 'POST')
 }
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const path = params.path.join('/')
+  const resolvedParams = await params
+  const path = resolvedParams.path.join('/')
   console.log('Activities PUT API Route called:', { path, url: request.url })
   return forwardRequest(request, path, 'PUT')
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const path = params.path.join('/')
+  const resolvedParams = await params
+  const path = resolvedParams.path.join('/')
   console.log('Activities DELETE API Route called:', { path, url: request.url })
   return forwardRequest(request, path, 'DELETE')
 }
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const path = params.path.join('/')
+  const resolvedParams = await params
+  const path = resolvedParams.path.join('/')
   console.log('Activities PATCH API Route called:', { path, url: request.url })
   return forwardRequest(request, path, 'PATCH')
 }

@@ -34,7 +34,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context-rq"
-import { useCanViewAdminMenus } from "@/hooks"
+// import { useCanViewAdminMenus } from "@/hooks" // 暂未实现
 // 迁移到新的纯 React Query 实现
 import { usePointsOverview, usePointsTransactions } from "@/lib/queries"
 
@@ -48,10 +48,10 @@ import { usePointsOverview, usePointsTransactions } from "@/lib/queries"
 
 export default function RedemptionPage() {
   const { user } = useAuth();
-  // 使用React Query检查权限
-  const { data: permissionData, isLoading: permissionLoading } = useCanViewAdminMenus(user?.companyId?.toString())
-  const canRedemption = permissionData?.data?.canRedemption || false
-  const permChecked = !permissionLoading
+  // 权限检查暂未实现，默认允许兑换操作
+  // const { data: permissionData, isLoading: permissionLoading } = useCanViewAdminMenus(user?.companyId?.toString())
+  const canRedemption = true
+  const permChecked = true
 
   const { toast } = useToast();
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({

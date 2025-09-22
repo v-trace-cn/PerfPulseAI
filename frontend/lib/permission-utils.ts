@@ -1,11 +1,10 @@
 /**
  * 权限检查相关的工具函数和hooks
  */
-import { 
-  useApiQuery, 
-  createQueryKey,
-  apiRequest 
-} from '@/lib/react-query-utils'
+import {
+  useApiQuery,
+  request
+} from '@/lib/query-client'
 
 // ==================== 类型定义 ====================
 
@@ -42,8 +41,8 @@ export const checkPermission = async (params: {
   searchParams.append('permission', params.permission)
   if (params.companyId) searchParams.append('companyId', params.companyId)
   if (params.userId) searchParams.append('userId', params.userId)
-  
-  return apiRequest(`/api/roles/permissions/check?${searchParams.toString()}`)
+
+  return request(`/api/roles/permissions/check?${searchParams.toString()}`)
 }
 
 /**
@@ -52,17 +51,17 @@ export const checkPermission = async (params: {
 export const checkAdminMenuPermission = async (companyId?: string): Promise<AdminMenuPermission> => {
   const searchParams = new URLSearchParams()
   if (companyId) searchParams.append('companyId', companyId)
-  
-  return apiRequest(`/api/roles/permissions/can_view_admin_menus?${searchParams.toString()}`)
+
+  return request(`/api/roles/permissions/can_view_admin_menus?${searchParams.toString()}`)
 }
 
 // ==================== 查询键常量 ====================
 
 export const PERMISSION_QUERY_KEYS = {
-  permission: (permission: string, companyId?: string, userId?: string) => 
-    createQueryKey.permission(permission, 'check', { companyId, userId }),
-  adminMenus: (companyId?: string) => 
-    createQueryKey.permission('admin-menus', 'check', { companyId }),
+  permission: (permission: string, companyId?: string, userId?: string) =>
+    ['permission', permission, 'check', { companyId, userId }],
+  adminMenus: (companyId?: string) =>
+    ['permission', 'admin-menus', 'check', { companyId }],
 }
 
 // ==================== React Query Hooks ====================

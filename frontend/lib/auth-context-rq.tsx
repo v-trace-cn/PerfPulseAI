@@ -228,10 +228,11 @@ export function QuickLoginForm({ onSuccess }: { onSuccess?: () => void }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="email" className="block text-sm font-medium mb-1">
+        <label htmlFor="quick-login-email" className="block text-sm font-medium mb-1">
           邮箱
         </label>
         <input
+          id="quick-login-email"
           type="email"
           name="email"
           required
@@ -239,10 +240,11 @@ export function QuickLoginForm({ onSuccess }: { onSuccess?: () => void }) {
         />
       </div>
       <div>
-        <label htmlFor="password" className="block text-sm font-medium mb-1">
+        <label htmlFor="quick-login-password" className="block text-sm font-medium mb-1">
           密码
         </label>
         <input
+          id="quick-login-password"
           type="password"
           name="password"
           required

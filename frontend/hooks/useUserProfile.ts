@@ -5,7 +5,6 @@ export {
   useUserProfile,
   useCurrentUserProfile,
   useUserPoints,
-  useUserStats,
   useUpdateUserProfile,
   type UserProfile
 } from '@/lib/queries';

@@ -13,6 +13,7 @@ export {
   useDeleteDepartment,
   useDepartmentMembers,
   useBatchAssociateDepartments,
+  useJoinDepartment,
   type Department,
   type DepartmentCreate,
   type DepartmentUpdate,

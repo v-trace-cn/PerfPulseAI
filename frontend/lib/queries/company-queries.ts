@@ -145,6 +145,43 @@ export function useSearchCompanies(query: string) {
   })
 }
 
+/**
+ * 获取可用的公司列表（用于加入）
+ */
+export function useAvailableCompanies() {
+  return useApiQuery<Company[]>({
+    queryKey: ['companies', 'available'],
+    url: '/api/companies/available',
+    staleTime: 5 * 60 * 1000, // 5分钟缓存
+  })
+}
+
+/**
+ * 获取用户的公司列表
+ */
+export function useUserCompanies() {
+  const { user } = useAuth()
+
+  return useApiQuery<Company[]>({
+    queryKey: ['companies', 'user', user?.id],
+    url: '/api/companies/user',
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000, // 5分钟缓存
+  })
+}
+
+/**
+ * 通过邀请码获取公司信息
+ */
+export function useCompanyByInviteCode(inviteCode: string) {
+  return useApiQuery<Company>({
+    queryKey: ['companies', 'invite-code', inviteCode],
+    url: `/api/companies/by-invite-code/${inviteCode}`,
+    enabled: !!inviteCode,
+    staleTime: 2 * 60 * 1000, // 2分钟缓存
+  })
+}
+
 // ==================== 变更 Hooks ====================
 
 /**
@@ -186,6 +223,47 @@ export function useDeleteCompany() {
     invalidateQueries: [
       queryKeys.company.all,
     ],
+  })
+}
+
+/**
+ * 加入公司
+ */
+export function useJoinCompany() {
+  return useApiMutation<any, { companyId: string; inviteCode?: string }>({
+    url: '/api/companies/join',
+    method: 'POST',
+    successMessage: '成功加入公司',
+    invalidateQueries: [
+      queryKeys.company.all,
+      ['user']
+    ]
+  })
+}
+
+/**
+ * 离开公司
+ */
+export function useLeaveCompany() {
+  return useApiMutation<void, { companyId: string }>({
+    url: '/api/companies/leave',
+    method: 'POST',
+    successMessage: '成功离开公司',
+    invalidateQueries: [
+      queryKeys.company.all,
+      ['user']
+    ]
+  })
+}
+
+/**
+ * 验证邀请码
+ */
+export function useVerifyInviteCode() {
+  return useApiMutation<{ valid: boolean; company?: Company }, { inviteCode: string }>({
+    url: '/api/companies/verify-invite-code',
+    method: 'POST',
+    successMessage: '邀请码验证成功',
   })
 }
 

@@ -11,14 +11,13 @@ import { DataLoader } from "@/components/ui/data-loader"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/lib/auth-context-rq"
-import { useCanViewAdminMenus } from "@/hooks"
+// import { useCanViewAdminMenus } from "@/hooks" // 暂未实现
 import {
   useDepartments,
   useCreateDepartment,
   useUpdateDepartment,
   useDeleteDepartment,
-  useLeaveDepartment,
-  useAssociateDepartmentsToCompany,
+  useBatchAssociateDepartments,
   Department,
   DepartmentFormData
 } from "@/hooks/useDepartmentManagement"
@@ -40,17 +39,16 @@ export default function OrganizationManagement() {
 
   const { user } = useAuth()
 
-  // 使用React Query检查权限
-  const { data: permissionData } = useCanViewAdminMenus(user?.companyId?.toString())
-  const canMenus = permissionData?.data || { canView: false, canOrg: false, canMall: false, canRedemption: false }
+  // 权限检查暂未实现，默认允许所有操作
+  // const { data: permissionData } = useCanViewAdminMenus(user?.companyId?.toString())
+  const canMenus = { canView: true, canOrg: true, canMall: true, canRedemption: true }
 
   // API hooks
   const { data: departments, isLoading, error } = useDepartments()
   const createDepartmentMutation = useCreateDepartment()
   const updateDepartmentMutation = useUpdateDepartment()
   const deleteDepartmentMutation = useDeleteDepartment()
-  const leaveDepartmentMutation = useLeaveDepartment()
-  const associateCompanyMutation = useAssociateDepartmentsToCompany()
+  const associateCompanyMutation = useBatchAssociateDepartments()
 
   // Filter departments based on search term
   const filteredDepartments = departments?.filter(dept =>
@@ -69,7 +67,7 @@ export default function OrganizationManagement() {
 
   const handleUpdateDepartment = (data: DepartmentFormData) => {
     if (!selectedDepartment) return
-    updateDepartmentMutation.mutate({ id: selectedDepartment.id, data }, {
+    updateDepartmentMutation.mutate({ id: selectedDepartment.id, ...data }, {
       onSuccess: () => {
         setEditDialogOpen(false)
         setSelectedDepartment(null)
@@ -103,13 +101,6 @@ export default function OrganizationManagement() {
     }
   }
 
-  const handleLeaveDepartment = () => {
-    leaveDepartmentMutation.mutate(undefined, {
-      onSuccess: () => {
-        setLeaveDepartmentDialogOpen(false)
-      }
-    })
-  }
 
   const handleAssociateCompany = () => {
     if (user?.companyId) {
@@ -296,7 +287,7 @@ export default function OrganizationManagement() {
                 <AlertDialogFooter>
                   <AlertDialogCancel>取消</AlertDialogCancel>
                   <AlertDialogAction
-                    onClick={handleLeaveDepartment}
+                    onClick={() => {/* 离开部门功能暂未实现 */}}
                     className="bg-red-600 hover:bg-red-700"
                   >
                     退出

@@ -5,6 +5,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useToast } from '@/components/ui/use-toast'
 import { User } from '@/lib/types'
+import { request } from '@/lib/query-client'
 
 // ==================== 类型定义 ====================
 export interface LoginRequest {
@@ -87,7 +88,7 @@ export function useCurrentUser() {
       if (!userId) {
         return null // 返回 null 而不是抛出错误
       }
-      return api.get(`/api/users/by-id/${userId}`)
+      return request(`/api/users/by-id/${userId}`)
     },
     enabled: !!userId, // 只有在有 userId 时才启用查询
     staleTime: 5 * 60 * 1000, // 5分钟缓存
@@ -127,7 +128,10 @@ export function useLogin() {
   
   return useMutation({
     mutationFn: async ({ email, password, remember = true }: LoginRequest & { remember?: boolean }) => {
-      const response = await api.post('/api/auth/login', { email, password })
+      const response = await request('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      })
       
       if (!response.success || !response.data?.userId) {
         throw new Error(response.message || '登录失败')
@@ -162,10 +166,13 @@ export function useRegister() {
   
   return useMutation({
     mutationFn: async ({ email, password, name }: RegisterRequest) => {
-      const response = await api.post('/api/auth/register', {
-        email,
-        password,
-        name: name || email.split('@')[0]
+      const response = await request('/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          email,
+          password,
+          name: name || email.split('@')[0]
+        }),
       })
       
       if (!response.success || !response.data?.userId) {
@@ -221,7 +228,10 @@ export function useResetPassword() {
   
   return useMutation({
     mutationFn: async ({ email, password }: ResetPasswordRequest) => {
-      return api.post('/api/auth/reset-password', { email, password })
+      return request('/api/auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      })
     },
     onSuccess: () => {
       toast({ title: "密码重置成功", description: "您的密码已成功重置。" })
@@ -247,7 +257,7 @@ export function useRefreshUser() {
       const userId = getCurrentUserId()
       if (!userId) throw new Error('未登录')
       
-      return api.get(`/api/users/by-id/${userId}`)
+      return request(`/api/users/by-id/${userId}`)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: authKeys.user() })
@@ -267,7 +277,10 @@ export function useUpdateProfile() {
       const userId = getCurrentUserId()
       if (!userId) throw new Error('未登录')
       
-      return api.put(`/api/users/${userId}`, userData)
+      return request(`/api/users/${userId}`, {
+        method: 'PUT',
+        body: JSON.stringify(userData),
+      })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: authKeys.user() })

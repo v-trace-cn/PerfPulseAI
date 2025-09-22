@@ -197,62 +197,8 @@ function getUserId(): string | null {
   return localStorage.getItem('token')
 }
 
-/**
- * 获取请求头
- */
-function getRequestHeaders(): Record<string, string> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  }
-  
-  const userId = getUserId()
-  if (userId) {
-    headers['X-User-Id'] = userId
-  }
-  
-  return headers
-}
 
-/**
- * 构建URL
- */
-function buildUrl(url: string, params?: Record<string, any>): string {
-  if (!params) return url
-  
-  const searchParams = new URLSearchParams()
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null) {
-      searchParams.append(key, String(value))
-    }
-  })
-  
-  const queryString = searchParams.toString()
-  return queryString ? `${url}?${queryString}` : url
-}
 
-/**
- * 通用请求函数
- */
-async function request<T = any>(
-  url: string, 
-  options: RequestInit = {}
-): Promise<T> {
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      ...getRequestHeaders(),
-      ...options.headers,
-    },
-  })
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
-    throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`)
-  }
-
-  return response.json()
-}
 
 // ==================== React Query Hooks ====================
 
@@ -333,5 +279,3 @@ export function useApiMutation<TData = any, TVariables = any>(config: MutationCo
 }
 
 // ==================== 导出 ====================
-
-export type { ApiResponse, PaginatedResponse, QueryConfig, MutationConfig }

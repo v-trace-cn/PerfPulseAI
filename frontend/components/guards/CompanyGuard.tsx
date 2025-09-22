@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Building, Users, AlertTriangle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useJoinCompany } from "@/lib/queries"
-import { useQueryClient } from "@tanstack/react-query"
+import { useQueryClient, useMutation } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
 
 interface CompanyGuardProps {

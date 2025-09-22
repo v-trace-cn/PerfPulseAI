@@ -12,14 +12,10 @@ export {
   useDeleteUser,
   useResetUserPassword,
   useBatchImportUsers,
-  useJoinCompany,
-  useLeaveCompany,
-  useJoinDepartment,
   type User,
   type UserProfile,
   type UserUpdate
 } from '@/lib/queries';
 
 // 兼容性类型别名
-export type UserFormData = UserUpdate;
-export type { Achievement as UserAchievement } from '@/lib/queries';
+export type { UserUpdate as UserFormData, Achievement as UserAchievement } from '@/lib/queries';

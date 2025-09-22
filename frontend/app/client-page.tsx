@@ -91,15 +91,16 @@ export default function ClientPage({ children }: { children?: React.ReactNode })
   }, [authMode, authDialogOpen]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { id, value } = e.target;
-    const newFormData = { ...formData, [id]: value };
+    const { name, value } = e.target;
+    const fieldName = name || e.target.id; // fallback to id if name is not set
+    const newFormData = { ...formData, [fieldName]: value };
     setFormData(newFormData);
 
-    if (errors[id as keyof typeof errors]) {
-      setErrors((prev) => ({ ...prev, [id]: "" }));
+    if (errors[fieldName as keyof typeof errors]) {
+      setErrors((prev) => ({ ...prev, [fieldName]: "" }));
     }
 
-    if (id === "password" || id === "confirmPassword") {
+    if (fieldName === "password" || fieldName === "confirmPassword") {
       if (newFormData.password && newFormData.confirmPassword && newFormData.password !== newFormData.confirmPassword) {
         setErrors((prev) => ({ ...prev, passwordMatch: "两次输入的密码不一致" }));
       } else {
@@ -202,15 +203,21 @@ export default function ClientPage({ children }: { children?: React.ReactNode })
       {children}
       {/* Login/Register/Reset Password Dialogs */}
       <Dialog open={authDialogOpen} onOpenChange={setAuthDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px]" aria-describedby="auth-dialog-description">
           <DialogHeader>
             <DialogTitle>{authMode === "login" ? "登录系统" : authMode === "register" ? "注册账号" : "重置密码"}</DialogTitle>
+            <DialogDescription id="auth-dialog-description">
+              {authMode === "login" && "请输入您的邮箱和密码登录系统"}
+              {authMode === "register" && "创建新账号以开始使用系统"}
+              {authMode === "reset-password" && "输入您的邮箱和新密码来重置密码"}
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="email">邮箱</Label>
+              <Label htmlFor="auth-email">邮箱</Label>
               <Input
-                id="email"
+                id="auth-email"
+                name="email"
                 type="email"
                 placeholder="info@v-trace.cn"
                 value={formData.email}
@@ -226,9 +233,10 @@ export default function ClientPage({ children }: { children?: React.ReactNode })
             </div>
             {(authMode === "login" || authMode === "register" || authMode === "reset-password") && (
               <div className="grid gap-2">
-                <Label htmlFor="password">密码</Label>
+                <Label htmlFor="auth-password">密码</Label>
                 <Input
-                  id="password"
+                  id="auth-password"
+                  name="password"
                   type="password"
                   value={formData.password}
                   onChange={handleInputChange}
@@ -269,6 +277,7 @@ export default function ClientPage({ children }: { children?: React.ReactNode })
                 <Label htmlFor="confirmPassword">确认密码</Label>
                 <Input
                   id="confirmPassword"
+                  name="confirmPassword"
                   type="password"
                   value={formData.confirmPassword}
                   onChange={handleInputChange}

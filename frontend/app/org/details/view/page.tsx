@@ -28,7 +28,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
 // 迁移到新的纯 React Query 实现
 import { useDepartment, useDepartmentMembers } from "@/lib/queries"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/lib/auth-context-rq"
 import NotFoundPage from "@/components/common/NotFoundPage"
 
 

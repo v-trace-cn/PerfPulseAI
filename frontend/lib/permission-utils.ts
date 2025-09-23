@@ -1,27 +1,13 @@
 /**
- * 声明式权限系统 - 企业级权限控制架构
- *
- * 设计理念：
- * 1. 声明式权限定义 - 权限即代码，清晰可维护
- * 2. 零闪烁体验 - 权限检查前置，避免渲染后隐藏
- * 3. 智能缓存 - 权限数据预加载和智能失效
- * 4. 类型安全 - 完整的TypeScript类型支持
- * 5. 性能优先 - 最小化权限检查开销
+ * 权限检查相关的工具函数和hooks
  */
 import {
   useApiQuery,
-  createQueryKey,
-  apiRequest
-} from '@/lib/react-query-utils'
-import { useAuth } from '@/lib/auth-context-rq'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useMemo, useCallback } from 'react'
+  request
+} from '@/lib/query-client'
 
-// ==================== 核心类型定义 ====================
+// ==================== 类型定义 ====================
 
-/**
- * 权限检查结果
- */
 export interface PermissionCheck {
   hasPermission: boolean
   permission: string
@@ -29,9 +15,6 @@ export interface PermissionCheck {
   companyId?: string
 }
 
-/**
- * 管理菜单权限详情
- */
 export interface AdminMenuPermission {
   success: boolean
   data: {
@@ -42,44 +25,6 @@ export interface AdminMenuPermission {
     reason: string
   }
   message: string
-}
-
-/**
- * 权限状态枚举
- */
-export enum PermissionState {
-  LOADING = 'loading',
-  GRANTED = 'granted',
-  DENIED = 'denied',
-  ERROR = 'error'
-}
-
-/**
- * 权限检查配置
- */
-export interface PermissionConfig {
-  permission?: string
-  adminMenuType?: AdminMenuType
-  requireAdminMenu?: boolean
-  companyId?: string
-  userId?: string
-  fallback?: boolean
-  preload?: boolean
-}
-
-/**
- * 管理菜单类型
- */
-export type AdminMenuType = 'org' | 'mall' | 'redemption'
-
-/**
- * 权限检查结果详情
- */
-export interface PermissionResult {
-  state: PermissionState
-  hasAccess: boolean
-  reason?: string
-  data?: any
 }
 
 // ==================== 权限API函数 ====================
@@ -96,27 +41,19 @@ export const checkPermission = async (params: {
   searchParams.append('permission', params.permission)
   if (params.companyId) searchParams.append('companyId', params.companyId)
   if (params.userId) searchParams.append('userId', params.userId)
-  
-  return apiRequest(`/api/roles/permissions/check?${searchParams.toString()}`)
+
+  return request(`/api/roles/permissions/check?${searchParams.toString()}`)
 }
 
-/**
- * 检查管理菜单权限
- */
-export const checkAdminMenuPermission = async (companyId?: string): Promise<AdminMenuPermission> => {
-  const searchParams = new URLSearchParams()
-  if (companyId) searchParams.append('companyId', companyId)
-  
-  return apiRequest(`/api/roles/permissions/can_view_admin_menus?${searchParams.toString()}`)
-}
+
 
 // ==================== 查询键常量 ====================
 
 export const PERMISSION_QUERY_KEYS = {
-  permission: (permission: string, companyId?: string, userId?: string) => 
-    createQueryKey.permission(permission, 'check', { companyId, userId }),
-  adminMenus: (companyId?: string) => 
-    createQueryKey.permission('admin-menus', 'check', { companyId }),
+  permission: (permission: string, companyId?: string, userId?: string) =>
+    ['permission', permission, 'check', { companyId, userId }],
+  adminMenus: (companyId?: string) =>
+    ['permission', 'admin-menus', 'check', { companyId }],
 }
 
 // ==================== React Query Hooks ====================
@@ -144,7 +81,8 @@ export function usePermissionCheck(
 export function useAdminMenuPermission(companyId?: string, enabled: boolean = true) {
   return useApiQuery<AdminMenuPermission>({
     queryKey: PERMISSION_QUERY_KEYS.adminMenus(companyId),
-    queryFn: () => checkAdminMenuPermission(companyId),
+    url: '/api/roles/permissions/can_view_admin_menus',
+    params: companyId ? { companyId } : undefined,
     enabled: enabled && !!companyId,
     staleTime: 5 * 60 * 1000, // 5分钟缓存
   })

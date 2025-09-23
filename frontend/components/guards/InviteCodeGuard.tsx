@@ -7,7 +7,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Key, AlertTriangle, CheckCircle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-import { unifiedApi } from "@/lib/unified-api"
+import { useVerifyInviteCode } from "@/lib/queries/auth-queries"
+// 迁移到新的纯 React Query 实现
+import { useJoinCompany } from "@/lib/queries"
 
 interface InviteCodeGuardProps {
   children: React.ReactNode
@@ -18,27 +20,21 @@ export default function InviteCodeGuard({ children, fallback }: InviteCodeGuardP
   const { toast } = useToast()
   const [inviteCode, setInviteCode] = useState("")
   const [isVerified, setIsVerified] = useState(false)
-  const [isVerifying, setIsVerifying] = useState(false)
   const [hasCheckedStorage, setHasCheckedStorage] = useState(false)
-  const [isMounted, setIsMounted] = useState(false)
 
-  // 确保组件在客户端挂载后才进行检查
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
+  // Mutation hook
+  const verifyInviteCodeMutation = useVerifyInviteCode()
 
   // 检查本地存储中是否已有验证记录
   useEffect(() => {
-    if (!isMounted) return
-
     const verified = localStorage.getItem('invite_code_verified')
     if (verified === 'true') {
       setIsVerified(true)
     }
     setHasCheckedStorage(true)
-  }, [isMounted])
+  }, [])
 
-  const handleVerifyInviteCode = async () => {
+  const handleVerifyInviteCode = () => {
     if (!inviteCode.trim()) {
       toast({
         title: "错误",
@@ -48,33 +44,31 @@ export default function InviteCodeGuard({ children, fallback }: InviteCodeGuardP
       return
     }
 
-    setIsVerifying(true)
-    try {
-      const response = await unifiedApi.auth.verifyInviteCode(inviteCode.trim())
-      
-      if (response.success && response.data.valid) {
-        setIsVerified(true)
-        localStorage.setItem('invite_code_verified', 'true')
-        toast({
-          title: "验证成功",
-          description: "邀请码验证通过，欢迎使用系统！",
-        })
-      } else {
+    verifyInviteCodeMutation.mutate({ inviteCode: inviteCode.trim() }, {
+      onSuccess: (response) => {
+        if (response.success && response.data.valid) {
+          setIsVerified(true)
+          localStorage.setItem('invite_code_verified', 'true')
+          toast({
+            title: "验证成功",
+            description: "邀请码验证通过，欢迎使用系统！",
+          })
+        } else {
+          toast({
+            title: "验证失败",
+            description: response.message || "邀请码无效，请检查后重试",
+            variant: "destructive",
+          })
+        }
+      },
+      onError: (error: any) => {
         toast({
           title: "验证失败",
-          description: response.message || "邀请码无效，请检查后重试",
+          description: error.message || "验证过程中出现错误，请稍后重试",
           variant: "destructive",
         })
       }
-    } catch (error: any) {
-      toast({
-        title: "验证失败",
-        description: error.message || "验证过程中出现错误，请稍后重试",
-        variant: "destructive",
-      })
-    } finally {
-      setIsVerifying(false)
-    }
+    })
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -83,8 +77,8 @@ export default function InviteCodeGuard({ children, fallback }: InviteCodeGuardP
     }
   }
 
-  // 如果还未挂载或还在检查本地存储，显示加载状态
-  if (!isMounted || !hasCheckedStorage) {
+  // 如果还在检查本地存储，显示加载状态
+  if (!hasCheckedStorage) {
     return (
       <div className="min-h-screen bg-gray-50/50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -124,18 +118,18 @@ export default function InviteCodeGuard({ children, fallback }: InviteCodeGuardP
               value={inviteCode}
               onChange={(e) => setInviteCode(e.target.value)}
               onKeyPress={handleKeyPress}
-              disabled={isVerifying}
+              disabled={verifyInviteCodeMutation.isPending}
               className="text-center tracking-wider"
             />
           </div>
           
           <Button 
             onClick={handleVerifyInviteCode}
-            disabled={!inviteCode.trim() || isVerifying}
+            disabled={!inviteCode.trim() || verifyInviteCodeMutation.isPending}
             className="w-full"
             size="lg"
           >
-            {isVerifying ? (
+            {verifyInviteCodeMutation.isPending ? (
               <>
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                 验证中...

@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { AlertCircle, Clock, TrendingUp } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
-// import { fetchUnifiedApi } from '@/lib/unified-api'
+// 已迁移到新的纯 React Query 实现
 
 interface PointTransaction {
   id: string

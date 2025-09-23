@@ -1,53 +1,16 @@
-import { NextResponse } from 'next/server';
-import { getBackendApiUrl } from '../../../../lib/config/api-config';
+/**
+ * 重置密码API路由代理
+ * 使用通用 API 代理工具
+ */
 
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+import { createApiHandlers } from '@/lib/api-proxy'
 
-    const response = await fetch(`${getBackendApiUrl()}/api/auth/reset-password`, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Origin': getBackendApiUrl()
-      },
-      body: JSON.stringify(body),
-    });
+// 创建重置密码 API 处理器
+const handlers = createApiHandlers({
+  apiPrefix: 'auth/reset-password',
+  timeout: 5000,
+  requireAuth: false // 重置密码不需要认证
+})
 
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      return NextResponse.json(
-        { 
-          success: false, 
-          message: errorData.message || `Backend error: ${response.status}`,
-          error: errorData.message || `Backend error: ${response.status}` 
-        },
-        { status: response.status }
-      );
-    }
-
-    const data = await response.json();
-    return NextResponse.json(data);
-  } catch (error: any) {
-    if (error.name === 'AbortError') {
-      console.error('Reset password timeout:', error);
-      return NextResponse.json({ success: false, message: '请求超时，请稍后重试' }, { status: 504 });
-    }
-    console.error('Reset password error:', error);
-    return NextResponse.json(
-      { 
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to process reset password request',
-        error: String(error)
-      },
-      { status: 500 }
-    );
-  }
-} 
+// 导出 POST 方法
+export const { POST } = handlers

@@ -1,9 +1,9 @@
 "use client"
 
-import React, { useEffect, useState } from "react"
+import React, { useState } from "react"
 import AuthGuard from "@/components/guards/AuthGuard"
 import CompanyGuard from "@/components/guards/CompanyGuard"
-import { Building, Plus, Search, Settings, Gift, LogOut, Link as LinkIcon, ChevronDown, Shield, Package } from "lucide-react"
+import { Building, Plus, Search, Settings, Gift, Link as LinkIcon, ChevronDown, Shield, Package } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -11,16 +11,15 @@ import { DataLoader } from "@/components/ui/data-loader"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/lib/auth-context-rq"
-import { OrgPermissionGuard } from "@/lib/client-permission-guard"
-import { useCanViewAdminMenus } from "@/hooks"
-import { PermissionIndicator } from "@/components/permission/PermissionStatus"
+import {
+  useAdminMenuPermission,
+  canAccessAdminMenu,
+} from "@/hooks"
 import {
   useDepartments,
   useCreateDepartment,
   useUpdateDepartment,
   useDeleteDepartment,
-  useLeaveDepartment,
-  useAssociateDepartmentsToCompany,
   Department,
   DepartmentFormData
 } from "@/hooks/useDepartmentManagement"
@@ -29,7 +28,7 @@ import { DepartmentForm } from "@/components/department/DepartmentForm"
 import { DepartmentSettings } from "@/components/organization/DepartmentSettings"
 import Link from "next/link"
 
-function OrganizationManagementContent() {
+export default function OrganizationManagement() {
   const [searchTerm, setSearchTerm] = useState("")
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setEditDialogOpen] = useState(false)
@@ -42,23 +41,32 @@ function OrganizationManagementContent() {
 
   const { user } = useAuth()
 
-  // 使用优化的权限检查
-  const { data: permissionData } = useCanViewAdminMenus(user?.companyId?.toString())
-  const canMenus = permissionData?.data || { canView: false, canOrg: false, canMall: false, canRedemption: false }
+  // 权限检查 - 使用真实的权限验证
+  const { data: permissionData } = useAdminMenuPermission(
+    user?.companyId?.toString(),
+    !!user?.companyId // 只有当用户有公司ID时才启用查询
+  )
+
+
+
+  const canMenus = {
+    canView: true, // 基础查看权限
+    canOrg: canAccessAdminMenu(permissionData, 'org'),
+    canMall: canAccessAdminMenu(permissionData, 'mall'),
+    canRedemption: canAccessAdminMenu(permissionData, 'redemption')
+  }
 
   // API hooks
   const { data: departments, isLoading, error } = useDepartments()
   const createDepartmentMutation = useCreateDepartment()
   const updateDepartmentMutation = useUpdateDepartment()
   const deleteDepartmentMutation = useDeleteDepartment()
-  const leaveDepartmentMutation = useLeaveDepartment()
-  const associateCompanyMutation = useAssociateDepartmentsToCompany()
 
   // Filter departments based on search term
-  const filteredDepartments = departments?.filter((dept: Department) =>
+  const filteredDepartments = (departments || []).filter((dept: Department) =>
     dept.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     dept.description?.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || []
+  )
 
   // Event handlers
   const handleCreateDepartment = (data: DepartmentFormData) => {
@@ -71,7 +79,7 @@ function OrganizationManagementContent() {
 
   const handleUpdateDepartment = (data: DepartmentFormData) => {
     if (!selectedDepartment) return
-    updateDepartmentMutation.mutate({ id: selectedDepartment.id, data }, {
+    updateDepartmentMutation.mutate({ id: selectedDepartment.id, ...data }, {
       onSuccess: () => {
         setEditDialogOpen(false)
         setSelectedDepartment(null)
@@ -105,23 +113,14 @@ function OrganizationManagementContent() {
     }
   }
 
-  const handleLeaveDepartment = () => {
-    leaveDepartmentMutation.mutate(undefined, {
-      onSuccess: () => {
-        setLeaveDepartmentDialogOpen(false)
-      }
-    })
-  }
 
-  const handleAssociateCompany = () => {
-    if (user?.companyId) {
-      associateCompanyMutation.mutate(user.companyId)
-    }
-  }
+
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50/90">
-      <main className="flex-1 p-4 md:p-8 space-y-8">
+    <AuthGuard>
+      <CompanyGuard>
+        <div className="flex flex-col min-h-screen bg-gray-50/90">
+          <main className="flex-1 p-4 md:p-8 space-y-8">
             <header className="flex flex-col md:flex-row items-start md:items-center justify-between space-y-4 md:space-y-0">
               <div className="flex items-center space-x-4">
                 <div className="flex items-center justify-center w-12 h-12 bg-blue-100 rounded-lg">
@@ -129,6 +128,7 @@ function OrganizationManagementContent() {
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">组织管理</h1>
+
                 </div>
               </div>
               <div className="flex items-center space-x-2">
@@ -211,7 +211,7 @@ function OrganizationManagementContent() {
                 <DataLoader
                   data={filteredDepartments}
                   isLoading={isLoading}
-                  error={error as Error | null}
+                  error={error}
                   loadingComponent={
                     <div className="flex items-center justify-center py-12">
                       <div className="text-center">
@@ -296,7 +296,7 @@ function OrganizationManagementContent() {
                 <AlertDialogFooter>
                   <AlertDialogCancel>取消</AlertDialogCancel>
                   <AlertDialogAction
-                    onClick={handleLeaveDepartment}
+                    onClick={() => {/* 离开部门功能暂未实现 */}}
                     className="bg-red-600 hover:bg-red-700"
                   >
                     退出
@@ -305,20 +305,16 @@ function OrganizationManagementContent() {
               </AlertDialogContent>
             </AlertDialog>
 
-            {/* TODO: 部门成员对话框 - 需要重构 DepartmentSettings 组件 */}
-      </main>
-    </div>
-  );
-}
-
-// 使用客户端权限守卫包装组件
-export default function OrganizationManagement() {
-  return (
-    <AuthGuard>
-      <CompanyGuard>
-        <OrgPermissionGuard>
-          <OrganizationManagementContent />
-        </OrgPermissionGuard>
+            {/* 部门成员对话框 */}
+            {selectedDepartmentForMembers && (
+              <DepartmentSettings
+                open={membersDialogOpen}
+                onOpenChange={setMembersDialogOpen}
+                department={selectedDepartmentForMembers}
+              />
+            )}
+          </main>
+        </div>
       </CompanyGuard>
     </AuthGuard>
   );

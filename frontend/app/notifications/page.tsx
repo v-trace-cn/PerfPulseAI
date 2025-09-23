@@ -311,7 +311,7 @@ function NotificationsContent() {
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-4" />
-              <p className="text-red-600 mb-4">{error}</p>
+              <p className="text-red-600 mb-4">{error instanceof Error ? error.message : String(error)}</p>
               <Button onClick={refetch} variant="outline">
                 重新加载
               </Button>

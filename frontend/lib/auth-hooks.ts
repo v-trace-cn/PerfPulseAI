@@ -4,8 +4,8 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useToast } from '@/components/ui/use-toast'
-import { api } from '@/lib/api-client'
 import { User } from '@/lib/types'
+import { request } from '@/lib/query-client'
 
 // ==================== 类型定义 ====================
 export interface LoginRequest {
@@ -88,7 +88,7 @@ export function useCurrentUser() {
       if (!userId) {
         return null // 返回 null 而不是抛出错误
       }
-      return api.get(`/api/users/by-id/${userId}`)
+      return request(`/api/users/by-id/${userId}`)
     },
     enabled: !!userId, // 只有在有 userId 时才启用查询
     staleTime: 5 * 60 * 1000, // 5分钟缓存
@@ -113,7 +113,7 @@ export function useIsAuthenticated() {
   return {
     isAuthenticated: !!userId && !!user && !error,
     isLoading: !!userId && isLoading, // 只有在有 userId 时才显示加载状态
-    user: user?.data || null,
+    user: user || null,
   }
 }
 
@@ -128,7 +128,10 @@ export function useLogin() {
   
   return useMutation({
     mutationFn: async ({ email, password, remember = true }: LoginRequest & { remember?: boolean }) => {
-      const response = await api.post('/api/auth/login', { email, password })
+      const response = await request('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      })
       
       if (!response.success || !response.data?.userId) {
         throw new Error(response.message || '登录失败')
@@ -140,9 +143,9 @@ export function useLogin() {
       return response
     },
     onSuccess: (data) => {
-      // 刷新用户数据
+      // 登录成功后立即获取完整的用户数据
       queryClient.invalidateQueries({ queryKey: authKeys.user() })
-      toast({ title: "登录成功", description: "欢迎回来！" })
+      toast({ title: "登录成功", description: `欢迎回来，${data.data?.name || '用户'}！` })
     },
     onError: (error: any) => {
       toast({ 
@@ -163,10 +166,13 @@ export function useRegister() {
   
   return useMutation({
     mutationFn: async ({ email, password, name }: RegisterRequest) => {
-      const response = await api.post('/api/auth/register', {
-        email,
-        password,
-        name: name || email.split('@')[0]
+      const response = await request('/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          email,
+          password,
+          name: name || email.split('@')[0]
+        }),
       })
       
       if (!response.success || !response.data?.userId) {
@@ -178,10 +184,10 @@ export function useRegister() {
       
       return response
     },
-    onSuccess: () => {
-      // 刷新用户数据
+    onSuccess: (data) => {
+      // 注册成功后立即获取完整的用户数据
       queryClient.invalidateQueries({ queryKey: authKeys.user() })
-      toast({ title: "注册成功", description: "账号已创建，欢迎加入！" })
+      toast({ title: "注册成功", description: `欢迎加入，${data.data?.name || '用户'}！` })
     },
     onError: (error: any) => {
       toast({ 
@@ -222,7 +228,10 @@ export function useResetPassword() {
   
   return useMutation({
     mutationFn: async ({ email, password }: ResetPasswordRequest) => {
-      return api.post('/api/auth/reset-password', { email, password })
+      return request('/api/auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      })
     },
     onSuccess: () => {
       toast({ title: "密码重置成功", description: "您的密码已成功重置。" })
@@ -248,7 +257,7 @@ export function useRefreshUser() {
       const userId = getCurrentUserId()
       if (!userId) throw new Error('未登录')
       
-      return api.get(`/api/users/by-id/${userId}`)
+      return request(`/api/users/by-id/${userId}`)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: authKeys.user() })
@@ -268,7 +277,10 @@ export function useUpdateProfile() {
       const userId = getCurrentUserId()
       if (!userId) throw new Error('未登录')
       
-      return api.put(`/api/users/${userId}`, userData)
+      return request(`/api/users/${userId}`, {
+        method: 'PUT',
+        body: JSON.stringify(userData),
+      })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: authKeys.user() })

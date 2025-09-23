@@ -3,7 +3,7 @@ import { useAuth } from '@/lib/auth-context-rq';
 import { PointsSummaryCards } from './PointsSummaryCards';
 import { PointsTabs } from './PointsTabs';
 
-import { usePointsSummary, usePointsTransactions, usePointsMonthlyStats, usePointsRedemptionStats, useUserLevel } from '@/hooks/usePoints';
+import { usePointsOverview, usePointsTransactions, usePointsStats } from '@/hooks/usePoints';
 
 interface PointsOverviewWithStatsProps {
   userId?: string;
@@ -20,13 +20,11 @@ export const PointsOverviewWithStats = memo<PointsOverviewWithStatsProps>(({
   const targetUserId = userId || user?.id;
 
   // 获取积分数据
-  const summary = usePointsSummary();
-  const monthlyStats = usePointsMonthlyStats();
-  const redemptionStats = usePointsRedemptionStats();
-  const userLevel = useUserLevel();
-  const transactions = usePointsTransactions({ page, page_size: pageSize });
+  const overview = usePointsOverview();
+  const monthlyStats = usePointsStats('month');
+  const transactions = usePointsTransactions({ page, pageSize });
 
-  const isError = summary.isError || monthlyStats.isError || redemptionStats.isError;
+  const isError = overview.isError || monthlyStats.isError;
 
   // 使用 useMemo 缓存计算结果
   const summaryData = useMemo(() => ({

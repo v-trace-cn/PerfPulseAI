@@ -15,15 +15,31 @@ interface AuthGuardProps {
 export default function AuthGuard({ children, fallback }: AuthGuardProps) {
   const { user, isAuthenticated, isLoading } = useAuth()
   const { openLoginDialog } = useAuthDialog()
-  const [isMounted, setIsMounted] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
-  // 确保组件在客户端挂载后才进行权限检查
   useEffect(() => {
-    setIsMounted(true)
+    setMounted(true)
   }, [])
 
-  // 在客户端挂载之前，始终显示加载状态以避免 hydration 错误
-  if (!isMounted || isLoading) {
+  // Prevent hydration mismatch by not rendering until mounted
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gray-50/50 flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-6">
+            <div className="flex flex-col items-center space-y-4">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              <p className="text-lg font-medium">加载中...</p>
+              <p className="text-sm text-gray-600">请稍候</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Show loading state while checking authentication
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50/50 flex items-center justify-center">
         <Card className="w-full max-w-md">

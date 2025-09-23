@@ -1,43 +1,16 @@
-import { NextResponse } from 'next/server';
-import { getBackendApiUrl } from '../../../../lib/config/api-config';
+/**
+ * 注册API路由代理
+ * 使用通用 API 代理工具
+ */
 
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    
-    // Direct connection to the backend with proper timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-    
-    const response = await fetch(`${getBackendApiUrl()}/api/auth/register`, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Origin': getBackendApiUrl()
-      },
-      body: JSON.stringify(body),
-    });
-    
-    clearTimeout(timeoutId);
-    
-    const data = await response.json();
-    // The backend returns: { data: { email, name, userId }, message: '注册成功', success: true }
-    return NextResponse.json(data);
-  } catch (error: any) {
-    if (error.name === 'AbortError') {
-      // 注册超时日志已移除
-      return NextResponse.json({ success: false, message: '请求超时，请稍后重试' }, { status: 504 });
-    }
-    // 注册错误日志已移除
-    return NextResponse.json(
-      { 
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to process registration request',
-        error: String(error)
-      },
-      { status: 500 }
-    );
-  }
-}
+import { createApiHandlers } from '@/lib/api-proxy'
+
+// 创建注册 API 处理器
+const handlers = createApiHandlers({
+  apiPrefix: 'auth/register',
+  timeout: 5000,
+  requireAuth: false // 注册不需要认证
+})
+
+// 导出 POST 方法
+export const { POST } = handlers

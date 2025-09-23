@@ -15,12 +15,13 @@ export default function ForgotPasswordPage() {
   const [isLoading, setIsLoading] = useState(false)
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { id, value } = e.target
-    setFormData(prev => ({ ...prev, [id]: value }))
-    if (errors[id as keyof typeof errors]) {
-      setErrors(prev => ({ ...prev, [id]: "" }))
+    const { name, value } = e.target
+    const fieldName = name || e.target.id // fallback to id if name is not set
+    setFormData(prev => ({ ...prev, [fieldName]: value }))
+    if (errors[fieldName as keyof typeof errors]) {
+      setErrors(prev => ({ ...prev, [fieldName]: "" }))
     }
-    if ((id === "password" || id === "confirmPassword") && formData.confirmPassword) {
+    if ((fieldName === "password" || fieldName === "confirmPassword") && formData.confirmPassword) {
       if (formData.password !== formData.confirmPassword) {
         setErrors(prev => ({ ...prev, passwordMatch: "两次输入的密码不一致" }))
       } else {
@@ -76,9 +77,10 @@ export default function ForgotPasswordPage() {
         <h1 className="text-2xl font-bold text-center mb-4">重置密码</h1>
         <div className="space-y-4">
           <div className="grid grid-cols-4 items-center gap-2">
-            <Label htmlFor="email" className="text-right">邮箱</Label>
+            <Label htmlFor="reset-email" className="text-right">邮箱</Label>
             <Input
-              id="email"
+              id="reset-email"
+              name="email"
               type="email"
               className="col-span-3"
               value={formData.email}
@@ -87,9 +89,10 @@ export default function ForgotPasswordPage() {
             {errors.email && <p className="text-red-500 text-xs col-span-3 col-start-2">{errors.email}</p>}
           </div>
           <div className="grid grid-cols-4 items-center gap-2">
-            <Label htmlFor="password" className="text-right">新密码</Label>
+            <Label htmlFor="reset-password" className="text-right">新密码</Label>
             <Input
-              id="password"
+              id="reset-password"
+              name="password"
               type="password"
               className="col-span-3"
               value={formData.password}
@@ -101,6 +104,7 @@ export default function ForgotPasswordPage() {
             <Label htmlFor="confirmPassword" className="text-right">确认密码</Label>
             <Input
               id="confirmPassword"
+              name="confirmPassword"
               type="password"
               className="col-span-3"
               value={formData.confirmPassword}

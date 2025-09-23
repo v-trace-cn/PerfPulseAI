@@ -1,17 +1,22 @@
 /**
- * 统一Hooks入口 - 精简版
- *
- * 按照编码共识标准，提供统一的Hooks访问接口
+ * 统一Hooks入口 - 纯 React Query 实现
+ * 零 fetch，零 API 类，纯 React Query
  */
+
+// 导出新的纯 React Query 查询
+export * from '@/lib/queries'
+
+// 保留现有的商城hooks（已经是纯React Query实现）
+export * from '@/lib/mall-hooks'
 
 // 导入组合hooks需要的依赖
 import { useMallItems } from './useMallRedemption'
 import { useMallRecommendations } from './useMallSearch'
 import { useMallAnalyticsOverview } from './useMallAnalytics'
 import {
-  usePointsSummary,
+  usePointsOverview,
   usePointsTransactions,
-  usePointsWeeklyStats
+  usePointsStats
 } from './usePoints'
 import { useNotifications } from './useNotifications'
 import { useCurrentUserProfile } from './useUserManagement'
@@ -19,8 +24,7 @@ import { useCurrentUserProfile } from './useUserManagement'
 // ==================== 商城相关Hooks ====================
 export {
   useMallItems,
-  useRedeemItem,
-  useUserRedemptions
+  useRedeemItem
 } from './useMallRedemption'
 
 export {
@@ -43,8 +47,7 @@ export {
   useCreateMallItem,
   useUpdateMallItem,
   useDeleteMallItem,
-  useUpdateStock,
-  useMallAdminItems
+  useMallItems as useMallAdminItems
 } from './useMallAdmin'
 
 // ==================== 新的商城Query Hooks（极简React Query） ====================
@@ -73,23 +76,19 @@ export {
 // ==================== 积分相关Hooks ====================
 export {
   usePointsBalance,
-  usePointsSummary,
-  usePointsUnified,
+  usePointsOverview,
   usePointsTransactions,
-  usePointsHistory,
-  usePointsWeeklyStats,
-  usePointsMonthlyStats,
-  usePointsRedemptionStats,
-  usePointsLevels,
-  useUserLevel,
+  usePointsStats,
+  usePointsLeaderboard,
+  usePointsLedger,
+  usePointsRules,
   useTransferPoints,
   useAccruePoints,
-  useAdminUserBalance,
-  useAdjustUserPoints,
-  useBatchAccruePoints,
-  useExportPointsData,
-  useRefreshPointsData,
-  POINTS_QUERY_KEYS
+  useDeductPoints,
+  useFreezePoints,
+  useUnfreezePoints,
+  useCheckPointsConsistency,
+  useRecalculatePoints
 } from './usePoints'
 
 // ==================== 管理相关Hooks ====================
@@ -106,20 +105,7 @@ export {
 } from './useCompanyManagement'
 
 // ==================== 角色权限相关Hooks ====================
-export {
-  useRoles,
-  useRole,
-  usePermissions,
-  useUserRoles,
-  usePermissionCheck,
-  useCanViewAdminMenus,
-  useCreateRole,
-  useUpdateRole,
-  useDeleteRole,
-  useAssignRole,
-  useRemoveRole,
-  ROLE_QUERY_KEYS
-} from './useRole'
+// 角色权限功能暂未实现，相关函数已移除
 
 // ==================== 权限工具和Hooks ====================
 export {
@@ -149,40 +135,42 @@ export {
 
 // ==================== 活动相关Hooks ====================
 export {
-  useResetActivityPoints,
+  useRecentActivities,
+  useActivity,
+  useActivityByShowId,
+  useActivities,
   useAnalyzePr,
   useCalculatePrPoints,
-  useUpdateActivityStatus
+  useResetActivityPoints,
+  useUpdateActivityStatus,
+  useCreateActivity,
+  useUpdateActivity,
+  useDeleteActivity
 } from './useActivity'
 
 export {
   useDepartments,
   useDepartment,
-  useDepartmentById,
+  useCurrentCompanyDepartments,
   useCreateDepartment,
   useUpdateDepartment,
   useDeleteDepartment,
-  useJoinDepartment,
-  useLeaveDepartment,
   useDepartmentMembers,
-  useDepartmentStats,
-  useAssociateDepartmentsToCompany,
-  useExportDepartmentData
+  useBatchAssociateDepartments,
+  useJoinDepartment
 } from './useDepartmentManagement'
 
 export {
-  useUser,
+  useUserProfile,
   useCurrentUserProfile,
-  useUpdateUser,
+  useUpdateUserProfile,
   useUploadAvatar,
-  useChangePassword,
-  useResetPassword,
-  useSearchUsers,
+  useUsers,
   useUserActivities,
-  useUserAchievements,
   useUserLeaderboard,
-  useUserStats,
-  useAdminMenuPermissions
+  useDeleteUser,
+  useResetUserPassword,
+  useBatchImportUsers
 } from './useUserManagement'
 
 // ==================== 通知相关Hooks ====================
@@ -199,18 +187,13 @@ export {
   usePagination
 } from './usePagination'
 
-export {
-  useUserProfile
-} from './useUserProfile'
 
 export {
   useIsMobile as useMobile
 } from './use-mobile'
 
 // ==================== 基础管理Hooks ====================
-export {
-  BaseManagementHooks
-} from './useBaseManagement'
+// 基础管理功能已迁移到 @/lib/queries 中的通用查询系统
 
 // ==================== 常用组合Hooks ====================
 
@@ -235,16 +218,16 @@ export function useMallComplete() {
  * 积分完整数据Hook - 组合多个积分相关Hook
  */
 export function usePointsComplete() {
-  const summary = usePointsSummary()
-  const transactions = usePointsTransactions({ page: 1, page_size: 10 })
-  const weeklyStats = usePointsWeeklyStats()
-  
+  const overview = usePointsOverview()
+  const transactions = usePointsTransactions({ page: 1, pageSize: 10 })
+  const stats = usePointsStats('week')
+
   return {
-    summary,
+    overview,
     transactions,
-    weeklyStats,
-    isLoading: summary.isLoading || transactions.isLoading || weeklyStats.isLoading,
-    error: summary.error || transactions.error || weeklyStats.error
+    stats,
+    isLoading: overview.isLoading || transactions.isLoading || stats.isLoading,
+    error: overview.error || transactions.error || stats.error
   }
 }
 
@@ -253,15 +236,15 @@ export function usePointsComplete() {
  */
 export function useUserComplete() {
   const profile = useCurrentUserProfile()
-  const pointsSummary = usePointsSummary()
+  const pointsOverview = usePointsOverview()
   const notifications = useNotifications()
 
   return {
     profile,
-    pointsSummary,
+    pointsOverview,
     notifications,
-    isLoading: profile.isLoading || pointsSummary.isLoading || notifications.loading,
-    error: profile.error || pointsSummary.error || notifications.error
+    isLoading: profile.isLoading || pointsOverview.isLoading || notifications.loading,
+    error: profile.error || pointsOverview.error || notifications.error
   }
 }
 

@@ -46,7 +46,7 @@ export default function OrganizationManagement() {
   const { data: permissionData, isLoading: permissionLoading } = useAdminMenuPermission(user?.companyId?.toString())
   const canMenus = {
     canView: true, // 基础查看权限
-    canOrg: true,  // 组织管理权限
+    canOrg: canAccessAdminMenu(permissionData, 'org'),
     canMall: canAccessAdminMenu(permissionData, 'mall'),
     canRedemption: canAccessAdminMenu(permissionData, 'redemption')
   }

@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { MoreHorizontal, ArrowUpDown, Users, Loader2 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context-rq"
-import { useQuery } from "@tanstack/react-query"
+import { useCompanyMembers } from "@/lib/queries/user-queries"
 import { useToast } from "@/components/ui/use-toast"
 
 // 团队成员类型定义
@@ -35,15 +35,6 @@ interface TeamMember {
   department?: string
 }
 
-// 获取公司成员的API函数
-const fetchCompanyMembers = async (companyId: number): Promise<TeamMember[]> => {
-  const response = await fetch(`/api/users/company-members?companyId=${companyId}`)
-  if (!response.ok) {
-    throw new Error('获取团队成员失败')
-  }
-  const data = await response.json()
-  return data.success ? data.data.items : []
-}
 
 // 生成模拟评分数据的函数
 const generateMockScores = (id: number) => {

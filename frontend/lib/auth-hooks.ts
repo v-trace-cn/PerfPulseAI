@@ -113,7 +113,7 @@ export function useIsAuthenticated() {
   return {
     isAuthenticated: !!userId && !!user && !error,
     isLoading: !!userId && isLoading, // 只有在有 userId 时才显示加载状态
-    user: user?.data || null,
+    user: user || null,
   }
 }
 
@@ -143,9 +143,9 @@ export function useLogin() {
       return response
     },
     onSuccess: (data) => {
-      // 刷新用户数据
+      // 登录成功后立即获取完整的用户数据
       queryClient.invalidateQueries({ queryKey: authKeys.user() })
-      toast({ title: "登录成功", description: "欢迎回来！" })
+      toast({ title: "登录成功", description: `欢迎回来，${data.data?.name || '用户'}！` })
     },
     onError: (error: any) => {
       toast({ 
@@ -184,10 +184,10 @@ export function useRegister() {
       
       return response
     },
-    onSuccess: () => {
-      // 刷新用户数据
+    onSuccess: (data) => {
+      // 注册成功后立即获取完整的用户数据
       queryClient.invalidateQueries({ queryKey: authKeys.user() })
-      toast({ title: "注册成功", description: "账号已创建，欢迎加入！" })
+      toast({ title: "注册成功", description: `欢迎加入，${data.data?.name || '用户'}！` })
     },
     onError: (error: any) => {
       toast({ 

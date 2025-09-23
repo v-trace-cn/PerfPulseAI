@@ -1,46 +1,16 @@
-import { NextResponse } from 'next/server';
-import { getBackendApiUrl, getFrontendOriginUrl } from '../../../lib/config/api-config';
+/**
+ * 健康检查API路由代理
+ * 使用通用 API 代理工具
+ */
 
-export async function GET() {
-  const testUrl = `${getBackendApiUrl()}/api/health`;
+import { createApiHandlers } from '@/lib/api-proxy'
 
-  try {
-    // 测试性请求，添加详细日志
-    const response = await fetch(testUrl, {
-      method: 'GET',
-      headers: {
-        'Origin': getFrontendOriginUrl() // 确保与前端地址一致
-      }
-    });
+// 创建健康检查 API 处理器
+const handlers = createApiHandlers({
+  apiPrefix: 'health',
+  timeout: 5000,
+  requireAuth: false // 健康检查不需要认证
+})
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    return NextResponse.json(data, {
-      headers: {
-        'Access-Control-Allow-Origin': getFrontendOriginUrl()
-      }
-    });
-  } catch (error) {
-    return NextResponse.json(
-      {
-        success: false,
-        message: '后端连接测试失败',
-        diagnostic: {
-          backendUrl: testUrl,
-          error: (error as Error).message,
-          suggestion: '请检查后端服务是否运行以及CORS配置'
-        }
-      },
-      { 
-        status: 200,
-        headers: {
-          'Access-Control-Allow-Origin': getFrontendOriginUrl()
-        }
-      }
-    );
-  }
-}
+// 导出 GET 方法
+export const { GET } = handlers

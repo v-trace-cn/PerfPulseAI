@@ -25,47 +25,7 @@ export default function CompanyGuard({ children, fallback }: CompanyGuardProps) 
   const [inviteCode, setInviteCode] = useState("")
 
   // Join company mutation
-  const joinCompanyMutation = useMutation({
-    mutationFn: (inviteCode: string) => 
-      fetch('/api/companies/join', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inviteCode, userId: user?.id })
-      }).then(res => res.json()),
-    onSuccess: async (res) => {
-      if (res.success) {
-        toast({
-          title: "成功",
-          description: res.message,
-          variant: "default",
-        })
-        
-        // Refresh user data
-        await refreshUser()
-        
-        // Refresh related queries
-        if (user?.id) {
-          queryClient.invalidateQueries({ queryKey: ['user', user.id] })
-          queryClient.invalidateQueries({ queryKey: ['userProfile', user.id] })
-          queryClient.invalidateQueries({ queryKey: ['departments'] })
-          queryClient.invalidateQueries({ queryKey: ['available-companies'] })
-        }
-      } else {
-        toast({
-          title: "错误",
-          description: res.message,
-          variant: "destructive",
-        })
-      }
-    },
-    onError: (error: any) => {
-      toast({
-        title: "错误",
-        description: error.message || "加入公司失败",
-        variant: "destructive",
-      })
-    },
-  })
+  const joinCompanyMutation = useJoinCompany()
 
   const handleJoinCompany = () => {
     if (!inviteCode.trim()) {
@@ -76,7 +36,17 @@ export default function CompanyGuard({ children, fallback }: CompanyGuardProps) 
       })
       return
     }
-    joinCompanyMutation.mutate(inviteCode.trim())
+    joinCompanyMutation.mutate({
+      inviteCode: inviteCode.trim(),
+      userId: user?.id
+    }, {
+      onSuccess: async () => {
+        // Refresh user data
+        await refreshUser()
+        // Clear invite code
+        setInviteCode("")
+      }
+    })
   }
 
   // Show company membership requirement if user hasn't joined a company

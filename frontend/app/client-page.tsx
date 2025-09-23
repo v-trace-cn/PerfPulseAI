@@ -214,9 +214,9 @@ export default function ClientPage({ children }: { children?: React.ReactNode })
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="auth-email">邮箱</Label>
+              <Label htmlFor={`auth-email-${authMode}`}>邮箱</Label>
               <Input
-                id="auth-email"
+                id={`auth-email-${authMode}`}
                 name="email"
                 type="email"
                 placeholder="info@v-trace.cn"
@@ -233,9 +233,9 @@ export default function ClientPage({ children }: { children?: React.ReactNode })
             </div>
             {(authMode === "login" || authMode === "register" || authMode === "reset-password") && (
               <div className="grid gap-2">
-                <Label htmlFor="auth-password">密码</Label>
+                <Label htmlFor={`auth-password-${authMode}`}>密码</Label>
                 <Input
-                  id="auth-password"
+                  id={`auth-password-${authMode}`}
                   name="password"
                   type="password"
                   value={formData.password}
@@ -274,9 +274,9 @@ export default function ClientPage({ children }: { children?: React.ReactNode })
             )}
             {(authMode === "register" || authMode === "reset-password") && (
               <div className="grid gap-2">
-                <Label htmlFor="confirmPassword">确认密码</Label>
+                <Label htmlFor={`confirmPassword-${authMode}`}>确认密码</Label>
                 <Input
-                  id="confirmPassword"
+                  id={`confirmPassword-${authMode}`}
                   name="confirmPassword"
                   type="password"
                   value={formData.confirmPassword}

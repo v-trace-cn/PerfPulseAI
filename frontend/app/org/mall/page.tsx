@@ -863,6 +863,7 @@ export default function MallManagement() {
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>快速编辑</DialogTitle>
+                  <DialogDescription>快速修改商品的基本信息</DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="grid grid-cols-2 gap-4">

@@ -256,3 +256,16 @@ export function useJoinDepartment() {
     ],
   })
 }
+
+/**
+ * 获取公司成员列表
+ */
+export function useCompanyMembers(companyId: string, page: number = 1, pageSize: number = 1000) {
+  return useApiQuery<{ items: User[]; total: number }>({
+    queryKey: ['users', 'company-members', companyId, page, pageSize],
+    url: '/api/users/company-members',
+    params: { companyId, page, pageSize },
+    enabled: !!companyId,
+    staleTime: 5 * 60 * 1000, // 5分钟缓存
+  })
+}

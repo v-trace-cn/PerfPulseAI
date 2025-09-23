@@ -10,28 +10,24 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Settings, Users, Target, Bell, Shield, Trash2, Plus, Edit, Save } from "lucide-react"
+import { Department } from "@/lib/queries/department-queries"
 
 interface DepartmentSettingsProps {
-  department: {
-    id: string
-    name: string
-    manager: string
-    members: number
-    performance: number
-    projects: number
-    status: string
-  }
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  department: Department
 }
 
-export function DepartmentSettings({ department }: DepartmentSettingsProps) {
+export function DepartmentSettings({ open, onOpenChange, department }: DepartmentSettingsProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState({
     name: department.name,
-    description: "",
-    manager: department.manager,
+    description: department.description || "",
+    manager: department.manager?.name || "",
     budget: "500000",
-    targetPerformance: department.performance?.toString() || "85",
+    targetPerformance: "85",
   })
 
   const [notifications, setNotifications] = useState({
@@ -61,8 +57,15 @@ export function DepartmentSettings({ department }: DepartmentSettingsProps) {
   }
 
   return (
-    <div className="w-full max-w-4xl">
-      <Tabs defaultValue="basic" className="w-full">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>部门设置 - {department.name}</DialogTitle>
+          <DialogDescription>
+            管理部门的基本信息、目标设置、通知配置和权限管理
+          </DialogDescription>
+        </DialogHeader>
+        <Tabs defaultValue="basic" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="basic">基本信息</TabsTrigger>
           <TabsTrigger value="goals">目标设置</TabsTrigger>
@@ -376,6 +379,7 @@ export function DepartmentSettings({ department }: DepartmentSettingsProps) {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 } 

@@ -16,6 +16,7 @@ import { GovernanceCard, WeeklyGoalsCard, PointsCard, ComplianceCard } from "@/c
 import { useToast } from "@/components/ui/use-toast"
 import { useQueryClient } from "@tanstack/react-query"
 import { useDashboardData, useCurrentCompanyDepartments } from "@/lib/queries"
+import { useUpdateUserProfile } from "@/lib/queries/user-queries"
 
 // 积分相关类型定义 - 移动到 @/lib/types/points
 import { formatPoints } from '@/lib/types/points';
@@ -51,6 +52,9 @@ export default function Dashboard() {
 
   const { toast } = useToast()
 
+  // Mutation hooks
+  const updateUserProfileMutation = useUpdateUserProfile()
+
   // Simplified state management - only keep what's not in useAuth
   const [editProfileOpen, setEditProfileOpen] = useState(false)
   const [viewColleagueOpen, setViewColleagueOpen] = useState(false)
@@ -71,7 +75,7 @@ export default function Dashboard() {
     setEditProfileOpen(true)
   }
 
-  const handleSaveProfile = async (e: React.FormEvent) => {
+  const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault()
 
     // 只有当手机号不为空时才进行验证
@@ -84,46 +88,31 @@ export default function Dashboard() {
       return
     }
 
-    try {
-      const updatedInfo = {
-        name: user?.name || "",
-        phone: user?.phone || "",
-        githubUrl: user?.githubUrl || "",
-        departmentId: selectedDepartment ? parseInt(selectedDepartment) : undefined, // 使用状态中的组织ID
-      };
+    const updatedInfo = {
+      name: user?.name || "",
+      phone: user?.phone || "",
+      githubUrl: user?.githubUrl || "",
+      departmentId: selectedDepartment ? parseInt(selectedDepartment) : undefined,
+    };
 
-      if (user && user.id) {
-        const result = await fetch(`/api/users/${user.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedInfo)
-        }).then(res => res.json());
-
-        if (result.success) {
-          toast({
-            title: "成功",
-            description: "个人资料已更新。",
-            variant: "default",
-          })
-          setEditProfileOpen(false)
-          await refreshUser();
-          // 如果有其他地方也使用 React Query 查询用户数据，需要使其失效
-          queryClient.invalidateQueries({ queryKey: ["user", user.id] });
-        } else {
-          toast({
-            title: "更新失败",
-            description: result.message || "更新个人资料时出错。",
-            variant: "destructive",
-          })
-        }
+    updateUserProfileMutation.mutate(updatedInfo, {
+      onSuccess: async () => {
+        toast({
+          title: "成功",
+          description: "个人资料已更新。",
+          variant: "default",
+        })
+        setEditProfileOpen(false)
+        await refreshUser()
+      },
+      onError: (error: any) => {
+        toast({
+          title: "更新失败",
+          description: error.message || "更新个人资料时出错。",
+          variant: "destructive",
+        })
       }
-    } catch (error: any) {
-      toast({
-        title: "错误",
-        description: error.message || "连接服务器失败，请稍后再试。",
-        variant: "destructive",
-      })
-    }
+    })
   }
 
   useEffect(() => {

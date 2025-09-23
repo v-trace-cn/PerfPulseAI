@@ -82,7 +82,12 @@ export const request = async <T = any>(
 
   const responseData = await response.json()
 
-  // 如果响应有 data 字段，返回 data，否则返回整个响应
+  // 对于认证相关的API，返回完整响应（包含 success 字段）
+  if (url.includes('/api/auth/')) {
+    return responseData
+  }
+
+  // 对于其他API，如果响应有 data 字段，返回 data，否则返回整个响应
   if (responseData && typeof responseData === 'object' && 'data' in responseData) {
     return responseData.data
   }
@@ -155,6 +160,17 @@ export const queryKeys = {
     all: ['departments'] as const,
     list: (userId: string) => ['departments', 'list', userId] as const,
     detail: (id: string) => ['departments', 'detail', id] as const,
+    admins: (id: number) => ['departments', 'admins', id] as const,
+  },
+
+  // 角色权限相关
+  role: {
+    all: ['roles'] as const,
+    list: (companyId: string) => ['roles', 'list', companyId] as const,
+    detail: (id: number) => ['roles', 'detail', id] as const,
+    members: (id: number) => ['roles', 'members', id] as const,
+    userRoles: (userId: number) => ['roles', 'userRoles', userId] as const,
+    adminMenuPermission: (companyId: string) => ['roles', 'adminMenuPermission', companyId] as const,
   },
   
   // 活动相关

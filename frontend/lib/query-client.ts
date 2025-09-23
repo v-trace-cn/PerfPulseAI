@@ -82,8 +82,8 @@ export const request = async <T = any>(
 
   const responseData = await response.json()
 
-  // 对于认证相关的API，返回完整响应（包含 success 字段）
-  if (url.includes('/api/auth/')) {
+  // 对于认证相关的API和权限相关的API，返回完整响应（包含 success 字段）
+  if (url && (url.includes('/api/auth/') || url.includes('/api/roles/permissions/'))) {
     return responseData
   }
 
@@ -236,10 +236,26 @@ function getUserId(): string | null {
  */
 export function useApiQuery<T = any>(config: QueryConfig<T>) {
   const { toast } = useToast()
-  
+
+  const finalUrl = buildUrl(config.url, config.params)
+
+  // 调试信息
+  if (config.url.includes('permissions')) {
+    console.log('useApiQuery 权限检查调试:', {
+      originalUrl: config.url,
+      params: config.params,
+      finalUrl,
+      enabled: config.enabled,
+      queryKey: config.queryKey
+    })
+  }
+
   return useQuery({
     queryKey: config.queryKey,
-    queryFn: () => request<T>(buildUrl(config.url, config.params)),
+    queryFn: () => {
+      console.log('执行权限查询:', finalUrl)
+      return request<T>(finalUrl)
+    },
     enabled: config.enabled ?? true,
     staleTime: config.staleTime ?? 5 * 60 * 1000, // 5分钟默认缓存
     refetchOnWindowFocus: config.refetchOnWindowFocus ?? false,

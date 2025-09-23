@@ -46,11 +46,17 @@ export const checkPermission = async (params: {
 }
 
 /**
- * 检查管理菜单权限
+ * 检查管理菜单权限 (已废弃，使用 useAdminMenuPermission hook)
  */
 export const checkAdminMenuPermission = async (companyId?: string): Promise<AdminMenuPermission> => {
+  if (!companyId) {
+    throw new Error('缺少公司ID参数')
+  }
+
   const searchParams = new URLSearchParams()
-  if (companyId) searchParams.append('companyId', companyId)
+  searchParams.append('companyId', companyId)
+
+  console.log('调用权限检查API:', `/api/roles/permissions/can_view_admin_menus?${searchParams.toString()}`)
 
   return request(`/api/roles/permissions/can_view_admin_menus?${searchParams.toString()}`)
 }
@@ -89,7 +95,8 @@ export function usePermissionCheck(
 export function useAdminMenuPermission(companyId?: string, enabled: boolean = true) {
   return useApiQuery<AdminMenuPermission>({
     queryKey: PERMISSION_QUERY_KEYS.adminMenus(companyId),
-    queryFn: () => checkAdminMenuPermission(companyId),
+    url: '/api/roles/permissions/can_view_admin_menus',
+    params: companyId ? { companyId } : undefined,
     enabled: enabled && !!companyId,
     staleTime: 5 * 60 * 1000, // 5分钟缓存
   })

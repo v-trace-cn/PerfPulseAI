@@ -43,7 +43,24 @@ export default function OrganizationManagement() {
   const { user } = useAuth()
 
   // 权限检查 - 使用真实的权限验证
-  const { data: permissionData, isLoading: permissionLoading } = useAdminMenuPermission(user?.companyId?.toString())
+  const { data: permissionData, isLoading: permissionLoading, error: permissionError } = useAdminMenuPermission(
+    user?.companyId?.toString(),
+    !!user?.companyId // 只有当用户有公司ID时才启用查询
+  )
+
+  // 调试信息
+  console.log('权限检查调试信息:', {
+    userId: user?.id,
+    companyId: user?.companyId,
+    companyIdString: user?.companyId?.toString(),
+    hasCompanyId: !!user?.companyId,
+    queryEnabled: !!user?.companyId,
+    permissionData,
+    permissionLoading,
+    permissionError: permissionError?.message,
+    fullError: permissionError
+  })
+
   const canMenus = {
     canView: true, // 基础查看权限
     canOrg: canAccessAdminMenu(permissionData, 'org'),
@@ -128,6 +145,14 @@ export default function OrganizationManagement() {
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">组织管理</h1>
+                  {/* 调试信息 - 权限状态 */}
+                  {process.env.NODE_ENV === 'development' && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      {permissionLoading && ' (加载中...)'}
+                      {permissionError && ` (错误: ${permissionError.message})`}
+                      <br />
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex items-center space-x-2">

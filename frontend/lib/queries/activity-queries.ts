@@ -46,12 +46,12 @@ export interface ActivityUpdate {
  */
 export function useRecentActivities(page: number = 1, perPage: number = 10) {
   const { user } = useAuth()
-  
+
   return useApiQuery({
     queryKey: queryKeys.activity.recent(user?.id || '', page, perPage),
     url: '/api/activities/recent',
     params: {
-      user_id: user?.id,
+      user_id: user?.id?.toString(), // 确保传递字符串类型
       page,
       per_page: perPage,
     },

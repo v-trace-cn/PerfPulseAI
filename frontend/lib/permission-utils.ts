@@ -45,21 +45,7 @@ export const checkPermission = async (params: {
   return request(`/api/roles/permissions/check?${searchParams.toString()}`)
 }
 
-/**
- * 检查管理菜单权限 (已废弃，使用 useAdminMenuPermission hook)
- */
-export const checkAdminMenuPermission = async (companyId?: string): Promise<AdminMenuPermission> => {
-  if (!companyId) {
-    throw new Error('缺少公司ID参数')
-  }
 
-  const searchParams = new URLSearchParams()
-  searchParams.append('companyId', companyId)
-
-  console.log('调用权限检查API:', `/api/roles/permissions/can_view_admin_menus?${searchParams.toString()}`)
-
-  return request(`/api/roles/permissions/can_view_admin_menus?${searchParams.toString()}`)
-}
 
 // ==================== 查询键常量 ====================
 

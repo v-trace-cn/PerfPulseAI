@@ -218,13 +218,7 @@ export const queryKeys = {
 
 // ==================== 公共函数 ====================
 
-/**
- * 获取用户ID
- */
-function getUserId(): string | null {
-  if (typeof window === 'undefined') return null
-  return localStorage.getItem('token')
-}
+
 
 
 
@@ -237,25 +231,9 @@ function getUserId(): string | null {
 export function useApiQuery<T = any>(config: QueryConfig<T>) {
   const { toast } = useToast()
 
-  const finalUrl = buildUrl(config.url, config.params)
-
-  // 调试信息
-  if (config.url.includes('permissions')) {
-    console.log('useApiQuery 权限检查调试:', {
-      originalUrl: config.url,
-      params: config.params,
-      finalUrl,
-      enabled: config.enabled,
-      queryKey: config.queryKey
-    })
-  }
-
   return useQuery({
     queryKey: config.queryKey,
-    queryFn: () => {
-      console.log('执行权限查询:', finalUrl)
-      return request<T>(finalUrl)
-    },
+    queryFn: () => request<T>(buildUrl(config.url, config.params)),
     enabled: config.enabled ?? true,
     staleTime: config.staleTime ?? 5 * 60 * 1000, // 5分钟默认缓存
     refetchOnWindowFocus: config.refetchOnWindowFocus ?? false,

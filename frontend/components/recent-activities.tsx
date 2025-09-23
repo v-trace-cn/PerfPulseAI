@@ -38,9 +38,9 @@ export const RecentActivities = memo(() => {
   // 使用新的纯 React Query 实现
   const { data: fetchedData, isLoading: apiLoading, error: apiError } = useRecentActivities(currentPage, perPage);
 
-  // 处理数据映射
-  const activities: Activity[] = fetchedData?.success && fetchedData.data?.activities
-    ? fetchedData.data.activities.map((activity: any) => ({
+  // 处理数据映射 - fetchedData 现在直接是 data 部分
+  const activities: Activity[] = fetchedData?.activities
+    ? fetchedData.activities.map((activity: any) => ({
         id: activity.id,
         show_id: activity.showId || activity.show_id,
         title: activity.title,
@@ -59,8 +59,8 @@ export const RecentActivities = memo(() => {
       }))
     : [];
 
-  const totalPages = fetchedData?.success && fetchedData.data
-    ? Math.max(1, Math.ceil(fetchedData.data.total / fetchedData.data.per_page))
+  const totalPages = fetchedData
+    ? Math.max(1, Math.ceil(fetchedData.total / fetchedData.per_page))
     : 1;
 
   if (apiLoading) {
@@ -71,7 +71,7 @@ export const RecentActivities = memo(() => {
     return <div className="text-center text-destructive">错误: {apiError instanceof Error ? apiError.message : String(apiError)}</div>;
   }
 
-  if (!fetchedData || !fetchedData.success || !fetchedData.data || !fetchedData.data.activities || fetchedData.data.activities.length === 0) {
+  if (!fetchedData || !fetchedData.activities || fetchedData.activities.length === 0) {
     return <div className="text-center text-muted-foreground">暂无最新活动。</div>;
   }
 

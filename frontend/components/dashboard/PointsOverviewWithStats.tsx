@@ -25,24 +25,23 @@ export const PointsOverviewWithStats = memo<PointsOverviewWithStatsProps>(({
   const transactions = usePointsTransactions({ page, pageSize });
 
   const isError = overview.isError || monthlyStats.isError;
+  const isLoading = overview.isLoading || monthlyStats.isLoading;
 
   // 使用 useMemo 缓存计算结果
   const summaryData = useMemo(() => ({
-    currentPoints: summary.data?.currentBalance || user?.total_points || user?.points || 0,
-    totalEarned: summary.data?.totalEarned || 0,
-    totalSpent: summary.data?.totalSpent || 0,
-    level: userLevel.data?.level || user?.level || 1,
-    nextLevelPoints: userLevel.data?.pointsToNext || 0,
-    monthlyEarned: monthlyStats.data?.monthlyEarned || 0,
-    monthlySpent: monthlyStats.data?.monthlySpent || 0,
-    redeemCount: redemptionStats.data?.monthlyRedemptions || 0,
-    progressPercentage: userLevel.data?.progressPercentage || 0
+    currentPoints: overview.data?.balance?.totalPoints || user?.total_points || user?.points || 0,
+    totalEarned: overview.data?.yearlyStats?.earned || 0,
+    totalSpent: overview.data?.yearlyStats?.spent || 0,
+    level: user?.level || 1,
+    nextLevelPoints: 0, // TODO: 实现用户等级系统
+    monthlyEarned: monthlyStats.data?.monthlyEarned || overview.data?.monthlyStats?.earned || 0,
+    monthlySpent: monthlyStats.data?.monthlySpent || overview.data?.monthlyStats?.spent || 0,
+    redeemCount: 0, // TODO: 实现兑换统计
+    progressPercentage: 0 // TODO: 实现进度计算
   }), [
-    summary.data,
+    overview.data,
     user,
-    userLevel.data,
-    monthlyStats.data,
-    redemptionStats.data
+    monthlyStats.data
   ]);
 
   // 使用真实的兑换历史数据
@@ -65,7 +64,7 @@ export const PointsOverviewWithStats = memo<PointsOverviewWithStatsProps>(({
       {/* 积分概览卡片 */}
       <PointsSummaryCards
         data={summaryData}
-        isLoading={false} // 临时禁用加载状态
+        isLoading={isLoading}
       />
 
       {/* 详细信息标签页 */}
@@ -73,7 +72,7 @@ export const PointsOverviewWithStats = memo<PointsOverviewWithStatsProps>(({
         currentPoints={summaryData.currentPoints}
         userId={targetUserId}
         redemptionHistory={redemptionHistory}
-        isLoading={false} // 临时禁用加载状态
+        isLoading={isLoading}
       />
     </div>
   );

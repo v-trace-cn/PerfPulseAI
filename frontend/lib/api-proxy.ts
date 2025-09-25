@@ -69,13 +69,6 @@ export async function forwardRequest(
       config.pathMapper
     )
 
-    console.log(`${config.apiPrefix} ${method} API Route called:`, {
-      path,
-      url: request.url,
-      backendUrl,
-      backendApiUrl: getBackendApiUrl()
-    })
-
     // 构建请求头
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -106,7 +99,6 @@ export async function forwardRequest(
     const timeoutId = setTimeout(() => controller.abort(), config.timeout || 10000)
 
     try {
-      console.log(`Fetching backend URL: ${backendUrl}`)
       const response = await fetch(backendUrl, {
         method,
         headers,
@@ -115,7 +107,6 @@ export async function forwardRequest(
       })
 
       clearTimeout(timeoutId)
-      console.log(`Backend response status: ${response.status}`)
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
@@ -127,7 +118,6 @@ export async function forwardRequest(
       }
 
       const data = await response.json()
-      console.log(`Backend response data:`, data)
       return NextResponse.json(data)
     } catch (fetchError: any) {
       clearTimeout(timeoutId)

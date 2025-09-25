@@ -1,7 +1,5 @@
-import asyncio
 from datetime import datetime
 from uuid import uuid4
-from typing import Optional
 
 from app.core.ai_service import perform_pr_analysis
 from app.core.database import AsyncSessionLocal
@@ -12,49 +10,6 @@ from app.models.pull_request_event import PullRequestEvent
 from app.models.pull_request_result import PullRequestResult
 from app.models.scoring import ScoreEntry
 from sqlalchemy import select
-
-
-class TaskScheduler:
-    """安全的任务调度器，处理异步任务的执行"""
-
-    def __init__(self):
-        self._running_tasks = set()
-
-    def schedule_task(self, coro, task_name: Optional[str] = None):
-        """安全地调度异步任务"""
-        try:
-            # 获取当前事件循环
-            loop = asyncio.get_running_loop()
-
-            # 创建任务
-            task = loop.create_task(coro)
-
-            # 添加到运行任务集合
-            self._running_tasks.add(task)
-
-            # 添加完成回调来清理任务
-            task.add_done_callback(self._running_tasks.discard)
-
-            if task_name:
-                logger.info(f"[任务调度器] 已调度任务: {task_name}")
-
-            return task
-
-        except RuntimeError as e:
-            # 如果没有运行的事件循环，记录错误但不抛出异常
-            logger.error(f"[任务调度器] 无法调度任务 {task_name}: {e}")
-            return None
-        except Exception as e:
-            logger.error(f"[任务调度器] 调度任务时发生错误 {task_name}: {e}")
-            return None
-
-    def get_running_tasks_count(self) -> int:
-        """获取当前运行的任务数量"""
-        return len(self._running_tasks)
-
-
-# 全局任务调度器实例
-task_scheduler = TaskScheduler()
 
 
 async def process_pending_tasks():
@@ -148,11 +103,3 @@ async def process_pending_tasks():
                     logger.error(f"[任务执行] PR {act.id} 分析失败：{e}")
         except Exception as e:
             logger.error(f"[任务调度器] 处理待处理任务时发生异步操作错误，请检查数据库连接和事件循环配置: {e}")
-
-
-def schedule_pending_tasks():
-    """安全地调度待处理任务"""
-    return task_scheduler.schedule_task(
-        process_pending_tasks(),
-        "process_pending_tasks"
-    )

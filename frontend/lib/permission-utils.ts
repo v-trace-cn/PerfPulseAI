@@ -45,6 +45,14 @@ export const checkPermission = async (params: {
   return request(`/api/roles/permissions/check?${searchParams.toString()}`)
 }
 
+/**
+ * 检查管理菜单权限
+ */
+export const checkAdminMenuPermission = async (companyId?: string): Promise<AdminMenuPermission> => {
+  const params = companyId ? { companyId } : undefined
+  return request('/api/roles/permissions/can_view_admin_menus', { params })
+}
+
 
 
 // ==================== 查询键常量 ====================

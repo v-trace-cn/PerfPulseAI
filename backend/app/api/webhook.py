@@ -12,7 +12,7 @@ from uuid import uuid4
 from app.core.config import Settings
 from app.core.database import AsyncSessionLocal, get_db
 from app.core.logging_config import logger
-from app.core.scheduler import schedule_pending_tasks
+from app.core.scheduler import process_pending_tasks
 from app.models.activity import Activity
 from app.models.pull_request import PullRequest
 from app.models.pull_request_event import PullRequestEvent
@@ -144,8 +144,7 @@ async def process_pull_request_event(
                     await db.commit()
                     print(f"    Pending task for PR #{pr_number} saved/updated successfully.")
 
-                    # 使用安全的任务调度器
-                    schedule_pending_tasks()
+                    asyncio.create_task(process_pending_tasks())
                 except Exception as e:
                     await db.rollback()
                     print(f"    Error saving/updating pending task for PR #{pr_number}: {e}")

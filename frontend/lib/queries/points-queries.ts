@@ -125,11 +125,25 @@ export function usePointsTransactions(params?: {
  */
 export function usePointsStats(period: 'week' | 'month' | 'year' = 'month') {
   const { user } = useAuth()
-  
+
+  // 根据period选择对应的后端端点
+  const getEndpoint = (period: string) => {
+    switch (period) {
+      case 'week':
+        return '/api/points/weekly-stats'
+      case 'month':
+        return '/api/points/monthly-stats'
+      case 'year':
+        // 如果没有年度统计端点，使用月度统计作为fallback
+        return '/api/points/monthly-stats'
+      default:
+        return '/api/points/monthly-stats'
+    }
+  }
+
   return useApiQuery({
     queryKey: ['points', 'stats', user?.id, period],
-    url: '/api/points/stats',
-    params: { period },
+    url: getEndpoint(period),
     enabled: !!user?.id,
     staleTime: 5 * 60 * 1000, // 5分钟缓存
   })

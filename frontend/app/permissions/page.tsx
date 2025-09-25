@@ -188,7 +188,7 @@ export default function PermissionsManagement() {
               <div className="flex gap-2">
                 <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
                   <SelectTrigger className="w-32">
-                    <SelectValue />
+                    <SelectValue placeholder="选择分类" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="全部分类">全部分类</SelectItem>
@@ -198,7 +198,7 @@ export default function PermissionsManagement() {
 
                 <Select value={selectedStatus} onValueChange={setSelectedStatus}>
                   <SelectTrigger className="w-32">
-                    <SelectValue />
+                    <SelectValue placeholder="选择状态" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="全部状态">全部状态</SelectItem>
@@ -209,7 +209,7 @@ export default function PermissionsManagement() {
 
                 <Select value={selectedManager} onValueChange={setSelectedManager}>
                   <SelectTrigger className="w-32">
-                    <SelectValue />
+                    <SelectValue placeholder="选择管理人" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="全部管理人">全部管理人</SelectItem>

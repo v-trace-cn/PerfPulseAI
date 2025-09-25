@@ -182,8 +182,8 @@ export function ScoringSystem() {
       <Card className="border border-border bg-card rounded-xl shadow-lg">
         {/* 修改 CardHeader 部分，添加点击事件 */}
         <CardHeader>
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-4">
+          <div className="space-y-4">
+            <div className="flex items-center">
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
                   <CardTitle className="cursor-pointer hover:text-primary transition-colors flex items-center">
@@ -612,14 +612,14 @@ export function ScoringSystem() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
-              <div className="flex flex-wrap gap-2">
-                {scoringCategories.map((category) => (
-                  <Badge key={category.name} variant="outline" className={`${category.color} text-xs`}>
-                    <category.icon className="h-3 w-3 mr-1" />
-                    {category.name}
-                  </Badge>
-                ))}
-              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {scoringCategories.map((category) => (
+                <Badge key={category.name} variant="outline" className={`${category.color} text-xs`}>
+                  <category.icon className="h-3 w-3 mr-1" />
+                  {category.name}
+                </Badge>
+              ))}
             </div>
           </div>
 

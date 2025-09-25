@@ -96,7 +96,7 @@ export function useCreateRole() {
   return useApiMutation<Role, { companyId: number; name: string; description?: string }>({
     url: '/api/roles',
     method: 'POST',
-    invalidateKeys: [queryKeys.role.all()],
+    invalidateKeys: [queryKeys.role.all],
   })
 }
 
@@ -107,7 +107,7 @@ export function useUpdateRole() {
   return useApiMutation<Role, { id: number; name: string; description?: string }>({
     url: (data) => `/api/roles/${data.id}`,
     method: 'PUT',
-    invalidateKeys: [queryKeys.role.all()],
+    invalidateKeys: [queryKeys.role.all],
   })
 }
 
@@ -118,7 +118,7 @@ export function useDeleteRole() {
   return useApiMutation<void, { id: number }>({
     url: (data) => `/api/roles/${data.id}`,
     method: 'DELETE',
-    invalidateKeys: [queryKeys.role.all()],
+    invalidateKeys: [queryKeys.role.all],
   })
 }
 
@@ -131,7 +131,7 @@ export function useUpdateUserRoles() {
     method: 'PUT',
     invalidateKeys: (data) => [
       queryKeys.role.userRoles(data.userId),
-      queryKeys.role.all()
+      queryKeys.role.all
     ],
   })
 }
@@ -146,7 +146,7 @@ export function useGrantDepartmentAdmin() {
     body: (data) => ({ userId: data.userId }),
     invalidateKeys: (data) => [
       queryKeys.department.admins(data.departmentId),
-      queryKeys.department.all()
+      queryKeys.department.all
     ],
   })
 }
@@ -160,7 +160,7 @@ export function useRevokeDepartmentAdmin() {
     method: 'DELETE',
     invalidateKeys: (data) => [
       queryKeys.department.admins(data.departmentId),
-      queryKeys.department.all()
+      queryKeys.department.all
     ],
   })
 }

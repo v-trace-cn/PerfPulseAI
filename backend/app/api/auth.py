@@ -43,7 +43,7 @@ async def login(data: dict = Body(...), db: AsyncSession = Depends(get_db)):
         return Response(data={}, message="登录失败，没有该用户，请注册", status_code=404, success=False)
     if user and user.check_password(password):
         return Response(data={"email": user.email, "name": user.name, "userId": user.id}, message="登录成功")
-    raise HTTPException(status_code=401, detail="密码错误")
+    return Response(data={}, message="密码错误", status_code=401, success=False)
 
 @router.post("/register")
 async def register(data: dict = Body(...), db: AsyncSession = Depends(get_db)):
@@ -87,7 +87,7 @@ async def reset_password(data: dict = Body(...), db: AsyncSession = Depends(get_
     email = data.get("email")
     password = data.get("password")
     if not email or not password:
-        raise HTTPException(status_code=400, detail="缺少邮箱或密码")
+        return Response(data={}, message="缺少邮箱或密码", status_code=400, success=False)
     result = await db.execute(select(User).filter(User.email == email))
     user = result.scalars().first()
     if not user:
